@@ -1,0 +1,196 @@
+@import "tailwindcss";
+
+/* =========================
+   Brand Palette (provided)
+   =========================
+   #f5ae6d
+   #ab7347
+   #e46609
+   #643d20
+   #2d1d11
+   #0a0907
+*/
+
+:root {
+  /* Base surfaces */
+  --bg: #0a0907;
+  --panel: #12100e; /* slightly lifted from bg */
+  --panel-2: #181512;
+
+  /* Alias (so older/newer styles can both work) */
+  --surface: var(--panel);
+  --surface-2: var(--panel-2);
+
+  /* Text */
+  --text: #f7f2ec;
+  --muted: rgba(247, 242, 236, 0.72);
+
+  /* Borders + shadows */
+  --border: rgba(245, 174, 109, 0.16);
+  --shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  --ring: 0 0 0 4px rgba(245, 174, 109, 0.18);
+
+  /* Brand accents */
+  --accent: #e46609; /* primary */
+  --accent-2: #ab7347; /* secondary */
+  --accent-soft: rgba(245, 174, 109, 0.16);
+
+  /* State colors (optional but handy) */
+  --good: #5bbf7a;
+  --warn: #f5ae6d;
+  --bad: #e24b4b;
+
+  /* Radii */
+  --r-md: 12px;
+  --r-lg: 16px;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Links inherit, but look clickable */
+a {
+  color: inherit;
+}
+a:hover {
+  opacity: 0.92;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+/* Inputs/buttons (base) */
+input,
+select,
+textarea {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+button {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+button:hover {
+  border-color: rgba(245, 174, 109, 0.28);
+}
+
+/* Tailwind bindings */
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Dark mode (optional) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a0907;
+    --panel: #12100e;
+    --panel-2: #181512;
+
+    --surface: var(--panel);
+    --surface-2: var(--panel-2);
+
+    --text: #f3f0ed;
+    --muted: rgba(243, 240, 237, 0.72);
+
+    --border: rgba(245, 174, 109, 0.18);
+    --shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+    --ring: 0 0 0 4px rgba(245, 174, 109, 0.18);
+  }
+}
+
+/* ---------- Reusable UI primitives (works even with inline-styled pages) ---------- */
+
+.ui-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+}
+
+.ui-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ui-btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.ui-btn:hover {
+  background: var(--surface-2);
+}
+
+.ui-btn:active {
+  transform: translateY(1px);
+}
+
+.ui-btn:focus {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+.ui-btn-primary {
+  border-color: rgba(228, 102, 9, 0.35);
+  background: linear-gradient(180deg, rgba(228, 102, 9, 0.12), rgba(228, 102, 9, 0.06));
+}
+
+.ui-btn-primary:hover {
+  background: linear-gradient(180deg, rgba(228, 102, 9, 0.16), rgba(228, 102, 9, 0.08));
+}
+
+.ui-input,
+.ui-select,
+.ui-textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.ui-input:focus,
+.ui-select:focus,
+.ui-textarea:focus {
+  outline: none;
+  box-shadow: var(--ring);
+  border-color: rgba(228, 102, 9, 0.35);
+}
