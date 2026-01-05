@@ -4,6 +4,9 @@ import { useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
+// Prevent Next from trying to prerender this page at build time (needs Supabase env at runtime)
+export const dynamic = 'force-dynamic'
+
 export default function AuthCallback() {
   const router = useRouter()
 
