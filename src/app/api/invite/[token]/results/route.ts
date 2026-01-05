@@ -116,27 +116,39 @@ export async function GET(_: Request, ctx: { params: Promise<{ token: string }> 
   }
 
   // 4) Totals + winner flag (winner = has awards in effective round)
+  const toStr = (v: unknown): string | null => {
+    if (typeof v === 'string') return v
+    if (v === null || v === undefined) return null
+    return String(v)
+  }
+  const toNum = (v: unknown): number | null => {
+    if (typeof v === 'number') return v
+    if (v === null || v === undefined) return null
+    const n = Number(v)
+    return Number.isFinite(n) ? n : null
+  }
+
   const awardsList: AwardLine[] = (awards ?? []).map((row: Record<string, unknown>) => ({
-    id: String(row.id ?? ''),
-    lot_id: String(row.lot_id ?? ''),
-    round_id: row.round_id ?? null,
-    buyer_id: String(row.buyer_id ?? ''),
-    line_item_id: String(row.line_item_id ?? ''),
-    offer_id: row.offer_id ?? null,
-    currency: row.currency ?? null,
-    unit_price: row.unit_price ?? null,
-    qty: row.qty ?? null,
-    extended: row.extended ?? null,
-    created_at: row.created_at ?? null,
+    id: toStr(row.id) ?? '',
+    lot_id: toStr(row.lot_id) ?? '',
+    round_id: toStr(row.round_id),
+    buyer_id: toStr(row.buyer_id) ?? '',
+    line_item_id: toStr(row.line_item_id) ?? '',
+    offer_id: toStr(row.offer_id),
+    currency: toStr(row.currency),
+    unit_price: toNum(row.unit_price),
+    qty: toNum(row.qty),
+    extended: toNum(row.extended),
+    created_at: toStr(row.created_at),
     line_items: Array.isArray(row.line_items)
       ? row.line_items.map((li: Record<string, unknown>) => ({
-          id: String(li.id ?? ''),
-          line_ref: (li.line_ref as string | null) ?? null,
-          model: (li.model as string | null) ?? null,
-          description: (li.description as string | null) ?? null,
-          qty: (li.qty as number | null) ?? null,
-          asking_price: (li.asking_price as number | null) ?? null,
-          serial_tag: (li.serial_tag as string | null) ?? null,
+          id: toStr(li.id) ?? '',
+          line_ref: toStr(li.line_ref),
+          model: toStr(li.model),
+          description: toStr(li.description),
+          qty: toNum(li.qty),
+          asking_price: toNum(li.asking_price),
+          serial_tag: toStr(li.serial_tag),
         }))
       : null,
   }))
