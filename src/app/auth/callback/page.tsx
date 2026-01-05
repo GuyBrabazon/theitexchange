@@ -26,6 +26,10 @@ function AuthCallbackInner() {
           if (error || !data.session) throw error ?? new Error('No session found')
         }
         router.replace('/dashboard')
+        // hard navigate as a fallback to avoid loops
+        if (typeof window !== 'undefined') {
+          window.location.href = '/dashboard'
+        }
       } catch (err) {
         console.error('Auth callback failed', err)
         router.replace('/login?error=auth_callback')

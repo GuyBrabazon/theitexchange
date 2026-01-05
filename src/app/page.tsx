@@ -8,39 +8,41 @@ export default function Home() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #0f172a 0%, #111827 40%, #0b1324 100%)',
-        color: '#e5e7eb',
+        background:
+          'radial-gradient(circle at 20% 20%, rgba(99,102,241,0.12), transparent 32%), radial-gradient(circle at 80% 10%, rgba(14,165,233,0.18), transparent 30%), #0f172a',
+        color: 'var(--text)',
         padding: '48px 16px',
+        fontFamily: 'var(--font-geist-sans, system-ui, sans-serif)',
       }}
     >
       <div
         style={{
-          maxWidth: 760,
+          maxWidth: 820,
           width: '100%',
-          background: 'rgba(15, 23, 42, 0.75)',
-          border: '1px solid rgba(255,255,255,0.08)',
+          background: 'var(--panel)',
+          border: '1px solid var(--border)',
           borderRadius: 18,
           padding: 28,
-          boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
+          boxShadow: 'var(--shadow)',
         }}
       >
-        <div style={{ fontSize: 14, letterSpacing: 2, textTransform: 'uppercase', color: '#a5b4fc' }}>The IT Exchange</div>
-        <h1 style={{ marginTop: 10, fontSize: 32, fontWeight: 800, letterSpacing: -0.5 }}>
-          Enterprise IT equipment marketplace for brokers, sellers, and buyers.
+        <div style={{ fontSize: 13, letterSpacing: 1.8, textTransform: 'uppercase', color: 'var(--muted)' }}>The IT Exchange</div>
+        <h1 style={{ marginTop: 10, fontSize: 34, fontWeight: 900, letterSpacing: -0.6 }}>
+          Enterprise IT marketplace for brokers, sellers, and buyers.
         </h1>
-        <p style={{ marginTop: 12, color: '#cbd5e1', lineHeight: 1.6 }}>
-          Create lots, invite buyers, collect offers line-by-line or take-all, award deals, upload POs, and track fulfilment.
+        <p style={{ marginTop: 10, color: 'var(--muted)', lineHeight: 1.6, maxWidth: 720 }}>
+          Create lots, auto-detect OEMs, invite buyers, collect take-all or line-level offers, award deals, upload POs, and track fulfilment—all in one streamlined workspace.
         </p>
 
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 20 }}>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 18 }}>
           <Link
             href="/login"
             style={{
               padding: '12px 18px',
               borderRadius: 12,
-              background: '#6366f1',
+              background: 'var(--accent)',
               color: '#fff',
-              fontWeight: 800,
+              fontWeight: 900,
               textDecoration: 'none',
               boxShadow: '0 10px 30px rgba(99,102,241,0.35)',
             }}
@@ -52,11 +54,11 @@ export default function Home() {
             style={{
               padding: '12px 18px',
               borderRadius: 12,
-              border: '1px solid rgba(255,255,255,0.15)',
-              color: '#e5e7eb',
-              fontWeight: 800,
+              border: '1px solid var(--border)',
+              color: 'var(--text)',
+              fontWeight: 900,
               textDecoration: 'none',
-              background: 'rgba(255,255,255,0.05)',
+              background: 'rgba(255,255,255,0.04)',
             }}
           >
             Go to Dashboard

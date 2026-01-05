@@ -8,10 +8,11 @@ export default function LoginPage() {
   const [sent, setSent] = useState(false)
 
   const handleLogin = async () => {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || location.origin
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${location.origin}/auth/callback`,
+        emailRedirectTo: `${siteUrl}/auth/callback`,
       },
     })
 
