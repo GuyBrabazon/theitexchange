@@ -29,8 +29,7 @@ export default function Home() {
           Enterprise IT equipment marketplace for brokers, sellers, and buyers.
         </h1>
         <p style={{ marginTop: 12, color: '#cbd5e1', lineHeight: 1.6 }}>
-          Create lots, invite buyers, collect offers line-by-line or take-all, award deals, upload POs, and track fulfilment with
-          Supabase-backed workflows.
+          Create lots, invite buyers, collect offers line-by-line or take-all, award deals, upload POs, and track fulfilment.
         </p>
 
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 20 }}>
