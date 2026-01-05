@@ -182,8 +182,10 @@ async function loadFinancialsSafe(tenantId: string, lotIds: string[]): Promise<M
   try {
     const rows = await trySelect('lot_id,cost_known_total,asking_price_total,target_margin_pct,currency')
     for (const r of rows) {
-      map.set(r.lot_id, {
-        lot_id: r.lot_id,
+      if (!r.lot_id) continue
+      const lotId = String(r.lot_id)
+      map.set(lotId, {
+        lot_id: lotId,
         cost_known_total: r.cost_known_total,
         asking_price_total: r.asking_price_total,
         target_margin_pct: r.target_margin_pct,
@@ -197,8 +199,10 @@ async function loadFinancialsSafe(tenantId: string, lotIds: string[]): Promise<M
     try {
       const rows = await trySelect('lot_id,cost_known_total,asking_price_total')
       for (const r of rows) {
-        map.set(r.lot_id, {
-          lot_id: r.lot_id,
+        if (!r.lot_id) continue
+        const lotId = String(r.lot_id)
+        map.set(lotId, {
+          lot_id: lotId,
           cost_known_total: r.cost_known_total,
           asking_price_total: r.asking_price_total,
         })
