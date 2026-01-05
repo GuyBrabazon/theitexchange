@@ -128,12 +128,12 @@ export async function GET(_: Request, ctx: { params: Promise<{ token: string }> 
     return Number.isFinite(n) ? n : null
   }
 
-  const awardsList: AwardLine[] = ((awards ?? []) as unknown[]).map((rowRaw) => {
+  const awardsList = ((awards ?? []) as unknown[]).map<AwardLine>((rowRaw) => {
     const row = rowRaw as Record<string, unknown>
-    const mapped: AwardLine = {
+    return {
       id: toStr(row.id) ?? '',
       lot_id: toStr(row.lot_id) ?? '',
-      round_id: toStr(row.round_id),
+      round_id: toStr(row.round_id) ?? null,
       buyer_id: toStr(row.buyer_id) ?? '',
       line_item_id: toStr(row.line_item_id) ?? '',
       offer_id: toStr(row.offer_id),
@@ -157,7 +157,6 @@ export async function GET(_: Request, ctx: { params: Promise<{ token: string }> 
           })
         : null,
     }
-    return mapped
   })
   const total = awardsList.reduce((s: number, r) => s + Number(r.extended ?? 0), 0)
   const isWinner = awardsList.length > 0
