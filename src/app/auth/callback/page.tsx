@@ -3,21 +3,37 @@
 import { useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 
 // Prevent Next from trying to prerender this page at build time (needs Supabase env at runtime)
 export const dynamic = 'force-dynamic'
 
 export default function AuthCallback() {
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   useEffect(() => {
     const finishLogin = async () => {
-      await supabase.auth.getSession()
-      router.push('/dashboard')
+      const code = searchParams.get('code')
+      try {
+        if (code) {
+          // Magic link / PKCE flow: exchange code for a session
+          const { error } = await supabase.auth.exchangeCodeForSession(code)
+          if (error) throw error
+        } else {
+          // Fallback: ensure we have a session (e.g., already logged in)
+          const { data, error } = await supabase.auth.getSession()
+          if (error || !data.session) throw error ?? new Error('No session found')
+        }
+        router.replace('/dashboard')
+      } catch (err) {
+        console.error('Auth callback failed', err)
+        router.replace('/login?error=auth_callback')
+      }
     }
 
     finishLogin()
-  }, [router])
+  }, [router, searchParams])
 
   return <p>Logging you in...</p>
 }

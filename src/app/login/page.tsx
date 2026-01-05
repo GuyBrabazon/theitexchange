@@ -22,7 +22,7 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center">
       <div className="w-96 space-y-4">
-        <h1 className="text-2xl font-bold">ITexchange Broker</h1>
+        <h1 className="text-2xl font-bold">The IT Exchange</h1>
 
         {sent ? (
           <p>Check your email for the login link.</p>
@@ -35,11 +35,8 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               className="w-full border p-2"
             />
-            <button
-              onClick={handleLogin}
-              className="w-full bg-black text-white p-2"
-            >
-              Send magic link
+            <button onClick={handleLogin} className="w-full bg-black text-white p-2">
+              Send link
             </button>
           </>
         )}
