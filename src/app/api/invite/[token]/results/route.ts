@@ -26,6 +26,29 @@ type AwardLine = {
   }> | null
 }
 
+type AwardRow = {
+  id: unknown
+  lot_id: unknown
+  round_id: unknown
+  buyer_id: unknown
+  line_item_id: unknown
+  offer_id: unknown
+  currency: unknown
+  unit_price: unknown
+  qty: unknown
+  extended: unknown
+  created_at: unknown
+  line_items?: Array<{
+    id: unknown
+    line_ref?: unknown
+    model?: unknown
+    description?: unknown
+    qty?: unknown
+    asking_price?: unknown
+    serial_tag?: unknown
+  }> | null
+}
+
 export async function GET(_: Request, ctx: { params: Promise<{ token: string }> }) {
   const { token } = await ctx.params
   const sb = supabaseServer()
@@ -128,8 +151,7 @@ export async function GET(_: Request, ctx: { params: Promise<{ token: string }> 
     return Number.isFinite(n) ? n : null
   }
 
-  const awardsList = ((awards ?? []) as unknown[]).map<AwardLine>((rowRaw) => {
-    const row = rowRaw as Record<string, unknown>
+  const awardsList = ((awards ?? []) as AwardRow[]).map<AwardLine>((row) => {
     return {
       id: toStr(row.id) ?? '',
       lot_id: toStr(row.lot_id) ?? '',
@@ -144,15 +166,23 @@ export async function GET(_: Request, ctx: { params: Promise<{ token: string }> 
       created_at: toStr(row.created_at),
       line_items: Array.isArray(row.line_items)
         ? row.line_items.map((liRaw) => {
-            const li = liRaw as Record<string, unknown>
+            const li = liRaw as {
+              id: unknown
+              line_ref?: unknown
+              model?: unknown
+              description?: unknown
+              qty?: unknown
+              asking_price?: unknown
+              serial_tag?: unknown
+            }
             return {
               id: toStr(li.id) ?? '',
-              line_ref: toStr(li.line_ref),
-              model: toStr(li.model),
-              description: toStr(li.description),
-              qty: toNum(li.qty),
-              asking_price: toNum(li.asking_price),
-              serial_tag: toStr(li.serial_tag),
+              line_ref: toStr(li.line_ref ?? null),
+              model: toStr(li.model ?? null),
+              description: toStr(li.description ?? null),
+              qty: toNum(li.qty ?? null),
+              asking_price: toNum(li.asking_price ?? null),
+              serial_tag: toStr(li.serial_tag ?? null),
             }
           })
         : null,
