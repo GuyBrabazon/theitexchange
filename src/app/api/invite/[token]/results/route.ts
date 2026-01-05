@@ -15,7 +15,7 @@ type AwardLine = {
   qty: number | null
   extended: number | null
   created_at: string | null
-  line_items?: {
+  line_items?: Array<{
     id: string
     line_ref?: string | null
     model?: string | null
@@ -23,7 +23,7 @@ type AwardLine = {
     qty?: number | null
     asking_price?: number | null
     serial_tag?: string | null
-  } | null
+  }> | null
 }
 
 export async function GET(_: Request, ctx: { params: Promise<{ token: string }> }) {
