@@ -116,7 +116,30 @@ export async function GET(_: Request, ctx: { params: Promise<{ token: string }> 
   }
 
   // 4) Totals + winner flag (winner = has awards in effective round)
-  const awardsList = (awards ?? []) as AwardLine[]
+  const awardsList: AwardLine[] = (awards ?? []).map((row: Record<string, unknown>) => ({
+    id: String(row.id ?? ''),
+    lot_id: String(row.lot_id ?? ''),
+    round_id: row.round_id ?? null,
+    buyer_id: String(row.buyer_id ?? ''),
+    line_item_id: String(row.line_item_id ?? ''),
+    offer_id: row.offer_id ?? null,
+    currency: row.currency ?? null,
+    unit_price: row.unit_price ?? null,
+    qty: row.qty ?? null,
+    extended: row.extended ?? null,
+    created_at: row.created_at ?? null,
+    line_items: Array.isArray(row.line_items)
+      ? row.line_items.map((li: Record<string, unknown>) => ({
+          id: String(li.id ?? ''),
+          line_ref: (li.line_ref as string | null) ?? null,
+          model: (li.model as string | null) ?? null,
+          description: (li.description as string | null) ?? null,
+          qty: (li.qty as number | null) ?? null,
+          asking_price: (li.asking_price as number | null) ?? null,
+          serial_tag: (li.serial_tag as string | null) ?? null,
+        }))
+      : null,
+  }))
   const total = awardsList.reduce((s: number, r) => s + Number(r.extended ?? 0), 0)
   const isWinner = awardsList.length > 0
 
