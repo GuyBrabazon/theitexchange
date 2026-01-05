@@ -128,30 +128,37 @@ export async function GET(_: Request, ctx: { params: Promise<{ token: string }> 
     return Number.isFinite(n) ? n : null
   }
 
-  const awardsList: AwardLine[] = (awards ?? []).map((row: Record<string, unknown>) => ({
-    id: toStr(row.id) ?? '',
-    lot_id: toStr(row.lot_id) ?? '',
-    round_id: toStr(row.round_id),
-    buyer_id: toStr(row.buyer_id) ?? '',
-    line_item_id: toStr(row.line_item_id) ?? '',
-    offer_id: toStr(row.offer_id),
-    currency: toStr(row.currency),
-    unit_price: toNum(row.unit_price),
-    qty: toNum(row.qty),
-    extended: toNum(row.extended),
-    created_at: toStr(row.created_at),
-    line_items: Array.isArray(row.line_items)
-      ? row.line_items.map((li: Record<string, unknown>) => ({
-          id: toStr(li.id) ?? '',
-          line_ref: toStr(li.line_ref),
-          model: toStr(li.model),
-          description: toStr(li.description),
-          qty: toNum(li.qty),
-          asking_price: toNum(li.asking_price),
-          serial_tag: toStr(li.serial_tag),
-        }))
-      : null,
-  }))
+  const awardsList: AwardLine[] = ((awards ?? []) as unknown[]).map((rowRaw) => {
+    const row = rowRaw as Record<string, unknown>
+    const mapped: AwardLine = {
+      id: toStr(row.id) ?? '',
+      lot_id: toStr(row.lot_id) ?? '',
+      round_id: toStr(row.round_id),
+      buyer_id: toStr(row.buyer_id) ?? '',
+      line_item_id: toStr(row.line_item_id) ?? '',
+      offer_id: toStr(row.offer_id),
+      currency: toStr(row.currency),
+      unit_price: toNum(row.unit_price),
+      qty: toNum(row.qty),
+      extended: toNum(row.extended),
+      created_at: toStr(row.created_at),
+      line_items: Array.isArray(row.line_items)
+        ? row.line_items.map((liRaw) => {
+            const li = liRaw as Record<string, unknown>
+            return {
+              id: toStr(li.id) ?? '',
+              line_ref: toStr(li.line_ref),
+              model: toStr(li.model),
+              description: toStr(li.description),
+              qty: toNum(li.qty),
+              asking_price: toNum(li.asking_price),
+              serial_tag: toStr(li.serial_tag),
+            }
+          })
+        : null,
+    }
+    return mapped
+  })
   const total = awardsList.reduce((s: number, r) => s + Number(r.extended ?? 0), 0)
   const isWinner = awardsList.length > 0
 
