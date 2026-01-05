@@ -151,43 +151,42 @@ export async function GET(_: Request, ctx: { params: Promise<{ token: string }> 
     return Number.isFinite(n) ? n : null
   }
 
-  const awardsList = ((awards ?? []) as AwardRow[]).map<AwardLine>((row) => {
-    return {
-      id: toStr(row.id) ?? '',
-      lot_id: toStr(row.lot_id) ?? '',
-      round_id: toStr(row.round_id) ?? null,
-      buyer_id: toStr(row.buyer_id) ?? '',
-      line_item_id: toStr(row.line_item_id) ?? '',
-      offer_id: toStr(row.offer_id),
-      currency: toStr(row.currency),
-      unit_price: toNum(row.unit_price),
-      qty: toNum(row.qty),
-      extended: toNum(row.extended),
-      created_at: toStr(row.created_at),
-      line_items: Array.isArray(row.line_items)
-        ? row.line_items.map((liRaw) => {
-            const li = liRaw as {
-              id: unknown
-              line_ref?: unknown
-              model?: unknown
-              description?: unknown
-              qty?: unknown
-              asking_price?: unknown
-              serial_tag?: unknown
-            }
-            return {
-              id: toStr(li.id) ?? '',
-              line_ref: toStr(li.line_ref ?? null),
-              model: toStr(li.model ?? null),
-              description: toStr(li.description ?? null),
-              qty: toNum(li.qty ?? null),
-              asking_price: toNum(li.asking_price ?? null),
-              serial_tag: toStr(li.serial_tag ?? null),
-            }
-          })
-        : null,
-    }
-  })
+  const awardsRows: AwardRow[] = Array.isArray(awards) ? (awards as AwardRow[]) : []
+  const awardsList: AwardLine[] = awardsRows.map((row): AwardLine => ({
+    id: toStr(row.id) ?? '',
+    lot_id: toStr(row.lot_id) ?? '',
+    round_id: toStr(row.round_id) ?? null,
+    buyer_id: toStr(row.buyer_id) ?? '',
+    line_item_id: toStr(row.line_item_id) ?? '',
+    offer_id: toStr(row.offer_id),
+    currency: toStr(row.currency),
+    unit_price: toNum(row.unit_price),
+    qty: toNum(row.qty),
+    extended: toNum(row.extended),
+    created_at: toStr(row.created_at),
+    line_items: Array.isArray(row.line_items)
+      ? row.line_items.map((liRaw) => {
+          const li = liRaw as {
+            id: unknown
+            line_ref?: unknown
+            model?: unknown
+            description?: unknown
+            qty?: unknown
+            asking_price?: unknown
+            serial_tag?: unknown
+          }
+          return {
+            id: toStr(li.id) ?? '',
+            line_ref: toStr(li.line_ref ?? null),
+            model: toStr(li.model ?? null),
+            description: toStr(li.description ?? null),
+            qty: toNum(li.qty ?? null),
+            asking_price: toNum(li.asking_price ?? null),
+            serial_tag: toStr(li.serial_tag ?? null),
+          }
+        })
+      : null,
+  }))
   const total = awardsList.reduce((s: number, r) => s + Number(r.extended ?? 0), 0)
   const isWinner = awardsList.length > 0
 
