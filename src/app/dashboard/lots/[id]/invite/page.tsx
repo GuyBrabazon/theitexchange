@@ -773,7 +773,7 @@ export default function LotInvitePage() {
                 <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>Scope</div>
                 <select
                   value={selectedRound.scope}
-                  onChange={(e) => updateRound({ scope: e.target.value as 'all' | 'shortlist' | 'none' | 'unsold' })}
+                  onChange={(e) => updateRound({ scope: e.target.value as 'all' | 'unsold' | 'custom' })}
                   disabled={savingRound}
                   style={{ padding: 10, border: '1px solid #ddd', borderRadius: 10, minWidth: 170 }}
                 >

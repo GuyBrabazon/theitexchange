@@ -204,7 +204,33 @@ export default function LotOffersPage() {
         .eq('lot_id', lotId)
         .order('id', { ascending: false })
       if (offerErr) throw offerErr
-      const offRows = (offerData as OfferRow[]) ?? []
+      const offRows =
+        (Array.isArray(offerData) ? offerData : []).map((row) => {
+          const buyerRaw = (row as any)?.buyers
+          const buyerObj = Array.isArray(buyerRaw) ? buyerRaw[0] : buyerRaw
+          return {
+            id: String((row as any)?.id ?? ''),
+            tenant_id: String((row as any)?.tenant_id ?? ''),
+            lot_id: String((row as any)?.lot_id ?? ''),
+            buyer_id: String((row as any)?.buyer_id ?? ''),
+            currency: (row as any)?.currency ?? null,
+            take_all_total: (row as any)?.take_all_total ?? null,
+            notes: (row as any)?.notes ?? null,
+            status: (row as any)?.status ?? null,
+            created_at: (row as any)?.created_at ?? null,
+            buyers: buyerObj
+              ? {
+                  id: String(buyerObj.id ?? ''),
+                  name: String(buyerObj.name ?? ''),
+                  company: buyerObj.company ?? null,
+                  email: buyerObj.email ?? null,
+                  credit_ok: buyerObj.credit_ok ?? null,
+                  reliability_score: buyerObj.reliability_score ?? null,
+                  payment_terms: buyerObj.payment_terms ?? null,
+                }
+              : null,
+          } as OfferRow
+        }) ?? []
       setOffers(offRows)
 
       const offerIds = offRows.map((o) => o.id)
@@ -232,7 +258,49 @@ export default function LotOffersPage() {
         .eq('lot_id', lotId)
         .order('id', { ascending: false })
       if (awErr) throw awErr
-      setAwarded((awData as AwardedLine[]) ?? [])
+      const normalizedAwards =
+        (Array.isArray(awData) ? awData : []).map((row) => {
+          const buyerRaw = (row as any)?.buyers
+          const buyerObj = Array.isArray(buyerRaw) ? buyerRaw[0] : buyerRaw
+          const liRaw = (row as any)?.line_items
+          const liObj = Array.isArray(liRaw) ? liRaw[0] : liRaw
+          return {
+            id: String((row as any)?.id ?? ''),
+            tenant_id: String((row as any)?.tenant_id ?? ''),
+            lot_id: String((row as any)?.lot_id ?? ''),
+            round_id: (row as any)?.round_id ?? null,
+            line_item_id: String((row as any)?.line_item_id ?? ''),
+            buyer_id: String((row as any)?.buyer_id ?? ''),
+            offer_id: String((row as any)?.offer_id ?? ''),
+            currency: (row as any)?.currency ?? null,
+            unit_price: (row as any)?.unit_price ?? null,
+            qty: (row as any)?.qty ?? null,
+            extended: (row as any)?.extended ?? null,
+            created_at: (row as any)?.created_at ?? null,
+            buyers: buyerObj
+              ? {
+                  id: String(buyerObj.id ?? ''),
+                  name: String(buyerObj.name ?? ''),
+                  company: buyerObj.company ?? null,
+                  email: buyerObj.email ?? null,
+                  credit_ok: buyerObj.credit_ok ?? null,
+                  reliability_score: buyerObj.reliability_score ?? null,
+                  payment_terms: buyerObj.payment_terms ?? null,
+                }
+              : null,
+            line_items: liObj
+              ? {
+                  id: String(liObj.id ?? ''),
+                  lot_id: String(liObj.lot_id ?? ''),
+                  description: liObj.description ?? null,
+                  model: liObj.model ?? null,
+                  qty: liObj.qty ?? null,
+                  asking_price: liObj.asking_price ?? null,
+                }
+              : null,
+          } as AwardedLine
+        }) ?? []
+      setAwarded(normalizedAwards)
     } catch (e: unknown) {
       console.error(e)
       const msg = e instanceof Error ? e.message : 'Failed to load offers'
@@ -364,11 +432,6 @@ export default function LotOffersPage() {
 
       alert('Awarded lines saved for this round.')
       await loadAll(tenantId)
-      setOffers((prev) =>
-        prev.map((offer) =>
-          offer.id === o.id ? { ...offer, status: 'accepted' } : { ...offer, status: 'rejected' }
-        )
-      )
       setTab('optimizer')
     } catch (e: unknown) {
       console.error(e)

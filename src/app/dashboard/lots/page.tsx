@@ -103,7 +103,7 @@ export default function LotsPage() {
         if (msg.includes('group_token') && msg.includes('does not exist')) {
           const fbGroup = await tryQuery('created_at', false)
           if (fbGroup.error) throw fbGroup.error
-          rows = (fbGroup.data as LotRow[]) ?? []
+          rows = ((fbGroup.data ?? []) as unknown as LotRow[]) ?? []
           setLots(rows)
           setLoading(false)
           return
@@ -111,12 +111,12 @@ export default function LotsPage() {
         if (msg.includes('created_at') && msg.includes('does not exist')) {
           const fb = await tryQuery('id', true)
           if (fb.error) throw fb.error
-          rows = (fb.data as LotRow[]) ?? []
+          rows = ((fb.data ?? []) as unknown as LotRow[]) ?? []
         } else {
           throw e
         }
       } else {
-        rows = (d as LotRow[]) ?? []
+        rows = ((d ?? []) as unknown as LotRow[]) ?? []
       }
 
       rows.sort((a, b) => {

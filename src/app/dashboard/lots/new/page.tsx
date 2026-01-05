@@ -976,7 +976,6 @@ export default function NewLotPage() {
         cpu: comps.cpu,
         memory_part_numbers: comps.memory_part_numbers,
         gpu: comps.gpu,
-        specs: comps.specs,
         // store oem in specs for grouping
         ...(comps.specs ? { specs: { ...comps.specs, oem_guess: oem } } : { specs: { oem_guess: oem } }),
       })
@@ -1651,7 +1650,9 @@ export default function NewLotPage() {
                           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>{label as string}</div>
                           <select
                             value={value as string}
-                            onChange={(e) => setter(String(e.target.value))}
+                            onChange={(e) =>
+                              (setter as React.Dispatch<React.SetStateAction<string>>)(String(e.target.value))
+                            }
                             style={{
                               width: '100%',
                               padding: 10,

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { ensureProfile } from '@/lib/bootstrap'
-import { parseSpreadsheetMatrix, type ParsedSheet } from '@/lib/parseSpreadsheet'
+import { parseSpreadsheetMatrix } from '@/lib/parseSpreadsheet'
 
 
 type BuyerRow = Record<string, unknown>
@@ -20,6 +20,10 @@ type BuyerInsert = {
   reliability_score: number | null
   is_active: boolean | null
   do_not_invite: boolean | null
+}
+
+type SheetMatrix = {
+  rows: unknown[][]
 }
 
 type FieldKey =
@@ -88,25 +92,27 @@ export default function BuyersImportPage() {
   const [tenantId, setTenantId] = useState('')
 
   // Spreadsheet parsing
-  const [sheet, setSheet] = useState<ParsedSheet | null>(null)
+  const [sheet, setSheet] = useState<SheetMatrix | null>(null)
   const [headerRowIndex, setHeaderRowIndex] = useState<number>(0)
 
   // derived columns + rows
-    const columns = useMemo<string[]>(() => {
+  const columns = useMemo<string[]>(() => {
     if (!sheet) return []
     const rows = sheet.rows ?? []
-    const header = rows[headerRowIndex] ?? []
+    const header: unknown[] = Array.isArray(rows[headerRowIndex]) ? (rows[headerRowIndex] as unknown[]) : []
     return header.map((h: unknown, i: number) => (String(h ?? '').trim() ? String(h).trim() : `Column ${i + 1}`))
-    }, [sheet, headerRowIndex])
+  }, [sheet, headerRowIndex])
 
   const dataRows = useMemo(() => {
     if (!sheet) return []
     const rows = sheet.rows ?? []
-    const header = rows[headerRowIndex] ?? []
+    const header: unknown[] = Array.isArray(rows[headerRowIndex]) ? (rows[headerRowIndex] as unknown[]) : []
     const out: BuyerRow[] = []
 
     for (let r = headerRowIndex + 1; r < rows.length; r++) {
-      const row = rows[r] ?? []
+      const raw = rows[r]
+      if (!Array.isArray(raw)) continue
+      const row = raw as unknown[]
       // skip fully empty rows
       const hasAny = row.some((v: unknown) => String(v ?? '').trim() !== '')
       if (!hasAny) continue
@@ -177,26 +183,28 @@ export default function BuyersImportPage() {
       })
   }, [])
 
-    const onFile = async (file: File) => {
+  const onFile = async (file: File) => {
     setResult(null)
 
     // parseSpreadsheetMatrix is your actual export
     const parsed = await parseSpreadsheetMatrix(file)
 
-    // Normalize different parser output shapes → rows: any[][]
-    const rows =
-        parsed?.rows ??
-        parsed?.sheet?.rows ??
-        parsed?.data?.rows ??
-        parsed?.sheets?.[0]?.rows ??
-        parsed?.[0]?.rows ??
-        (Array.isArray(parsed) ? parsed : null)
+    // Normalize different parser output shapes -> rows: any[][]
+    const rowsCandidate =
+      (parsed as { rows?: unknown })?.rows ??
+      (parsed as { sheet?: { rows?: unknown } })?.sheet?.rows ??
+      (parsed as { data?: { rows?: unknown } })?.data?.rows ??
+      (parsed as { sheets?: Array<{ rows?: unknown }> })?.sheets?.[0]?.rows ??
+      (Array.isArray(parsed) && parsed[0] && typeof parsed[0] === 'object' ? (parsed[0] as { rows?: unknown }).rows : null) ??
+      (Array.isArray(parsed) ? parsed : null)
 
-    if (!rows || !Array.isArray(rows)) {
-        console.log('parseSpreadsheetMatrix output:', parsed)
-        alert('Spreadsheet parsed, but returned an unexpected structure. Check console log.')
-        setSheet(null)
-        return
+    const rows = Array.isArray(rowsCandidate) ? (rowsCandidate as unknown[][]) : null
+
+    if (!rows) {
+      console.log('parseSpreadsheetMatrix output:', parsed)
+      alert('Spreadsheet parsed, but returned an unexpected structure. Check console log.')
+      setSheet(null)
+      return
     }
 
     // Safety: ensure rows is a 2D matrix
@@ -204,7 +212,7 @@ export default function BuyersImportPage() {
 
     setSheet({ rows: matrix })
     setHeaderRowIndex(0)
-    }
+  }
 
   const buildBuyerRecords = () => {
     const nameCol = mapping.name || null
@@ -435,3 +443,4 @@ export default function BuyersImportPage() {
     </main>
   )
 }
+

@@ -188,7 +188,32 @@ export default function InviteTokenPage() {
         if (inviteErr) throw inviteErr
         if (!data) throw new Error('Invite not found or expired')
 
-        setInvite(data as InviteRow)
+        const buyerRaw = Array.isArray((data as any)?.buyers) ? (data as any).buyers[0] : (data as any)?.buyers
+        const lotRaw = Array.isArray((data as any)?.lots) ? (data as any).lots[0] : (data as any)?.lots
+        const normalizedInvite: InviteRow = {
+          id: String((data as any)?.id ?? ''),
+          tenant_id: (data as any)?.tenant_id ?? null,
+          lot_id: (data as any)?.lot_id ?? null,
+          buyer_id: (data as any)?.buyer_id ?? null,
+          status: (data as any)?.status ?? null,
+          created_at: (data as any)?.created_at ?? null,
+          lots: lotRaw
+            ? {
+                title: lotRaw.title ?? null,
+                status: lotRaw.status ?? null,
+                currency: lotRaw.currency ?? null,
+              }
+            : undefined,
+          buyers: buyerRaw
+            ? {
+                name: buyerRaw.name ?? null,
+                company: buyerRaw.company ?? null,
+                email: buyerRaw.email ?? null,
+              }
+            : undefined,
+        }
+
+        setInvite(normalizedInvite)
 
         if (data?.lot_id) {
           const { data: liData, error: liErr } = await supabase

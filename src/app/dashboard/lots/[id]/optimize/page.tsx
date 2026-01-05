@@ -129,7 +129,31 @@ export default function LotOptimizePage() {
         .order('created_at', { ascending: false })
         .limit(1000)
       if (offerErr) throw offerErr
-      const offerRows = (offerData as Offer[]) ?? []
+      const offerRows =
+        (Array.isArray(offerData) ? offerData : []).map((row) => {
+          const buyerRaw = (row as any)?.buyers
+          const buyerObj = Array.isArray(buyerRaw) ? buyerRaw[0] : buyerRaw
+          return {
+            id: String((row as any)?.id ?? ''),
+            buyer_id: String((row as any)?.buyer_id ?? ''),
+            take_all_total: (row as any)?.take_all_total ?? null,
+            created_at: (row as any)?.created_at ?? null,
+            status: (row as any)?.status ?? null,
+            buyers: buyerObj
+              ? {
+                  id: String(buyerObj.id ?? ''),
+                  name: String(buyerObj.name ?? ''),
+                  company: buyerObj.company ?? null,
+                  email: buyerObj.email ?? null,
+                  credit_ok: buyerObj.credit_ok ?? null,
+                  reliability_score: buyerObj.reliability_score ?? null,
+                  payment_terms: buyerObj.payment_terms ?? null,
+                  is_active: buyerObj.is_active ?? null,
+                  do_not_invite: buyerObj.do_not_invite ?? null,
+                }
+              : null,
+          } as Offer
+        }) ?? []
       setOffers(offerRows)
 
       // Offer lines joined to buyer (priced only)
@@ -159,18 +183,40 @@ export default function LotOptimizePage() {
       if (lineErr) throw lineErr
 
       // Normalize buyers join shape (supabase can nest weirdly depending on aliasing)
-      const normalized: OfferLineJoined[] = ((lineData as OfferLineJoined[]) ?? []).map((r) => {
-        // r.buyers might be { buyers: {..} } depending on alias nesting
-        const rawBuyer = (r as { buyers?: { buyers?: Buyer } }).buyers
-        const buyer: Buyer | null = rawBuyer?.buyers ?? (rawBuyer as unknown as Buyer | null) ?? null
+      const normalized: OfferLineJoined[] = (Array.isArray(lineData) ? lineData : []).map((r) => {
+        const offersRaw = (r as any)?.offers
+        const offerObj = Array.isArray(offersRaw) ? offersRaw[0] : offersRaw
+
+        // r.buyers might be [{ buyers: {...} }] depending on alias nesting
+        const buyersRaw = (r as any)?.buyers
+        const buyerFromNested = Array.isArray(buyersRaw) ? buyersRaw[0]?.buyers ?? buyersRaw[0] : buyersRaw?.buyers ?? buyersRaw
+        const buyer: Buyer | null = buyerFromNested
+          ? {
+              id: String(buyerFromNested.id ?? ''),
+              name: String(buyerFromNested.name ?? ''),
+              company: buyerFromNested.company ?? null,
+              email: buyerFromNested.email ?? null,
+              credit_ok: buyerFromNested.credit_ok ?? null,
+              reliability_score: buyerFromNested.reliability_score ?? null,
+              payment_terms: buyerFromNested.payment_terms ?? null,
+              is_active: buyerFromNested.is_active ?? null,
+              do_not_invite: buyerFromNested.do_not_invite ?? null,
+            }
+          : null
+
         return {
-          id: r.id,
-          offer_id: r.offer_id,
-          line_item_id: r.line_item_id,
-          unit_price: r.unit_price,
-          currency: r.currency,
-          qty_snapshot: r.qty_snapshot,
-          offers: r.offers ?? null,
+          id: String((r as any)?.id ?? ''),
+          offer_id: String((r as any)?.offer_id ?? ''),
+          line_item_id: String((r as any)?.line_item_id ?? ''),
+          unit_price: (r as any)?.unit_price ?? null,
+          currency: (r as any)?.currency ?? null,
+          qty_snapshot: (r as any)?.qty_snapshot ?? null,
+          offers: offerObj
+            ? {
+                id: String(offerObj.id ?? ''),
+                buyer_id: String(offerObj.buyer_id ?? ''),
+              }
+            : null,
           buyers: buyer,
         }
       })

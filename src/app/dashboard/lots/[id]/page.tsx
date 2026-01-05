@@ -103,7 +103,7 @@ export default function LotDetailPage() {
             .select('id,status,created_at,total_offer,invite_id,buyers(name,company)')
             .eq('lot_id', lotId)
             .eq('tenant_id', tenantId)
-            .order('created_at', { descending: true }),
+            .order('created_at', { ascending: false }),
         ])
 
         if (linesRes.error) throw linesRes.error
@@ -111,8 +111,46 @@ export default function LotDetailPage() {
         if (offersRes.error) throw offersRes.error
 
         setLines((linesRes.data as LineItemRow[]) || [])
-        setInvites((invitesRes.data as InviteRow[]) || [])
-        setOffers((offersRes.data as OfferRow[]) || [])
+
+        const inviteRows =
+          (Array.isArray(invitesRes.data) ? invitesRes.data : []).map((row) => {
+            const buyerRaw = (row as any)?.buyers
+            const buyerObj = Array.isArray(buyerRaw) ? buyerRaw[0] : buyerRaw
+            return {
+              id: String((row as any)?.id ?? ''),
+              status: (row as any)?.status ?? null,
+              created_at: (row as any)?.created_at ?? null,
+              token: (row as any)?.token ?? null,
+              buyers: buyerObj
+                ? {
+                    name: buyerObj.name ?? null,
+                    company: buyerObj.company ?? null,
+                    email: buyerObj.email ?? null,
+                  }
+                : null,
+            } as InviteRow
+          }) ?? []
+        setInvites(inviteRows)
+
+        const offerRows =
+          (Array.isArray(offersRes.data) ? offersRes.data : []).map((row) => {
+            const buyerRaw = (row as any)?.buyers
+            const buyerObj = Array.isArray(buyerRaw) ? buyerRaw[0] : buyerRaw
+            return {
+              id: String((row as any)?.id ?? ''),
+              status: (row as any)?.status ?? null,
+              created_at: (row as any)?.created_at ?? null,
+              total_offer: (row as any)?.total_offer ?? null,
+              invite_id: (row as any)?.invite_id ?? null,
+              buyers: buyerObj
+                ? {
+                    name: buyerObj.name ?? null,
+                    company: buyerObj.company ?? null,
+                  }
+                : null,
+            } as OfferRow
+          }) ?? []
+        setOffers(offerRows)
       } catch (e: unknown) {
         console.error(e)
         const msg = e instanceof Error ? e.message : 'Failed to load lot'

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import type React from 'react'
@@ -296,7 +296,7 @@ export default function LotItemsPage() {
       .select('id,lot_id,cpu,cpu_qty,memory_part_numbers,memory_qty,gpu,specs')
     if (error) return alert(error.message)
 
-    await logAvailableParts((data as Array<{
+    const insertedItems = (data as Array<{
       id: string
       lot_id: string | null
       cpu: string | null
@@ -305,7 +305,21 @@ export default function LotItemsPage() {
       memory_qty: number | null
       gpu: string | null
       specs: Record<string, unknown> | null
-    }>) || [])
+    }> | null)?.map((row) => ({
+      ...row,
+      lot_id: row.lot_id ?? id,
+    })) ?? []
+
+    await logAvailableParts(insertedItems as Array<{
+      id: string
+      lot_id: string
+      cpu: string | null
+      cpu_qty: number | null
+      memory_part_numbers: string | null
+      memory_qty: number | null
+      gpu: string | null
+      specs: Record<string, unknown> | null
+    }>)
 
     setDescription('')
     setQty(1)
@@ -509,7 +523,7 @@ export default function LotItemsPage() {
             const ask = formatMoney(it.asking_price, currency)
 
             const specsObj = it.specs && typeof it.specs === 'object' ? it.specs : null
-            const meta = specsObj?._meta
+            const meta = specsObj?._meta as { source_file?: string; header_row?: number } | undefined
             const specsKeys = specsObj ? Object.keys(specsObj).filter((k) => k !== '_meta') : []
             const details = detailList(it)
 
@@ -578,7 +592,7 @@ export default function LotItemsPage() {
                       {showSpecs ? (
                         <div style={{ marginTop: 10 }}>
                           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>
-                            Specs {meta ? <span>• source: {meta.source_file} • header row: {meta.header_row}</span> : null}
+                            Specs {meta ? <span>- source: {meta?.source_file ?? 'unknown'} - header row: {meta?.header_row ?? 'n/a'}</span> : null}
                           </div>
 
                           {specsObj && specsKeys.length > 0 ? (

@@ -48,7 +48,8 @@ function jsonStringify(v: unknown) {
 export function buildLotExportRows(items: LineItem[], currency: string): ExportRow[] {
   return items.map((it) => {
     const specsObj = it.specs && typeof it.specs === 'object' ? it.specs : null
-    const meta = specsObj?._meta ?? null
+    const rawMeta = (specsObj as { _meta?: unknown } | null | undefined)?._meta
+    const meta = rawMeta && typeof rawMeta === 'object' ? (rawMeta as { source_file?: string; header_row?: number }) : null
 
     return {
       line_item_id: it.id,

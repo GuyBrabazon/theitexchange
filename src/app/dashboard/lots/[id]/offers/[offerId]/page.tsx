@@ -70,7 +70,22 @@ export default function OfferLinesPage() {
         .eq('id', offerId)
         .single()
       if (offErr) throw offErr
-      setOffer(off as Offer)
+      const buyerObj = Array.isArray((off as any)?.buyers) ? (off as any).buyers[0] : (off as any)?.buyers
+      const normalized: Offer = {
+        id: String((off as any)?.id ?? ''),
+        lot_id: String((off as any)?.lot_id ?? ''),
+        buyer_id: String((off as any)?.buyer_id ?? ''),
+        status: (off as any)?.status ?? null,
+        created_at: String((off as any)?.created_at ?? ''),
+        buyers: buyerObj
+          ? {
+              name: String(buyerObj.name ?? ''),
+              company: buyerObj.company ?? null,
+              email: buyerObj.email ?? null,
+            }
+          : null,
+      }
+      setOffer(normalized)
 
       const { data, error } = await supabase
         .from('offer_lines')
@@ -86,8 +101,39 @@ export default function OfferLinesPage() {
         .order('id', { ascending: false })
       if (error) throw error
 
-      // only show priced lines
-      const priced = ((data as OfferLineJoined[]) ?? []).filter((r) => r.unit_price !== null)
+      // only show priced lines and normalize types
+      const rawLines = Array.isArray(data) ? data : []
+      const priced = rawLines
+        .map((row) => {
+          const liRaw = (row as any)?.line_items
+          const liObj = Array.isArray(liRaw) ? liRaw[0] : liRaw
+          const normalized: OfferLineJoined = {
+            id: String((row as any)?.id ?? ''),
+            offer_id: String((row as any)?.offer_id ?? ''),
+            line_item_id: String((row as any)?.line_item_id ?? ''),
+            unit_price: (row as any)?.unit_price ?? null,
+            currency: (row as any)?.currency ?? null,
+            qty_snapshot: (row as any)?.qty_snapshot ?? null,
+            line_items: liObj
+              ? {
+                  id: String(liObj.id ?? ''),
+                  description: liObj.description ?? null,
+                  qty: liObj.qty ?? null,
+                  model: liObj.model ?? null,
+                  serial_tag: liObj.serial_tag ?? null,
+                  cpu: liObj.cpu ?? null,
+                  cpu_qty: liObj.cpu_qty ?? null,
+                  memory_part_numbers: liObj.memory_part_numbers ?? null,
+                  memory_qty: liObj.memory_qty ?? null,
+                  network_card: liObj.network_card ?? null,
+                  expansion_card: liObj.expansion_card ?? null,
+                  gpu: liObj.gpu ?? null,
+                }
+              : null,
+          }
+          return normalized
+        })
+        .filter((r) => r.unit_price !== null)
       setLines(priced)
     } finally {
       setLoading(false)

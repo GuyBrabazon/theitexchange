@@ -125,7 +125,34 @@ export default function OrderFulfilmentPage() {
       .order('last_po_at', { ascending: false, nullsFirst: false })
 
     if (error) throw error
-    setLots((data as LotRow[]) ?? [])
+    const rows =
+      (Array.isArray(data) ? data : []).map((row) => {
+        const sellerRaw = (row as any)?.sellers
+        const sellerObj = Array.isArray(sellerRaw) ? sellerRaw[0] : sellerRaw
+        return {
+          id: String((row as any)?.id ?? ''),
+          tenant_id: String((row as any)?.tenant_id ?? ''),
+          title: (row as any)?.title ?? null,
+          status: (row as any)?.status ?? null,
+          currency: (row as any)?.currency ?? null,
+          created_at: (row as any)?.created_at ?? null,
+          po_count: (row as any)?.po_count ?? null,
+          last_po_at: (row as any)?.last_po_at ?? null,
+          sale_in_progress_at: (row as any)?.sale_in_progress_at ?? null,
+          seller_id: (row as any)?.seller_id ?? null,
+          sellers: sellerObj
+            ? {
+                id: String(sellerObj.id ?? ''),
+                tenant_id: String(sellerObj.tenant_id ?? ''),
+                name: sellerObj.name ?? null,
+                company: sellerObj.company ?? null,
+                email: sellerObj.email ?? null,
+                phone: sellerObj.phone ?? null,
+              }
+            : null,
+        } as LotRow
+      }) ?? []
+    setLots(rows)
   }, [])
 
   const load = useCallback(async (tid: string) => {
