@@ -141,8 +141,8 @@ export async function GET(_: Request, ctx: { params: Promise<{ token: string }> 
   // 4) Totals + winner flag (winner = has awards in effective round)
   const toStr = (v: unknown): string | null => {
     if (typeof v === 'string') return v
-    if (v === null || v === undefined) return null
-    return String(v)
+    if (typeof v === 'number') return String(v)
+    return null
   }
   const toNum = (v: unknown): number | null => {
     if (typeof v === 'number') return v
