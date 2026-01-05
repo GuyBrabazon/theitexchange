@@ -558,9 +558,13 @@ export default function BuyersPage() {
           <hr style={{ margin: '14px 0', borderColor: 'var(--border)' }} />
 
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <div style={{ color: 'var(--muted)', fontSize: 12 }}>
-              Buyer ID: <span style={{ fontFamily: 'var(--font-mono)' }}>{editBuyer.id}</span>
-            </div>
+            {editBuyer ? (
+              <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+                Buyer ID: <span style={{ fontFamily: 'var(--font-mono)' }}>{editBuyer.id}</span>
+              </div>
+            ) : (
+              <div />
+            )}
 
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               <button

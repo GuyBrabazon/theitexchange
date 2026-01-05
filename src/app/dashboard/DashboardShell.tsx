@@ -109,8 +109,13 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           padding: 12,
         }}
       >
-        <div style={{ fontWeight: 950, letterSpacing: -0.2, fontSize: 14 }}>The IT Exchange</div>
-        <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>Broker workspace</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+          <img src="/logo.svg" alt="The IT Exchange" style={{ width: 36, height: 36, borderRadius: 8 }} />
+          <div>
+            <div style={{ fontWeight: 950, letterSpacing: -0.2, fontSize: 14 }}>The IT Exchange</div>
+            <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 2 }}>Broker workspace</div>
+          </div>
+        </div>
 
         <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 14 }}>
           {groups.map((g) => (
