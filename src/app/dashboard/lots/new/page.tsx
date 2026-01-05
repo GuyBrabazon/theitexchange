@@ -1096,45 +1096,21 @@ export default function NewLotPage() {
     await parseXlsx(f)
   }
 
-  const downloadTemplate = () => {
-    const headers = [
-      'Model',
-      'Description',
-      'Qty',
-      'Asking price',
-      'OEM',
-      'CPU',
-      'CPU Qty',
-      'Memory',
-      'Memory Qty',
-      'GPU',
-      'Drives',
-      'Drives Qty',
-    ]
-    const sample = [
-      ['Dell R740', '2U server with H740P', 1, 1200, 'Dell', 'Gold 6148', 2, '32GB PC4', 16, 'Nvidia T4', '3.84TB SSD', 10],
-      ['NetApp FAS2750', 'Base chassis', 1, 1500, 'NetApp', '', '', '', '', '', '', ''],
-      ['Cisco UCS C220', '1U compute', 1, 900, 'Cisco', '', '', '', '', '', '', ''],
-    ]
-    const rows = [headers, ...sample]
-    const csv = rows
-      .map((row) =>
-        row
-          .map((cell) => {
-            const s = String(cell ?? '')
-            const escaped = s.replace(/"/g, '""')
-            return `"${escaped}"`
-          })
-          .join(',')
-      )
-      .join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'proforma_stock_template.csv'
-    a.click()
-    URL.revokeObjectURL(url)
+  const downloadTemplate = async () => {
+    try {
+      const res = await fetch('/api/proforma-template')
+      if (!res.ok) throw new Error('Failed to generate template')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'proforma_stock_template.xlsx'
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error(e)
+      alert(e instanceof Error ? e.message : 'Download failed')
+    }
   }
 
   const save = async () => {

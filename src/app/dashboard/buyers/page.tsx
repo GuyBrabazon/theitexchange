@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -145,6 +145,18 @@ export default function BuyersPage() {
   const [fReliability, setFReliability] = useState<string>('') // keep as string for input
   const [fTerms, setFTerms] = useState('')
 
+  const openCreate = () => {
+    setEditBuyer(null)
+    setFName('')
+    setFEmail('')
+    setFCompany('')
+    setFTags('')
+    setFCreditOk(true)
+    setFReliability('')
+    setFTerms('')
+    setEditOpen(true)
+  }
+
   const openEdit = (b: BuyerRow) => {
     setEditBuyer(b)
     setFName(b.name ?? '')
@@ -217,7 +229,6 @@ export default function BuyersPage() {
   }, [buyers, q])
 
   const saveEdit = async () => {
-    if (!editBuyer) return
     if (!tenantId) return
     if (saving) return
 
@@ -242,21 +253,36 @@ export default function BuyersPage() {
 
     setSaving(true)
     try {
-      const { error } = await supabase
-        .from('buyers')
-        .update({
+      if (editBuyer) {
+        const { error } = await supabase
+          .from('buyers')
+          .update({
+            name,
+            email: norm(fEmail) ? norm(fEmail) : null,
+            company: norm(fCompany) ? norm(fCompany) : null,
+            tags: tagsArr.length ? tagsArr : [],
+            credit_ok: fCreditOk,
+            reliability_score: reliability,
+            payment_terms: norm(fTerms) ? norm(fTerms) : null,
+          })
+          .eq('tenant_id', tenantId)
+          .eq('id', editBuyer.id)
+
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('buyers').insert({
+          tenant_id: tenantId,
           name,
           email: norm(fEmail) ? norm(fEmail) : null,
+          email_norm: norm(fEmail) ? norm(fEmail).toLowerCase() : null,
           company: norm(fCompany) ? norm(fCompany) : null,
           tags: tagsArr.length ? tagsArr : [],
           credit_ok: fCreditOk,
           reliability_score: reliability,
           payment_terms: norm(fTerms) ? norm(fTerms) : null,
         })
-        .eq('tenant_id', tenantId)
-        .eq('id', editBuyer.id)
-
-      if (error) throw error
+        if (error) throw error
+      }
 
       // refresh list for consistency
       await loadBuyers(tenantId)
@@ -309,6 +335,20 @@ export default function BuyersPage() {
           </Link>
 
           <button
+            onClick={openCreate}
+            style={{
+              padding: '10px 12px',
+              borderRadius: 10,
+              border: '1px solid var(--border)',
+              background: 'var(--accent-soft)',
+              fontWeight: 900,
+              cursor: 'pointer',
+            }}
+          >
+            Add buyer
+          </button>
+
+          <button
             onClick={() => tenantId && loadBuyers(tenantId)}
             disabled={!tenantId || loading}
             style={{
@@ -328,7 +368,7 @@ export default function BuyersPage() {
       <hr style={{ margin: '16px 0', borderColor: 'var(--border)' }} />
 
       {error ? <div style={{ color: 'crimson', marginBottom: 12 }}>{error}</div> : null}
-      {loading ? <div style={{ color: 'var(--muted)' }}>Loading…</div> : null}
+      {loading ? <div style={{ color: 'var(--muted)' }}>Loadingâ€¦</div> : null}
 
       {!loading ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -347,23 +387,23 @@ export default function BuyersPage() {
                 <div style={{ minWidth: 320 }}>
                   <div style={{ fontWeight: 950, letterSpacing: -0.1, fontSize: 16 }}>
                     {b.name}
-                    {b.company ? <span style={{ color: 'var(--muted)', fontWeight: 800 }}> • {b.company}</span> : null}
+                    {b.company ? <span style={{ color: 'var(--muted)', fontWeight: 800 }}> â€¢ {b.company}</span> : null}
                   </div>
                   <div style={{ marginTop: 4, color: 'var(--muted)', fontSize: 12 }}>
-                    {b.email ?? '(no email)'} • Created: {new Date(b.created_at).toLocaleDateString()}
+                    {b.email ?? '(no email)'} â€¢ Created: {new Date(b.created_at).toLocaleDateString()}
                   </div>
 
                   <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <Pill>Credit: {b.credit_ok ? 'OK' : 'Flag'}</Pill>
-                    <Pill>Reliability: {b.reliability_score ?? '—'}</Pill>
-                    <Pill>Terms: {b.payment_terms ?? '—'}</Pill>
+                    <Pill>Reliability: {b.reliability_score ?? 'â€”'}</Pill>
+                    <Pill>Terms: {b.payment_terms ?? 'â€”'}</Pill>
                     <Pill>Tags: {(b.tags ?? []).length ? (b.tags ?? []).length : '0'}</Pill>
                   </div>
 
                   {(b.tags ?? []).length ? (
                     <div style={{ marginTop: 8, color: 'var(--muted)', fontSize: 12 }}>
                       {(b.tags ?? []).slice(0, 14).join(', ')}
-                      {(b.tags ?? []).length > 14 ? ' …' : ''}
+                      {(b.tags ?? []).length > 14 ? ' â€¦' : ''}
                     </div>
                   ) : null}
                 </div>
@@ -391,9 +431,9 @@ export default function BuyersPage() {
         </div>
       ) : null}
 
-      {editOpen && editBuyer ? (
-        <ModalShell title={`Edit buyer • ${editBuyer.name}`} onClose={closeEdit}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      {editOpen ? (
+        <ModalShell title={editBuyer ? `Edit buyer · ${editBuyer.name}` : 'Add buyer'} onClose={closeEdit}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Name</div>
               <input
@@ -489,7 +529,7 @@ export default function BuyersPage() {
                 }}
               />
               <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: 12 }}>
-                Tip: keep it simple (0–5). You can refine later.
+                Tip: keep it simple (0â€“5). You can refine later.
               </div>
             </div>
 
@@ -510,7 +550,7 @@ export default function BuyersPage() {
                 }}
               />
               <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: 12 }}>
-                These drive matching on the Invite Buyers page (e.g. “dell”, “cisco”).
+                These drive matching on the Invite Buyers page (e.g. â€œdellâ€, â€œciscoâ€).
               </div>
             </div>
           </div>
@@ -551,7 +591,7 @@ export default function BuyersPage() {
                   cursor: 'pointer',
                 }}
               >
-                {saving ? 'Saving…' : 'Save changes'}
+                {saving ? 'Savingâ€¦' : 'Save changes'}
               </button>
             </div>
           </div>
@@ -560,3 +600,6 @@ export default function BuyersPage() {
     </main>
   )
 }
+
+
+
