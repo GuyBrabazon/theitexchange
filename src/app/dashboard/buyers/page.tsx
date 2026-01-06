@@ -11,6 +11,7 @@ type BuyerRow = {
   name: string
   email: string | null
   company: string | null
+  phone: string | null
   tags: string[] | null
   credit_ok: boolean | null
   reliability_score: number | null
@@ -140,6 +141,7 @@ export default function BuyersPage() {
   const [fName, setFName] = useState('')
   const [fEmail, setFEmail] = useState('')
   const [fCompany, setFCompany] = useState('')
+  const [fPhone, setFPhone] = useState('')
   const [fTags, setFTags] = useState('')
   const [fCreditOk, setFCreditOk] = useState<boolean>(true)
   const [fReliability, setFReliability] = useState<string>('') // keep as string for input
@@ -150,6 +152,7 @@ export default function BuyersPage() {
     setFName('')
     setFEmail('')
     setFCompany('')
+    setFPhone('')
     setFTags('')
     setFCreditOk(true)
     setFReliability('')
@@ -162,6 +165,7 @@ export default function BuyersPage() {
     setFName(b.name ?? '')
     setFEmail(b.email ?? '')
     setFCompany(b.company ?? '')
+    setFPhone(b.phone ?? '')
     setFTags(tagsToText(b.tags))
     setFCreditOk(Boolean(b.credit_ok ?? false))
     setFReliability(b.reliability_score === null || b.reliability_score === undefined ? '' : String(b.reliability_score))
@@ -181,7 +185,7 @@ export default function BuyersPage() {
     try {
       const { data, error } = await supabase
         .from('buyers')
-        .select('id,tenant_id,name,email,company,tags,credit_ok,reliability_score,payment_terms,created_at')
+        .select('id,tenant_id,name,email,company,phone,tags,credit_ok,reliability_score,payment_terms,created_at')
         .eq('tenant_id', tid)
         .order('created_at', { ascending: false })
         .limit(5000)
@@ -249,6 +253,8 @@ export default function BuyersPage() {
       reliability = v
     }
 
+    const phone = norm(fPhone)
+
     const tagsArr = parseTags(fTags)
 
     setSaving(true)
@@ -260,6 +266,7 @@ export default function BuyersPage() {
             name,
             email: norm(fEmail) ? norm(fEmail) : null,
             company: norm(fCompany) ? norm(fCompany) : null,
+            phone: phone || null,
             tags: tagsArr.length ? tagsArr : [],
             credit_ok: fCreditOk,
             reliability_score: reliability,
@@ -276,6 +283,7 @@ export default function BuyersPage() {
           email: norm(fEmail) ? norm(fEmail) : null,
           email_norm: norm(fEmail) ? norm(fEmail).toLowerCase() : null,
           company: norm(fCompany) ? norm(fCompany) : null,
+          phone: phone || null,
           tags: tagsArr.length ? tagsArr : [],
           credit_ok: fCreditOk,
           reliability_score: reliability,
@@ -390,7 +398,9 @@ export default function BuyersPage() {
                     {b.company ? <span style={{ color: 'var(--muted)', fontWeight: 800 }}> | {b.company}</span> : null}
                   </div>
                   <div style={{ marginTop: 4, color: 'var(--muted)', fontSize: 12 }}>
-                    {b.email ?? '(no email)'} | Created: {new Date(b.created_at).toLocaleDateString()}
+                    {b.email ?? '(no email)'}
+                    {b.phone ? ` | ${b.phone}` : ''}
+                    {` | Created: ${new Date(b.created_at).toLocaleDateString()}`}
                   </div>
 
                   <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -433,7 +443,7 @@ export default function BuyersPage() {
 
       {editOpen ? (
         <ModalShell title={editBuyer ? `Edit buyer � ${editBuyer.name}` : 'Add buyer'} onClose={closeEdit}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Name</div>
               <input
@@ -455,6 +465,22 @@ export default function BuyersPage() {
                 value={fEmail}
                 onChange={(e) => setFEmail(e.target.value)}
                 placeholder="name@company.com"
+                style={{
+                  width: '100%',
+                  padding: 10,
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--panel)',
+                }}
+              />
+            </div>
+
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Phone</div>
+              <input
+                value={fPhone}
+                onChange={(e) => setFPhone(e.target.value)}
+                placeholder="+1 555 123 4567"
                 style={{
                   width: '100%',
                   padding: 10,
