@@ -14,6 +14,7 @@ type BuyerInsert = {
   email: string | null
   email_norm: string | null
   company: string | null
+  phone: string | null
   tags: string[] | null
   credit_ok: boolean | null
   payment_terms: string | null
@@ -30,6 +31,7 @@ type FieldKey =
   | 'name'
   | 'email'
   | 'company'
+  | 'phone'
   | 'tags'
   | 'credit_ok'
   | 'payment_terms'
@@ -41,6 +43,7 @@ const FIELD_LABELS: Record<FieldKey, string> = {
   name: 'Name (required)',
   email: 'Email (dedupe key)',
   company: 'Company',
+  phone: 'Phone',
   tags: 'Tags (comma/semicolon separated)',
   credit_ok: 'Credit OK',
   payment_terms: 'Payment terms',
@@ -133,6 +136,7 @@ export default function BuyersImportPage() {
     name: '',
     email: '',
     company: '',
+    phone: '',
     tags: '',
     credit_ok: '',
     payment_terms: '',
@@ -158,6 +162,7 @@ export default function BuyersImportPage() {
       name: prev.name || guess(['name', 'buyer name', 'contact']),
       email: prev.email || guess(['email', 'e-mail']),
       company: prev.company || guess(['company', 'organisation', 'organization', 'org']),
+      phone: prev.phone || guess(['phone', 'mobile', 'cell']),
       tags: prev.tags || guess(['tags', 'tag', 'categories', 'category']),
       credit_ok: prev.credit_ok || guess(['credit', 'credit ok', 'credit_ok']),
       payment_terms: prev.payment_terms || guess(['terms', 'payment', 'net']),
@@ -235,6 +240,7 @@ export default function BuyersImportPage() {
   const buildBuyerRecords = () => {
     const nameCol = mapping.name || null
     const emailCol = mapping.email || null
+    const phoneCol = mapping.phone || null
 
     if (!nameCol) throw new Error('Map “Name” before importing.')
 
@@ -247,6 +253,7 @@ export default function BuyersImportPage() {
 
       const emailRaw = emailCol ? pickColumn(row, emailCol) : null
       const email = normalizeEmail(emailRaw)
+      const phone = phoneCol ? String(pickColumn(row, phoneCol) ?? '').trim() || null : null
 
       const company = mapping.company ? String(pickColumn(row, mapping.company) ?? '').trim() || null : null
       const tags = mapping.tags ? parseTags(pickColumn(row, mapping.tags)) : null
@@ -268,6 +275,7 @@ export default function BuyersImportPage() {
         email: email ? email : null,
         email_norm: email ? email : null,
         company,
+        phone,
         tags,
         credit_ok,
         payment_terms,

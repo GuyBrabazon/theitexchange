@@ -395,8 +395,8 @@ export default function BuyersPage() {
 
                   <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <Pill>Credit: {b.credit_ok ? 'OK' : 'Flag'}</Pill>
-                    <Pill>Reliability: {b.reliability_score ?? '���'}</Pill>
-                    <Pill>Terms: {b.payment_terms ?? '���'}</Pill>
+                    <Pill>Reliability: {b.reliability_score ?? '?'}</Pill>
+                    <Pill>Terms: {b.payment_terms ?? '?'}</Pill>
                     <Pill>Tags: {(b.tags ?? []).length ? (b.tags ?? []).length : '0'}</Pill>
                   </div>
 
@@ -550,7 +550,7 @@ export default function BuyersPage() {
                 }}
               />
               <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: 12 }}>
-                These drive matching on the Invite Buyers page (e.g. �ǣdell���, �ǣcisco���).
+                These drive intelligent matching with lots.
               </div>
             </div>
           </div>

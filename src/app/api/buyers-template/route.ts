@@ -8,6 +8,7 @@ export async function GET() {
     'Name',
     'Email',
     'Company',
+    'Phone',
     'Tags',
     'Credit OK',
     'Payment terms',
