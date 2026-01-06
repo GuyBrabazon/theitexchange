@@ -20,6 +20,7 @@ type ParsedLine = {
   description: string | null
   qty: number | null
   asking_price: number | null
+  cost?: number | null
   cpu?: string | null
   memory_part_numbers?: string | null
   gpu?: string | null
@@ -35,7 +36,7 @@ type Buyer = {
 }
 
 function sellerLabel(s: Seller) {
-  if (s.company && s.name) return `${s.company} — ${s.name}`
+  if (s.company && s.name) return `${s.company} - ${s.name}`
   return s.company ?? s.name ?? 'Seller'
 }
 
@@ -45,7 +46,7 @@ function toNum(v: unknown) {
 }
 
 function fmtMoney(n: number | null, currency: string) {
-  if (n == null) return '—'
+  if (n == null) return '-'
   const r = Math.round(Number(n) * 100) / 100
   return `${r} ${currency}`
 }
@@ -2069,3 +2070,4 @@ export default function NewLotPage() {
     </main>
   )
 }
+
