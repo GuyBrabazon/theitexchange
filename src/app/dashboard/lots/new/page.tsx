@@ -748,6 +748,15 @@ export default function NewLotPage() {
   const [mapDesc, setMapDesc] = useState<string>('')
   const [mapQty, setMapQty] = useState<string>('')
   const [mapAsk, setMapAsk] = useState<string>('')
+  const [mapCost, setMapCost] = useState<string>('')
+
+  // manual line entry
+  const [manualRows, setManualRows] = useState<ParsedLine[]>([])
+  const [manualModel, setManualModel] = useState('')
+  const [manualDesc, setManualDesc] = useState('')
+  const [manualQty, setManualQty] = useState('')
+  const [manualAsk, setManualAsk] = useState('')
+  const [manualCost, setManualCost] = useState('')
 
   const [extraCols, setExtraCols] = useState<Set<string>>(new Set())
   const [buyers, setBuyers] = useState<Buyer[]>([])
@@ -821,11 +830,13 @@ export default function NewLotPage() {
     const descGuess = bestColumnMatch(columns, ['description', 'desc', 'details', 'item_description', 'name'])
     const qtyGuess = bestColumnMatch(columns, ['qty', 'quantity', 'units', 'unit_qty'])
     const askGuess = bestColumnMatch(columns, ['asking_price', 'ask', 'price', 'unit_price', 'unitprice'])
+    const costGuess = bestColumnMatch(columns, ['cost', 'unit_cost', 'cost_price', 'purchase_price'])
 
     setMapModel((prev) => prev || modelGuess)
     setMapDesc((prev) => prev || descGuess)
     setMapQty((prev) => prev || qtyGuess)
     setMapAsk((prev) => prev || askGuess)
+    setMapCost((prev) => prev || costGuess)
 
     const preferred = [
       'serial',
@@ -878,7 +889,7 @@ export default function NewLotPage() {
     })
   }, [columns])
 
-  const importRows: ParsedLine[] = useMemo(() => {
+  const parsedImports: ParsedLine[] = useMemo(() => {
     if (!grid.length || !columns.length) return []
 
     const dataStart = headerRowIdx + 1
@@ -889,6 +900,7 @@ export default function NewLotPage() {
     const iDesc = idx(mapDesc)
     const iQty = idx(mapQty)
     const iAsk = idx(mapAsk)
+    const iCost = idx(mapCost)
     const oemCol = bestColumnMatch(columns, ['oem', 'manufacturer', 'vendor', 'brand', 'make'])
     const iOem = idx(oemCol)
 
@@ -911,6 +923,7 @@ export default function NewLotPage() {
       if (qty == null) qty = 1
 
       const ask = iAsk >= 0 ? toNum(r[iAsk]) : null
+      const cost = iCost >= 0 ? toNum(r[iCost]) : null
 
       const detailLines: string[] = []
       const extraValues: Record<string, string> = {}
@@ -973,6 +986,7 @@ export default function NewLotPage() {
         description,
         qty,
         asking_price: ask,
+        cost,
         cpu: comps.cpu,
         memory_part_numbers: comps.memory_part_numbers,
         gpu: comps.gpu,
@@ -982,7 +996,11 @@ export default function NewLotPage() {
     }
 
     return out
-  }, [grid, columns, headerRowIdx, mapModel, mapDesc, mapQty, mapAsk, extraCols, colIndex])
+  }, [grid, columns, headerRowIdx, mapModel, mapDesc, mapQty, mapAsk, mapCost, extraCols, colIndex])
+
+  const importRows: ParsedLine[] = useMemo(() => {
+    return [...manualRows, ...parsedImports]
+  }, [manualRows, parsedImports])
 
   const preview = useMemo(() => importRows.slice(0, 8), [importRows])
   const groupedLots = useMemo(() => {
@@ -1201,6 +1219,7 @@ export default function NewLotPage() {
               description: r.description,
               qty: r.qty ?? 1,
               asking_price: r.asking_price,
+              cost: r.cost ?? null,
               cpu: r.cpu ?? null,
               memory_part_numbers: r.memory_part_numbers ?? null,
               gpu: r.gpu ?? null,
@@ -1437,6 +1456,122 @@ export default function NewLotPage() {
 
           <hr style={{ margin: '6px 0', borderColor: 'var(--border)' }} />
 
+          {/* Manual entry */}
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontWeight: 950, marginBottom: 6 }}>Add line items manually</div>
+            <div style={{ color: 'var(--muted)', fontSize: 12, marginBottom: 8 }}>
+              Quick add without XLSX. Cost stays private to you; buyers never see it.
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 100px 120px 120px 120px', gap: 8, alignItems: 'center' }}>
+              <input
+                placeholder="Model"
+                value={manualModel}
+                onChange={(e) => setManualModel(e.target.value)}
+                style={{ padding: 10, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+              />
+              <input
+                placeholder="Description"
+                value={manualDesc}
+                onChange={(e) => setManualDesc(e.target.value)}
+                style={{ padding: 10, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+              />
+              <input
+                placeholder="Qty"
+                value={manualQty}
+                onChange={(e) => setManualQty(e.target.value)}
+                inputMode="numeric"
+                style={{ padding: 10, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', width: '100%' }}
+              />
+              <input
+                placeholder="Asking"
+                value={manualAsk}
+                onChange={(e) => setManualAsk(e.target.value)}
+                inputMode="decimal"
+                style={{ padding: 10, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', width: '100%' }}
+              />
+              <input
+                placeholder="Cost (private)"
+                value={manualCost}
+                onChange={(e) => setManualCost(e.target.value)}
+                inputMode="decimal"
+                style={{ padding: 10, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', width: '100%' }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const qtyNum = toNum(manualQty)
+                  const askNum = toNum(manualAsk)
+                  const costNum = toNum(manualCost)
+                  const row: ParsedLine = {
+                    model: manualModel.trim() || null,
+                    description: manualDesc.trim() || null,
+                    qty: qtyNum ?? 1,
+                    asking_price: askNum,
+                    cost: costNum,
+                  }
+                  if (!row.model && !row.description) return
+                  setManualRows((prev) => [...prev, row])
+                  setManualModel('')
+                  setManualDesc('')
+                  setManualQty('')
+                  setManualAsk('')
+                  setManualCost('')
+                }}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--panel)',
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                  width: '100%',
+                }}
+              >
+                Add line
+              </button>
+            </div>
+            {manualRows.length ? (
+              <div style={{ marginTop: 10, border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+                <div style={{ padding: 8, background: 'rgba(0,0,0,0.06)', fontWeight: 900, display: 'flex', justifyContent: 'space-between' }}>
+                  <div>Manual lines ({manualRows.length})</div>
+                  <button
+                    type="button"
+                    onClick={() => setManualRows([])}
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: 8,
+                      border: '1px solid var(--border)',
+                      background: 'rgba(0,0,0,0.08)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Clear
+                  </button>
+                </div>
+                {manualRows.map((r, idx) => (
+                  <div
+                    key={`${r.model ?? ''}-${idx}`}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '2fr 120px 140px 140px',
+                      borderTop: idx === 0 ? 'none' : `1px solid var(--border)`,
+                    }}
+                  >
+                    <div style={{ padding: 8 }}>
+                      <div style={{ fontWeight: 900 }}>{r.model ?? '-'}</div>
+                      <div style={{ color: 'var(--muted)', fontSize: 12 }}>{r.description ?? '-'}</div>
+                    </div>
+                    <div style={{ padding: 8, fontWeight: 900 }}>{r.qty ?? '-'}</div>
+                    <div style={{ padding: 8, fontWeight: 900 }}>{fmtMoney(r.asking_price, currency)}</div>
+                    <div style={{ padding: 8, fontWeight: 900 }}>{fmtMoney(r.cost ?? null, currency)}</div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          <hr style={{ margin: '6px 0', borderColor: 'var(--border)' }} />
+
           {/* XLSX upload */}
           <div>
             <div style={{ fontWeight: 950, marginBottom: 6 }}>Upload line items (XLSX)</div>
@@ -1583,6 +1718,7 @@ export default function NewLotPage() {
                         setMapDesc('')
                         setMapQty('')
                         setMapAsk('')
+                        setMapCost('')
                         setExtraCols(new Set())
                       }}
                       style={{
@@ -1615,12 +1751,13 @@ export default function NewLotPage() {
                       background: 'rgba(0,0,0,0.04)',
                     }}
                   >
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10 }}>
                       {[
                         ['Model', mapModel, setMapModel],
                         ['Description', mapDesc, setMapDesc],
                         ['Qty', mapQty, setMapQty],
                         ['Asking price', mapAsk, setMapAsk],
+                        ['Cost (private)', mapCost, setMapCost],
                       ].map(([label, value, setter]) => (
                         <div key={String(label)}>
                           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>{label as string}</div>
@@ -1702,10 +1839,18 @@ export default function NewLotPage() {
                   </div>
 
                   <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 120px 160px', gap: 0, background: 'rgba(0,0,0,0.08)' }}>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '2fr 120px 160px 160px',
+                        gap: 0,
+                        background: 'rgba(0,0,0,0.08)',
+                      }}
+                    >
                       <div style={{ padding: 10, fontSize: 12, fontWeight: 950 }}>Model / Description</div>
                       <div style={{ padding: 10, fontSize: 12, fontWeight: 950 }}>Qty</div>
                       <div style={{ padding: 10, fontSize: 12, fontWeight: 950 }}>Asking</div>
+                      <div style={{ padding: 10, fontSize: 12, fontWeight: 950 }}>Cost (private)</div>
                     </div>
 
                     {preview.map((r, idx) => (
@@ -1713,7 +1858,7 @@ export default function NewLotPage() {
                         key={idx}
                         style={{
                           display: 'grid',
-                          gridTemplateColumns: '2fr 120px 160px',
+                          gridTemplateColumns: '2fr 120px 160px 160px',
                           gap: 0,
                           borderTop: idx === 0 ? 'none' : `1px solid var(--border)`,
                         }}
@@ -1722,8 +1867,9 @@ export default function NewLotPage() {
                           <div style={{ fontWeight: 900 }}>{r.model ?? '—'}</div>
                           <div style={{ color: 'var(--muted)', marginTop: 2 }}>{r.description ?? '—'}</div>
                         </div>
-                        <div style={{ padding: 10, fontSize: 12, fontWeight: 900 }}>{r.qty ?? '—'}</div>
+                        <div style={{ padding: 10, fontSize: 12, fontWeight: 900 }}>{r.qty ?? '-'}</div>
                         <div style={{ padding: 10, fontSize: 12, fontWeight: 900 }}>{fmtMoney(r.asking_price, currency)}</div>
+                        <div style={{ padding: 10, fontSize: 12, fontWeight: 900 }}>{fmtMoney(r.cost ?? null, currency)}</div>
                       </div>
                     ))}
                   </div>
@@ -1820,7 +1966,7 @@ export default function NewLotPage() {
                                   <div
                                     style={{
                                       display: 'grid',
-                                      gridTemplateColumns: '2fr 120px 160px',
+                                      gridTemplateColumns: '2fr 120px 160px 160px',
                                       gap: 0,
                                       background: 'rgba(0,0,0,0.06)',
                                     }}
@@ -1828,13 +1974,14 @@ export default function NewLotPage() {
                                     <div style={{ padding: 8, fontSize: 12, fontWeight: 900 }}>Model / Description</div>
                                     <div style={{ padding: 8, fontSize: 12, fontWeight: 900 }}>Qty</div>
                                     <div style={{ padding: 8, fontSize: 12, fontWeight: 900 }}>Asking</div>
+                                    <div style={{ padding: 8, fontSize: 12, fontWeight: 900 }}>Cost (private)</div>
                                   </div>
                                   {sample.map((r, idx) => (
                                     <div
                                       key={idx}
                                       style={{
                                         display: 'grid',
-                                        gridTemplateColumns: '2fr 120px 160px',
+                                        gridTemplateColumns: '2fr 120px 160px 160px',
                                         gap: 0,
                                         borderTop: idx === 0 ? 'none' : `1px solid var(--border)`,
                                       }}
@@ -1843,8 +1990,9 @@ export default function NewLotPage() {
                                         <div style={{ fontWeight: 900 }}>{r.model ?? '—'}</div>
                                         <div style={{ color: 'var(--muted)', marginTop: 2 }}>{r.description ?? '—'}</div>
                                       </div>
-                                      <div style={{ padding: 8, fontSize: 12, fontWeight: 900 }}>{r.qty ?? '—'}</div>
+                                      <div style={{ padding: 8, fontSize: 12, fontWeight: 900 }}>{r.qty ?? '-'}</div>
                                       <div style={{ padding: 8, fontSize: 12, fontWeight: 900 }}>{fmtMoney(r.asking_price, currency)}</div>
+                                      <div style={{ padding: 8, fontSize: 12, fontWeight: 900 }}>{fmtMoney(r.cost ?? null, currency)}</div>
                                     </div>
                                   ))}
                                 </div>
@@ -1875,7 +2023,7 @@ export default function NewLotPage() {
                           <div
                             style={{
                               display: 'grid',
-                              gridTemplateColumns: '2fr 120px 160px',
+                              gridTemplateColumns: '2fr 120px 160px 160px',
                               gap: 0,
                               background: 'rgba(0,0,0,0.06)',
                             }}
@@ -1883,13 +2031,14 @@ export default function NewLotPage() {
                             <div style={{ padding: 8, fontSize: 12, fontWeight: 900 }}>Model / Description</div>
                             <div style={{ padding: 8, fontSize: 12, fontWeight: 900 }}>Qty</div>
                             <div style={{ padding: 8, fontSize: 12, fontWeight: 900 }}>Asking</div>
+                            <div style={{ padding: 8, fontSize: 12, fontWeight: 900 }}>Cost (private)</div>
                           </div>
                           {importRows.slice(0, 10).map((r, idx) => (
                             <div
                               key={idx}
                               style={{
                                 display: 'grid',
-                                gridTemplateColumns: '2fr 120px 160px',
+                                gridTemplateColumns: '2fr 120px 160px 160px',
                                 gap: 0,
                                 borderTop: idx === 0 ? 'none' : `1px solid var(--border)`,
                               }}
@@ -1898,9 +2047,10 @@ export default function NewLotPage() {
                                 <div style={{ fontWeight: 900 }}>{r.model ?? '—'}</div>
                                 <div style={{ color: 'var(--muted)', marginTop: 2 }}>{r.description ?? '—'}</div>
                               </div>
-                              <div style={{ padding: 8, fontSize: 12, fontWeight: 900 }}>{r.qty ?? '—'}</div>
-                              <div style={{ padding: 8, fontSize: 12, fontWeight: 900 }}>{fmtMoney(r.asking_price, currency)}</div>
-                            </div>
+                            <div style={{ padding: 8, fontSize: 12, fontWeight: 900 }}>{r.qty ?? '-'}</div>
+                            <div style={{ padding: 8, fontSize: 12, fontWeight: 900 }}>{fmtMoney(r.asking_price, currency)}</div>
+                            <div style={{ padding: 8, fontSize: 12, fontWeight: 900 }}>{fmtMoney(r.cost ?? null, currency)}</div>
+                          </div>
                           ))}
                         </div>
                       </div>
