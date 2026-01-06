@@ -309,7 +309,7 @@ export default function BuyersPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search buyersà"
+            placeholder="Search buyers�"
             style={{
               width: 320,
               padding: 10,
@@ -395,15 +395,15 @@ export default function BuyersPage() {
 
                   <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <Pill>Credit: {b.credit_ok ? 'OK' : 'Flag'}</Pill>
-                    <Pill>Reliability: {b.reliability_score ?? 'ÔÇö'}</Pill>
-                    <Pill>Terms: {b.payment_terms ?? 'ÔÇö'}</Pill>
+                    <Pill>Reliability: {b.reliability_score ?? '���'}</Pill>
+                    <Pill>Terms: {b.payment_terms ?? '���'}</Pill>
                     <Pill>Tags: {(b.tags ?? []).length ? (b.tags ?? []).length : '0'}</Pill>
                   </div>
 
                   {(b.tags ?? []).length ? (
                     <div style={{ marginTop: 8, color: 'var(--muted)', fontSize: 12 }}>
                       {(b.tags ?? []).slice(0, 14).join(', ')}
-                      {(b.tags ?? []).length > 14 ? ' ÔÇª' : ''}
+                      {(b.tags ?? []).length > 14 ? ' �Ǫ' : ''}
                     </div>
                   ) : null}
                 </div>
@@ -432,7 +432,7 @@ export default function BuyersPage() {
       ) : null}
 
       {editOpen ? (
-        <ModalShell title={editBuyer ? `Edit buyer À ${editBuyer.name}` : 'Add buyer'} onClose={closeEdit}>
+        <ModalShell title={editBuyer ? `Edit buyer � ${editBuyer.name}` : 'Add buyer'} onClose={closeEdit}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Name</div>
@@ -529,7 +529,7 @@ export default function BuyersPage() {
                 }}
               />
               <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: 12 }}>
-                Tip: keep it simple (0ÔÇô5). You can refine later.
+                Tip: keep it simple (0���5). You can refine later.
               </div>
             </div>
 
@@ -550,7 +550,7 @@ export default function BuyersPage() {
                 }}
               />
               <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: 12 }}>
-                These drive matching on the Invite Buyers page (e.g. ÔÇ£dellÔÇØ, ÔÇ£ciscoÔÇØ).
+                These drive matching on the Invite Buyers page (e.g. �ǣdell���, �ǣcisco���).
               </div>
             </div>
           </div>
@@ -595,7 +595,7 @@ export default function BuyersPage() {
                   cursor: 'pointer',
                 }}
               >
-                {saving ? 'SavingÔÇª' : 'Save changes'}
+                {saving ? 'Saving�Ǫ' : 'Save changes'}
               </button>
             </div>
           </div>

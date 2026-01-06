@@ -145,5 +145,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
   const { error: lotUpErr } = await sb.from('lots').update(patch).eq('id', inv.lot_id)
   if (lotUpErr) return NextResponse.json({ error: lotUpErr.message }, { status: 500 })
 
-  return NextResponse.json({ ok: true })
+  // Redirect back to the invite page with a success flag so the browser doesn't "pretty-print" JSON
+  const redirectUrl = new URL(`/invite/${token}?po=success`, req.url)
+  return NextResponse.redirect(redirectUrl, { status: 303 })
 }

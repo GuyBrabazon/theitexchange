@@ -28,7 +28,7 @@ type PurchaseOrderRow = {
 }
 
 function fmtDate(ts: string | null | undefined) {
-  if (!ts) return '—'
+  if (!ts) return 'n/a'
   const d = new Date(ts)
   if (Number.isNaN(d.getTime())) return ts
   return d.toLocaleString()
@@ -104,7 +104,7 @@ export default function LotPOsPage() {
 
   const header = useMemo(() => {
     const t = lot?.title ?? `Lot ${lotId.slice(0, 8)}…`
-    return `${t} • Status: ${statusLabel(lot?.status)}`
+    return `${t} | Status: ${statusLabel(lot?.status)}`
   }, [lotId, lot?.title, lot?.status])
 
   const setStatus = async (status: 'order_processing' | 'sold') => {
@@ -194,7 +194,7 @@ export default function LotPOsPage() {
             cursor: 'pointer',
           }}
         >
-          {saving ? 'Working…' : 'Mark order processing'}
+          {saving ? 'Working...' : 'Mark order processing'}
         </button>
 
         <button
@@ -210,13 +210,13 @@ export default function LotPOsPage() {
             cursor: 'pointer',
           }}
         >
-          {saving ? 'Working…' : 'Mark sold'}
+          {saving ? 'Working...' : 'Mark sold'}
         </button>
       </div>
 
       <div style={{ marginTop: 14 }}>
         <Card title="POs received" subtitle="Downloads use signed URLs (private storage safe).">
-          {loading ? <div style={{ color: 'var(--muted)' }}>Loading…</div> : null}
+          {loading ? <div style={{ color: 'var(--muted)' }}>Loading...</div> : null}
           {error ? <div style={{ color: 'crimson' }}>{error}</div> : null}
 
           {!loading && !error ? (
@@ -239,10 +239,10 @@ export default function LotPOsPage() {
 
                     <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: 12, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                       <span>
-                        Buyer: <b style={{ color: 'var(--text)' }}>{p.buyer_id ? p.buyer_id.slice(0, 8) + '…' : '—'}</b>
+                        Buyer: <b style={{ color: 'var(--text)' }}>{p.buyer_id ? p.buyer_id.slice(0, 8) + '…' : 'n/a'}</b>
                       </span>
                       <span>
-                        Type: <b style={{ color: 'var(--text)' }}>{p.content_type ?? '—'}</b>
+                        Type: <b style={{ color: 'var(--text)' }}>{p.content_type ?? 'n/a'}</b>
                       </span>
                     </div>
 

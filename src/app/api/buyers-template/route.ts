@@ -5,31 +5,27 @@ export const runtime = 'nodejs'
 
 export async function GET() {
   const headers = [
-    'OEM',
-    'Model',
-    'CPU',
-    'CPU qty',
-    'Memory',
-    'Memory qty',
-    'GPU',
-    'Drives',
-    'Drives qty',
-    'Machine qty',
-    'Asking Price',
+    'Name',
+    'Email',
+    'Company',
+    'Tags',
+    'Credit OK',
+    'Payment terms',
+    'Reliability score',
+    'Active',
+    'Do not invite',
   ]
 
-  // Header-only template
   const ws = XLSX.utils.aoa_to_sheet([headers])
-
   const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Proforma')
+  XLSX.utils.book_append_sheet(wb, ws, 'Buyers')
   const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'buffer' })
 
   return new NextResponse(buf, {
     status: 200,
     headers: {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': 'attachment; filename="proforma_stock_template.xlsx"',
+      'Content-Disposition': 'attachment; filename="buyer_import_template.xlsx"',
     },
   })
 }

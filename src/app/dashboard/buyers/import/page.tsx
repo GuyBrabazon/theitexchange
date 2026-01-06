@@ -169,6 +169,24 @@ export default function BuyersImportPage() {
 
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ inserted: number; updated: number; skipped: number } | null>(null)
+  const downloadTemplate = async () => {
+    setResult(null)
+    try {
+      const res = await fetch('/api/buyers-template')
+      if (!res.ok) throw new Error('Failed to generate buyer template')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'buyer_import_template.xlsx'
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error(e)
+      const msg = e instanceof Error ? e.message : 'Download failed'
+      alert(msg)
+    }
+  }
 
   useEffect(() => {
     const init = async () => {
@@ -339,6 +357,22 @@ export default function BuyersImportPage() {
           if (f) onFile(f).catch((err) => alert(err?.message ?? 'Failed to parse file'))
         }}
       />
+      <div style={{ marginTop: 8 }}>
+        <button
+          type="button"
+          onClick={downloadTemplate}
+          style={{
+            padding: '10px 12px',
+            borderRadius: 10,
+            border: '1px solid var(--border)',
+            background: 'var(--panel)',
+            fontWeight: 900,
+            cursor: 'pointer',
+          }}
+        >
+          Download buyer template (XLSX)
+        </button>
+      </div>
 
       {sheet ? (
         <>
