@@ -288,7 +288,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             />
             <div style={{ minWidth: 0 }}>
               <div style={{ fontWeight: 950, fontSize: 16, letterSpacing: -0.2, whiteSpace: 'nowrap' }}>
-                ITexchange.broker
+                The IT Exchange
               </div>
               <div
                 style={{
