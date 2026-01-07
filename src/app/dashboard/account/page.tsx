@@ -37,6 +37,8 @@ export default function AccountPage() {
   const [name, setName] = useState('')
   const [company, setCompany] = useState('')
   const [phone, setPhone] = useState('')
+  const [outlookStatus, setOutlookStatus] = useState('Not connected')
+  const [outlookBusy, setOutlookBusy] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -192,6 +194,95 @@ export default function AccountPage() {
 
         <div style={{ marginTop: 8, color: 'var(--muted)', fontSize: 12 }}>
           Email (auth): <b>{authEmail || '—'}</b>
+        </div>
+      </div>
+
+      {/* Outlook */}
+      <div
+        style={{
+          border: '1px solid var(--border)',
+          borderRadius: 12,
+          padding: 14,
+          background: 'var(--panel)',
+          marginBottom: 16,
+        }}
+      >
+        <div style={{ fontWeight: 950, marginBottom: 8 }}>Outlook connection</div>
+        <div style={{ color: 'var(--muted)', marginBottom: 10, fontSize: 12 }}>
+          Connect Outlook to send invites directly from your mailbox and enable future inbox processing.
+        </div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => {
+              window.location.href = '/api/outlook/authorize'
+            }}
+            style={{
+              padding: '10px 12px',
+              borderRadius: 12,
+              border: '1px solid var(--border)',
+              background: 'var(--panel)',
+              fontWeight: 900,
+              cursor: 'pointer',
+            }}
+          >
+            Connect Outlook
+          </button>
+          <button
+            onClick={async () => {
+              setOutlookBusy(true)
+              try {
+                const res = await fetch('/api/outlook/send-test', { method: 'POST' })
+                const json = await res.json()
+                if (!res.ok || !json.ok) throw new Error(json.message || 'Failed')
+                setOutlookStatus('Test email sent')
+              } catch (e) {
+                console.error(e)
+                setOutlookStatus('Test failed')
+                alert(e instanceof Error ? e.message : 'Test failed')
+              } finally {
+                setOutlookBusy(false)
+              }
+            }}
+            disabled={outlookBusy}
+            style={{
+              padding: '10px 12px',
+              borderRadius: 12,
+              border: '1px solid var(--border)',
+              background: 'var(--panel)',
+              fontWeight: 900,
+              cursor: outlookBusy ? 'wait' : 'pointer',
+            }}
+          >
+            Send test email
+          </button>
+          <button
+            onClick={async () => {
+              setOutlookBusy(true)
+              try {
+                const res = await fetch('/api/outlook/disconnect', { method: 'POST' })
+                const json = await res.json()
+                if (!res.ok || !json.ok) throw new Error(json.message || 'Failed')
+                setOutlookStatus('Disconnected')
+              } catch (e) {
+                console.error(e)
+                alert(e instanceof Error ? e.message : 'Failed to disconnect')
+              } finally {
+                setOutlookBusy(false)
+              }
+            }}
+            disabled={outlookBusy}
+            style={{
+              padding: '10px 12px',
+              borderRadius: 12,
+              border: '1px solid var(--border)',
+              background: 'var(--panel)',
+              fontWeight: 900,
+              cursor: outlookBusy ? 'wait' : 'pointer',
+            }}
+          >
+            Disconnect
+          </button>
+          <div style={{ color: 'var(--muted)', fontSize: 12 }}>{outlookStatus}</div>
         </div>
       </div>
 
