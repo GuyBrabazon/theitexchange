@@ -285,6 +285,12 @@ export default function LotInvitePage() {
   const [savingBuyerId, setSavingBuyerId] = useState<string | null>(null)
   const [savingRound, setSavingRound] = useState(false)
 
+  // email drafting (mailto)
+  const [emailModalOpen, setEmailModalOpen] = useState(false)
+  const [emailSubject, setEmailSubject] = useState('')
+  const [emailBody, setEmailBody] = useState('')
+  const [perBuyerBody, setPerBuyerBody] = useState<Record<string, string>>({})
+
   const lotTokens = useMemo(() => keywordTokensFromLot(lot, items), [lot, items])
 
   const loadLot = useCallback(async () => {
@@ -621,6 +627,47 @@ export default function LotInvitePage() {
     return allBuyers.filter((b) => set.has(b.id))
   }, [allBuyers, selectedIds])
 
+  const itemsSummary = useMemo(() => {
+    if (!items.length) return 'See link for details.'
+    const top = items.slice(0, 8)
+    const lines = top.map((it, idx) => `${idx + 1}. ${it.model ?? it.description ?? 'Item'} (${it.description ?? ''})`)
+    if (items.length > top.length) lines.push(`…and ${items.length - top.length} more`)
+    return lines.join('\n')
+  }, [items])
+
+  const bodyForBuyer = useCallback(
+    (b: Buyer) => {
+      const base = perBuyerBody[b.id] || emailBody
+      const firstName = (b.name || '').trim().split(/\s+/)[0] || 'there'
+      return base.replace('{name}', firstName)
+    },
+    [emailBody, perBuyerBody]
+  )
+
+  const handleOpenEmailModal = () => {
+    if (!selectedBuyers.length) return
+    if (!emailSubject) setEmailSubject(lot?.title || 'Lot invite')
+    if (!emailBody) {
+      setEmailBody(
+        `Hi {name},\n\nI'd like to invite you to review lot "${lot?.title ?? ''}".\n\nItems:\n${itemsSummary}\n\nPlease use your unique link above to submit offers.\n\nThanks,\n`
+      )
+    }
+    setEmailModalOpen(true)
+  }
+
+  const sendMailtoAll = () => {
+    selectedBuyers.forEach((b) => {
+      if (!b.email) return
+      const inv = inviteByBuyerId.get(b.id)
+      const base = buildBaseUrl()
+      const link = inv?.token ? `${base}/invite/${inv.token}` : ''
+      const body = `${bodyForBuyer(b)}\n\nLink: ${link}`
+      const mailto = `mailto:${encodeURIComponent(b.email)}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(body)}`
+      window.open(mailto, '_blank')
+    })
+    setEmailModalOpen(false)
+  }
+
   const copyAll = async () => {
     const base = buildBaseUrl()
     const lines: string[] = []
@@ -900,13 +947,18 @@ export default function LotInvitePage() {
               <div>
                 <div style={{ fontWeight: 900, fontSize: 16 }}>Selected buyers</div>
                 <div style={{ color: '#666', fontSize: 12, marginTop: 4 }}>
-                  {selectedBuyers.length} selected • Round {selectedRound?.round_number ?? '—'}
+                  {selectedBuyers.length} selected | Round {selectedRound?.round_number ?? '-'}
                 </div>
               </div>
 
-              <button onClick={copyAll} style={{ padding: '10px 12px', borderRadius: 10 }}>
-                Copy all
-              </button>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button onClick={handleOpenEmailModal} style={{ padding: '10px 12px', borderRadius: 10 }}>
+                  Email invitees
+                </button>
+                <button onClick={copyAll} style={{ padding: '10px 12px', borderRadius: 10 }}>
+                  Copy all
+                </button>
+              </div>
             </div>
 
             <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -938,6 +990,159 @@ export default function LotInvitePage() {
           </aside>
         ) : null}
       </div>
+
+      {emailModalOpen ? (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 80,
+            padding: 16,
+          }}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setEmailModalOpen(false)
+          }}
+        >
+          <div
+            style={{
+              width: 'min(960px, 96vw)',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              background: 'var(--panel)',
+              borderRadius: 14,
+              border: '1px solid var(--border)',
+              padding: 16,
+              boxShadow: 'var(--shadow)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: 900, fontSize: 16 }}>Email invitees ({selectedBuyers.length})</div>
+                <div style={{ color: 'var(--muted)', fontSize: 12 }}>Each buyer gets their own email via your mail client.</div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={sendMailtoAll}
+                  disabled={!selectedBuyers.length}
+                  style={{ padding: '10px 12px', borderRadius: 10, fontWeight: 900 }}
+                >
+                  Confirm & open emails
+                </button>
+                <button onClick={() => setEmailModalOpen(false)} style={{ padding: '10px 12px', borderRadius: 10 }}>
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Subject</div>
+              <input
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: 10,
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--panel)',
+                  fontWeight: 800,
+                }}
+              />
+            </div>
+
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>
+                Shared body (use {'{name}'} placeholder). Each buyer can be customized below.
+              </div>
+              <textarea
+                value={emailBody}
+                onChange={(e) => setEmailBody(e.target.value)}
+                rows={6}
+                style={{
+                  width: '100%',
+                  padding: 10,
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--panel)',
+                  fontFamily: 'inherit',
+                }}
+              />
+            </div>
+
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontWeight: 900, marginBottom: 6 }}>Item summary</div>
+              <pre
+                style={{
+                  whiteSpace: 'pre-wrap',
+                  padding: 10,
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'rgba(0,0,0,0.04)',
+                  fontSize: 12,
+                }}
+              >
+                {itemsSummary}
+              </pre>
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontWeight: 900, marginBottom: 8 }}>Buyer-specific drafts</div>
+              <div style={{ display: 'grid', gap: 10 }}>
+                {selectedBuyers.map((b) => {
+                  const inv = inviteByBuyerId.get(b.id)
+                  if (!b.email) {
+                    return (
+                      <div key={b.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 10, background: 'rgba(0,0,0,0.03)' }}>
+                        <div style={{ fontWeight: 900 }}>{b.name}</div>
+                        <div style={{ color: 'crimson', fontSize: 12 }}>No email on file; skipped.</div>
+                      </div>
+                    )
+                  }
+                  const base = buildBaseUrl()
+                  const link = inv?.token ? `${base}/invite/${inv.token}` : ''
+                  return (
+                    <div key={b.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 10, background: 'rgba(0,0,0,0.02)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <div style={{ fontWeight: 900 }}>{b.name}</div>
+                        <div style={{ color: 'var(--muted)', fontSize: 12 }}>{b.email}</div>
+                      </div>
+                      <div style={{ marginTop: 6, fontSize: 12, color: 'var(--muted)', wordBreak: 'break-all' }}>{link}</div>
+                      <div style={{ marginTop: 8 }}>
+                        <textarea
+                          value={perBuyerBody[b.id] ?? bodyForBuyer(b)}
+                          onChange={(e) => setPerBuyerBody((prev) => ({ ...prev, [b.id]: e.target.value }))}
+                          rows={4}
+                          style={{
+                            width: '100%',
+                            padding: 10,
+                            borderRadius: 10,
+                            border: '1px solid var(--border)',
+                            background: 'var(--panel)',
+                            fontFamily: 'inherit',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div style={{ marginTop: 14, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={() => setEmailModalOpen(false)} style={{ padding: '10px 12px', borderRadius: 10 }}>
+                Cancel
+              </button>
+              <button onClick={sendMailtoAll} style={{ padding: '10px 12px', borderRadius: 10, fontWeight: 900 }}>
+                Confirm & open emails
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   )
 }

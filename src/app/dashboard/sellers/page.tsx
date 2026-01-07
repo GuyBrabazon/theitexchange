@@ -353,6 +353,27 @@ export default function SellersPage() {
 
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                   <button
+                    onClick={() => {
+                      if (!r.email) return
+                      const mailto = `mailto:${encodeURIComponent(r.email)}?subject=${encodeURIComponent('Hello from The IT Exchange')}`
+                      window.open(mailto, '_blank')
+                    }}
+                    disabled={!r.email}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: 12,
+                      border: '1px solid var(--border)',
+                      background: 'var(--panel)',
+                      color: 'var(--text)',
+                      fontWeight: 900,
+                      cursor: r.email ? 'pointer' : 'not-allowed',
+                      opacity: r.email ? 1 : 0.6,
+                    }}
+                  >
+                    Email
+                  </button>
+
+                  <button
                     onClick={() => openEdit(r)}
                     style={{
                       padding: '10px 12px',

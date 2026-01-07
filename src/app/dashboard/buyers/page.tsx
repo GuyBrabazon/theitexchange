@@ -136,6 +136,7 @@ export default function BuyersPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [editBuyer, setEditBuyer] = useState<BuyerRow | null>(null)
   const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   // form fields
   const [fName, setFName] = useState('')
@@ -305,6 +306,23 @@ export default function BuyersPage() {
     }
   }
 
+  const deleteBuyer = async (b: BuyerRow) => {
+    if (!tenantId || deletingId) return
+    const confirmed = window.confirm(`Delete buyer "${b.name}"? This cannot be undone.`)
+    if (!confirmed) return
+    setDeletingId(b.id)
+    try {
+      const { error } = await supabase.from('buyers').delete().eq('tenant_id', tenantId).eq('id', b.id)
+      if (error) throw error
+      setBuyers((prev) => prev.filter((row) => row.id !== b.id))
+    } catch (e: unknown) {
+      console.error(e)
+      alert(e instanceof Error ? e.message : 'Failed to delete buyer')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   return (
     <main>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
@@ -395,13 +413,13 @@ export default function BuyersPage() {
                 <div style={{ minWidth: 320 }}>
                   <div style={{ fontWeight: 950, letterSpacing: -0.1, fontSize: 16 }}>
                     {b.name}
-                    {b.company ? <span style={{ color: 'var(--muted)', fontWeight: 800 }}> | {b.company}</span> : null}
-                  </div>
-                  <div style={{ marginTop: 4, color: 'var(--muted)', fontSize: 12 }}>
+                  {b.company ? <span style={{ color: 'var(--muted)', fontWeight: 800 }}> | {b.company}</span> : null}
+                </div>
+                <div style={{ marginTop: 4, color: 'var(--muted)', fontSize: 12 }}>
                     {b.email ?? '(no email)'}
                     {b.phone ? ` | ${b.phone}` : ''}
                     {` | Created: ${new Date(b.created_at).toLocaleDateString()}`}
-                  </div>
+                </div>
 
                   <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <Pill>Credit: {b.credit_ok ? 'OK' : 'Flag'}</Pill>
@@ -420,6 +438,26 @@ export default function BuyersPage() {
 
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                   <button
+                    onClick={() => {
+                      if (!b.email) return
+                      const mailto = `mailto:${encodeURIComponent(b.email)}?subject=${encodeURIComponent('Hello from The IT Exchange')}`
+                      window.open(mailto, '_blank')
+                    }}
+                    disabled={!b.email}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: 10,
+                      border: '1px solid var(--border)',
+                      background: 'var(--panel)',
+                      fontWeight: 900,
+                      cursor: b.email ? 'pointer' : 'not-allowed',
+                      opacity: b.email ? 1 : 0.6,
+                    }}
+                  >
+                    Email
+                  </button>
+
+                  <button
                     onClick={() => openEdit(b)}
                     style={{
                       padding: '10px 12px',
@@ -431,6 +469,21 @@ export default function BuyersPage() {
                     }}
                   >
                     Edit buyer
+                  </button>
+
+                  <button
+                    onClick={() => deleteBuyer(b)}
+                    disabled={deletingId === b.id}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: 10,
+                      border: '1px solid var(--border)',
+                      background: 'rgba(220,38,38,0.12)',
+                      fontWeight: 900,
+                      cursor: deletingId === b.id ? 'wait' : 'pointer',
+                    }}
+                  >
+                    {deletingId === b.id ? 'Deleting…' : 'Delete buyer'}
                   </button>
                 </div>
               </div>
