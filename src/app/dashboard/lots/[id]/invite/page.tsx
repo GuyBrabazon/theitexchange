@@ -18,6 +18,12 @@ type LineItem = {
   lot_id: string
   model: string | null
   description: string | null
+  qty?: number | null
+  asking_price?: number | null
+  cpu?: string | null
+  memory_part_numbers?: string | null
+  gpu?: string | null
+  specs?: Record<string, unknown> | null
 }
 
 type Buyer = {
@@ -306,7 +312,7 @@ export default function LotInvitePage() {
   const loadItems = useCallback(async () => {
     const { data, error } = await supabase
       .from('line_items')
-      .select('id,lot_id,model,description')
+      .select('id,lot_id,model,description,qty,asking_price,cpu,memory_part_numbers,gpu,specs')
       .eq('lot_id', lotId)
       .order('id', { ascending: false })
       .limit(800)
@@ -627,11 +633,52 @@ export default function LotInvitePage() {
     return allBuyers.filter((b) => set.has(b.id))
   }, [allBuyers, selectedIds])
 
-  const itemsSummary = useMemo(() => {
-    if (!items.length) return 'See link for details.'
-    const top = items.slice(0, 8)
-    const lines = top.map((it, idx) => `${idx + 1}. ${it.model ?? it.description ?? 'Item'} (${it.description ?? ''})`)
-    if (items.length > top.length) lines.push(`…and ${items.length - top.length} more`)
+  const itemsTable = useMemo(() => {
+    if (!items.length) return 'No line items available.'
+    const headers = [
+      'Model',
+      'Description',
+      'Qty',
+      'Asking price',
+      'OEM',
+      'CPU',
+      'CPU Qty',
+      'Memory',
+      'Memory Qty',
+      'GPU',
+      'Drives',
+      'Drives Qty',
+      'Offer',
+    ]
+    const lines: string[] = []
+    lines.push(headers.join('\t'))
+    const rows = items.slice(0, 50)
+    rows.forEach((it) => {
+      const specs = (it.specs ?? {}) as Record<string, unknown>
+      const oem = (specs.oem_guess as string) || ''
+      const cpuQty = (specs.cpu_qty as string) || ''
+      const memQty = (specs.memory_qty as string) || ''
+      const drives = (specs.drives as string) || ''
+      const drivesQty = (specs.drives_qty as string) || ''
+      lines.push(
+        [
+          it.model ?? '',
+          it.description ?? '',
+          it.qty ?? '',
+          it.asking_price ?? '',
+          oem,
+          it.cpu ?? '',
+          cpuQty,
+          it.memory_part_numbers ?? '',
+          memQty,
+          it.gpu ?? '',
+          drives,
+          drivesQty,
+          '',
+        ].join('\t')
+      )
+    })
+    if (items.length > rows.length) lines.push(`...and ${items.length - rows.length} more lines`)
     return lines.join('\n')
   }, [items])
 
@@ -649,7 +696,7 @@ export default function LotInvitePage() {
     if (!emailSubject) setEmailSubject(lot?.title || 'Lot invite')
     if (!emailBody) {
       setEmailBody(
-        `Hi {name},\n\nI'd like to invite you to review lot "${lot?.title ?? ''}".\n\nItems:\n${itemsSummary}\n\nPlease use your unique link above to submit offers.\n\nThanks,\n`
+        `Hi {name},\n\nI'd like to share the details for lot "${lot?.title ?? ''}".\n\nItems (copy/paste into your email client):\n${itemsTable}\n\nFeel free to reply with your offer or questions.\n\nThanks,\n`
       )
     }
     setEmailModalOpen(true)
@@ -661,7 +708,7 @@ export default function LotInvitePage() {
       const inv = inviteByBuyerId.get(b.id)
       const base = buildBaseUrl()
       const link = inv?.token ? `${base}/invite/${inv.token}` : ''
-      const body = `${bodyForBuyer(b)}\n\nLink: ${link}`
+      const body = `${bodyForBuyer(b)}\n\nLink (optional): ${link}\n\nItems:\n${itemsTable}`
       const mailto = `mailto:${encodeURIComponent(b.email)}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(body)}`
       window.open(mailto, '_blank')
     })
@@ -1085,7 +1132,7 @@ export default function LotInvitePage() {
                   fontSize: 12,
                 }}
               >
-                {itemsSummary}
+                {itemsTable}
               </pre>
             </div>
 
