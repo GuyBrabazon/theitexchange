@@ -49,6 +49,16 @@ export default function BuyPage() {
     init()
   }, [])
 
+  const getToken = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    const token = session?.access_token ?? null
+    setAuthToken(token)
+    if (!token) throw new Error('Not authenticated. Please sign in again.')
+    return token
+  }
+
   const runSearch = async () => {
     if (!term.trim()) {
       setResults([])
@@ -57,8 +67,7 @@ export default function BuyPage() {
     try {
       setLoading(true)
       setError('')
-      const token = authToken
-      if (!token) throw new Error('Not authenticated. Please sign in again.')
+      const token = authToken ?? (await getToken())
       const res = await fetch(`/api/buy/search?term=${encodeURIComponent(term)}`, {
         credentials: 'include',
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
@@ -115,8 +124,7 @@ export default function BuyPage() {
         inventory_item_id: id,
         qty_requested: selected[id]?.qty ? Number(selected[id].qty) || null : null,
       }))
-      const token = authToken
-      if (!token) throw new Error('Not authenticated. Please sign in again.')
+      const token = authToken ?? (await getToken())
       const res = await fetch('/api/buy/rfq', {
         method: 'POST',
         credentials: 'include',
