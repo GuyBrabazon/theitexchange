@@ -412,23 +412,42 @@ export default function QuotingPage() {
         <p style={{ color: 'var(--muted)', maxWidth: 720 }}>
           Build customer quotes directly from inventory. Select parts, set quantities and prices, and send via your Outlook connection.
         </p>
-        <Link
-          href="/dashboard/rfqs"
-          style={{
-            padding: '8px 12px',
-            borderRadius: 10,
-            border: '1px solid var(--border)',
-            background: rfqs.length ? 'var(--good)' : 'var(--panel)',
-            color: rfqs.length ? '#fff' : 'var(--text)',
-            fontWeight: 800,
-            cursor: 'pointer',
-            textDecoration: 'none',
-            display: 'inline-block',
-          }}
-          title="View RFQs awaiting response"
-        >
-          RFQs pending {rfqs.length ? `(${rfqs.length})` : ''}
-        </Link>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Link
+            href="/dashboard/rfqs"
+            style={{
+              padding: '8px 12px',
+              borderRadius: 10,
+              border: '1px solid var(--border)',
+              background: rfqs.length ? 'var(--good)' : 'var(--panel)',
+              color: rfqs.length ? '#fff' : 'var(--text)',
+              fontWeight: 800,
+              cursor: 'pointer',
+              textDecoration: 'none',
+              display: 'inline-block',
+            }}
+            title="View RFQs awaiting response"
+          >
+            RFQs pending {rfqs.length ? `(${rfqs.length})` : ''}
+          </Link>
+          <Link
+            href="/dashboard/quotes-history"
+            style={{
+              padding: '8px 12px',
+              borderRadius: 10,
+              border: '1px solid var(--border)',
+              background: 'var(--panel)',
+              fontWeight: 800,
+              cursor: 'pointer',
+              textDecoration: 'none',
+              display: 'inline-block',
+              color: 'var(--text)',
+            }}
+            title="View past quotes"
+          >
+            Past Quotes
+          </Link>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
