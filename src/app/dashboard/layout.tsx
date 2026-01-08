@@ -16,17 +16,17 @@ function NavItem({ href, label, importance = 'normal', soon = false }: NavItemDe
   const pathname = usePathname()
   const active = pathname === href || pathname.startsWith(href + '/')
 
-  const baseBg = active ? 'rgba(245,174,109,0.14)' : 'transparent'
-  const border = active ? 'rgba(245,174,109,0.24)' : 'var(--border)'
-  const text = active ? 'var(--text)' : 'rgba(247,242,236,0.92)'
+  const baseBg = active ? 'var(--accent-soft)' : 'transparent'
+  const border = active ? 'var(--border)' : 'var(--border)'
+  const text = active ? 'var(--text)' : 'var(--muted)'
   const fontWeight = importance === 'primary' ? 950 : importance === 'quiet' ? 750 : 900
 
   const iconDot =
     importance === 'primary'
       ? 'var(--accent)'
       : importance === 'quiet'
-        ? 'rgba(247,242,236,0.35)'
-        : 'rgba(245,174,109,0.6)'
+        ? 'var(--muted)'
+        : 'var(--accent-2)'
 
   return (
     <Link
@@ -519,22 +519,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Footer actions */}
         <div style={{ marginTop: 18, display: 'grid', gap: 10 }}>
-          <button
-            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-            style={{
-              width: '100%',
-              padding: '8px 10px',
-              borderRadius: 12,
-              border: '1px solid var(--border)',
-              background: 'var(--panel)',
-              color: 'var(--text)',
-              fontWeight: 900,
-              cursor: 'pointer',
-            }}
-          >
-            Toggle {theme === 'light' ? 'dark' : 'light'} mode
-          </button>
-
           <button
             onClick={signOut}
             style={{

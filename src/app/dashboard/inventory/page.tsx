@@ -20,14 +20,6 @@ type InventoryRow = {
   specs: Record<string, unknown> | null
 }
 
-const statusLegend = [
-  { label: 'Available', color: 'var(--good)' },
-  { label: 'Reserved', color: 'var(--warn)' },
-  { label: 'Auction', color: 'var(--accent)' },
-  { label: 'Allocated', color: 'var(--info)' },
-  { label: 'Sold', color: 'var(--bad)' },
-]
-
 const currencyOptions = ['USD', 'EUR', 'GBP', 'ZAR', 'AUD', 'CAD', 'SGD', 'AED']
 
 export default function InventoryPage() {
@@ -37,6 +29,7 @@ export default function InventoryPage() {
   const [tenantId, setTenantId] = useState<string>('')
   const [tenantCurrency, setTenantCurrency] = useState<string>('USD')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [search, setSearch] = useState<string>('')
   const [manual, setManual] = useState({
     model: '',
     description: '',
@@ -153,20 +146,15 @@ export default function InventoryPage() {
   }, [])
 
   const filteredRows = useMemo(() => {
+    const term = search.trim().toLowerCase()
     return rows.filter((r) => {
       const statusOk = statusFilter === 'all' || (r.status ?? 'available')?.toLowerCase() === statusFilter
-      return statusOk
+      if (!statusOk) return false
+      if (!term) return true
+      const hay = [r.model, r.description, r.oem, r.condition].map((x) => (x ?? '').toLowerCase())
+      return hay.some((h) => h.includes(term))
     })
-  }, [rows, statusFilter])
-
-  const counters = useMemo(() => {
-    const byStatus = rows.reduce<Record<string, number>>((acc, r) => {
-      const key = (r.status ?? 'available').toLowerCase()
-      acc[key] = (acc[key] || 0) + 1
-      return acc
-    }, {})
-    return { total: rows.length, byStatus }
-  }, [rows])
+  }, [rows, statusFilter, search])
 
   const previewRows = useMemo(() => dataRows.slice(0, 8), [dataRows])
 
@@ -443,8 +431,19 @@ export default function InventoryPage() {
               <option key={s} value={s}>
                 {s}
               </option>
-            ))}
+            ))} 
           </select>
+        </div>
+
+        <div style={{ display: 'grid', gap: 6 }}>
+          <label style={{ fontSize: 12, color: 'var(--muted)' }}>Search</label>
+          <input
+            type="text"
+            placeholder="Search part / description / OEM / condition"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+          />
         </div>
 
         <div style={{ display: 'grid', gap: 6 }}>
@@ -531,29 +530,6 @@ export default function InventoryPage() {
             style={{ width: 120, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
           />
         </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
-        {statusLegend.map((s) => (
-          <div
-            key={s.label}
-            style={{
-              border: '1px solid var(--border)',
-              borderRadius: 12,
-              padding: 12,
-              background: 'var(--panel)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 6,
-            }}
-          >
-            <div style={{ fontWeight: 900 }}>{s.label}</div>
-            <div style={{ height: 4, borderRadius: 4, background: s.color }} />
-            <div style={{ color: 'var(--muted)', fontSize: 12 }}>
-              {loading ? 'Loading...' : counters.byStatus[s.label.toLowerCase()] || 0} items
-            </div>
-          </div>
-        ))}
       </div>
 
       <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--panel)' }}>

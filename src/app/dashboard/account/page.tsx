@@ -41,6 +41,7 @@ export default function AccountPage() {
   const [outlookBusy, setOutlookBusy] = useState(false)
   const [canSeeOrg, setCanSeeOrg] = useState(false)
   const [tenantId, setTenantId] = useState<string>('')
+  const [theme, setTheme] = useState<'light' | 'dark'>('light')
 
   useEffect(() => {
     const load = async () => {
@@ -99,6 +100,23 @@ export default function AccountPage() {
 
     load()
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const stored = (localStorage.getItem('theme') as 'light' | 'dark' | null) ?? 'light'
+    setTheme(stored)
+  }, [])
+
+  const toggleTheme = () => {
+    const next = theme === 'light' ? 'dark' : 'light'
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', next)
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('theme', next)
+    }
+    setTheme(next)
+  }
 
   const save = async () => {
     if (!authId) return
@@ -212,6 +230,35 @@ export default function AccountPage() {
         <div style={{ marginTop: 8, color: 'var(--muted)', fontSize: 12 }}>
           Email (auth): <b>{authEmail || '—'}</b>
         </div>
+      </div>
+
+      {/* Appearance */}
+      <div
+        style={{
+          border: '1px solid var(--border)',
+          borderRadius: 12,
+          padding: 14,
+          background: 'var(--panel)',
+          marginBottom: 16,
+        }}
+      >
+        <div style={{ fontWeight: 950, marginBottom: 8 }}>Appearance</div>
+        <div style={{ color: 'var(--muted)', marginBottom: 10, fontSize: 12 }}>
+          Switch between light and dark themes. Preference is saved to this device.
+        </div>
+        <button
+          onClick={toggleTheme}
+          style={{
+            padding: '10px 12px',
+            borderRadius: 12,
+            border: '1px solid var(--border)',
+            background: 'var(--panel)',
+            fontWeight: 900,
+            cursor: 'pointer',
+          }}
+        >
+          Toggle {theme === 'light' ? 'dark' : 'light'} mode
+        </button>
       </div>
 
       {/* Outlook */}
@@ -333,7 +380,7 @@ export default function AccountPage() {
                   if (!confirm('This deletes all AVAILABLE inventory for your organisation. Proceed?')) return
                   setOutlookBusy(true)
                   try {
-                    const res = await fetch('/api/inventory/purge', { method: 'POST' })
+                    const res = await fetch('/api/inventory/purge', { method: 'POST', credentials: 'include' })
                     const json = await res.json()
                     if (!res.ok || !json.ok) throw new Error(json.message || 'Purge failed')
                     alert('Available inventory purged.')

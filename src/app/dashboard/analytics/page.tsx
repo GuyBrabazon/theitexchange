@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -228,6 +228,7 @@ export default function AnalyticsPage() {
   const [awardedLines, setAwardedLines] = useState<AwardedLine[]>([])
   const [lineItems, setLineItems] = useState<LineItem[]>([])
   const [financials, setFinancials] = useState<Map<string, LotFinancial>>(new Map())
+  const [inventoryCounts, setInventoryCounts] = useState<Record<string, number>>({})
 
   const now = useMemo(() => new Date(), [])
   const startDate = useMemo(() => startDateFor(timeframe, now), [timeframe, now])
@@ -286,6 +287,24 @@ export default function AnalyticsPage() {
       // Financials (for profit inputs) — safe loader handles schema drift.
       const finMap = await loadFinancialsSafe(profile.tenant_id, lotIdsForCounts)
       setFinancials(finMap)
+
+      // Inventory status counts
+      try {
+        const { data: invData, error: invErr } = await supabase
+          .from('inventory_items')
+          .select('status')
+          .eq('tenant_id', profile.tenant_id)
+          .limit(5000)
+        if (invErr) throw invErr
+        const counts: Record<string, number> = {}
+        for (const row of invData ?? []) {
+          const status = (row as { status: string | null }).status?.toLowerCase() ?? 'available'
+          counts[status] = (counts[status] ?? 0) + 1
+        }
+        setInventoryCounts(counts)
+      } catch (invErr) {
+        console.warn('inventory stats load failed', invErr)
+      }
     } catch (e: unknown) {
       console.error(e)
       const msg = e instanceof Error ? e.message : 'Failed to load analytics'
@@ -482,6 +501,17 @@ export default function AnalyticsPage() {
     return 'Last 30 days'
   }, [timeframe])
 
+  const inventoryStatusDefs = useMemo(
+    () => [
+      { key: 'available', label: 'Available', color: 'var(--good)' },
+      { key: 'reserved', label: 'Reserved', color: 'var(--warn)' },
+      { key: 'auction', label: 'Auction', color: 'var(--accent)' },
+      { key: 'allocated', label: 'Allocated', color: 'var(--info)' },
+      { key: 'sold', label: 'Sold', color: 'var(--bad)' },
+    ],
+    []
+  )
+
   if (loading) {
     return (
       <main>
@@ -513,7 +543,7 @@ export default function AnalyticsPage() {
         <div>
           <h1 style={{ marginBottom: 6 }}>Analytics</h1>
           <div style={{ color: 'var(--muted)' }}>
-            {timeframeLabel} • Tenant: <b style={{ color: 'var(--text)' }}>{tenantId.slice(0, 8)}…</b>
+            {timeframeLabel} • Tenant: <b style={{ color: 'var(--text)' }}>{tenantId.slice(0, 8)}</b>
           </div>
         </div>
 
@@ -550,6 +580,27 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
+      <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+        {inventoryStatusDefs.map((s) => (
+          <div
+            key={s.key}
+            style={{
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--r-md)',
+              padding: 12,
+              background: 'var(--panel)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+            }}
+          >
+            <div style={{ fontWeight: 900 }}>{s.label}</div>
+            <div style={{ height: 4, borderRadius: 4, background: s.color }} />
+            <div style={{ color: 'var(--muted)', fontSize: 12 }}>{inventoryCounts[s.key] ?? 0} items</div>
+          </div>
+        ))}
+      </div>
+
       <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12 }}>
         <Card title="Profit (estimated)" subtitle="Based on lot_financials: cost known / asking known / estimated @ target margin">
           <div style={{ fontSize: 24, fontWeight: 950 }}>{money(totals.profit, currencyHint)}</div>
@@ -570,7 +621,7 @@ export default function AnalyticsPage() {
         <Card title="Lots sold" subtitle="All line items awarded (in that lot)">
           <div style={{ fontSize: 24, fontWeight: 950 }}>{totals.soldLots}</div>
           <div style={{ marginTop: 8, color: 'var(--muted)', fontSize: 12 }}>
-            Measured as: awarded distinct items ≥ total items
+            Measured as: awarded distinct items = total items
           </div>
         </Card>
 
@@ -581,29 +632,6 @@ export default function AnalyticsPage() {
           </div>
         </Card>
       </div>
-
-      <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'start' }}>
-        <Card
-          title="Revenue over time"
-          subtitle={`Daily bars • ${timeframeLabel}`}
-          right={<div style={{ color: 'var(--muted)', fontSize: 12 }}>Start: {fmtDate(startDate.toISOString())}</div>}
-        >
-          {series.revenueSeries.every((s) => s.value === 0) ? (
-            <div style={{ color: 'var(--muted)' }}>No awarded revenue in this timeframe yet.</div>
-          ) : (
-            <MiniBars series={series.revenueSeries} valueLabel={(v) => money(v, currencyHint)} />
-          )}
-        </Card>
-
-        <Card title="Profit over time" subtitle={`Estimated daily profit • ${timeframeLabel}`}>
-          {series.profitSeries.every((s) => s.value === 0) ? (
-            <div style={{ color: 'var(--muted)' }}>No profit signal yet (needs awards).</div>
-          ) : (
-            <MiniBars series={series.profitSeries} valueLabel={(v) => money(v, currencyHint)} />
-          )}
-        </Card>
-      </div>
-
       <div style={{ marginTop: 14 }}>
         <Card
           title="Lots contributing to this timeframe"
@@ -620,7 +648,7 @@ export default function AnalyticsPage() {
                 fontWeight: 900,
               }}
             >
-              View lots →
+              View lots ?
             </Link>
           }
         >
