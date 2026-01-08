@@ -214,7 +214,11 @@ export default function AccountPage() {
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <button
             onClick={() => {
-              window.location.href = '/api/outlook/authorize'
+              if (!authId) {
+                alert('User not loaded yet')
+                return
+              }
+              window.location.href = `/api/outlook/authorize?uid=${authId}`
             }}
             style={{
               padding: '10px 12px',

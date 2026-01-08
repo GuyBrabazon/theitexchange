@@ -7,12 +7,16 @@ export async function GET(req: Request) {
   const url = new URL(req.url)
   const code = url.searchParams.get('code')
   const error = url.searchParams.get('error')
+  const stateUser = url.searchParams.get('state')
 
   if (error) {
     return new NextResponse(`Outlook auth error: ${error}`, { status: 400 })
   }
   if (!code) {
     return new NextResponse('Missing code', { status: 400 })
+  }
+  if (!stateUser) {
+    return new NextResponse('Missing user in state', { status: 400 })
   }
 
   const clientId = process.env.OUTLOOK_CLIENT_ID
@@ -48,21 +52,14 @@ export async function GET(req: Request) {
     const expiresIn = data.expires_in
     const gotRefresh = Boolean(data.refresh_token)
 
-    // Persist tokens securely for the current user (identified via Supabase session cookie)
+    // Persist tokens for the user id passed in state (set by authorize route)
     try {
       const supa = supabaseServer()
-      const {
-        data: { user },
-        error: userErr,
-      } = await supa.auth.getUser()
-      if (userErr) throw userErr
-      if (!user) throw new Error('No authenticated user')
-
       const expiresAt = new Date(Date.now() + Number(expiresIn || 0) * 1000).toISOString()
 
       const { error: upsertErr } = await supa.from('outlook_tokens').upsert(
         {
-          user_id: user.id,
+          user_id: stateUser,
           access_token: data.access_token,
           refresh_token: data.refresh_token ?? null,
           expires_at: expiresAt,
