@@ -42,6 +42,15 @@ export default function OrgSetupPage() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<UserRow['role']>('broker')
 
+  const getToken = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    const token = session?.access_token ?? null
+    if (!token) throw new Error('Not authenticated')
+    return token
+  }
+
   useEffect(() => {
     const load = async () => {
       setLoading(true)
@@ -113,24 +122,27 @@ export default function OrgSetupPage() {
     setError('')
     setSuccess('')
     try {
-      const { error: upTenantErr } = await supabase.from('tenants').update({ name: tenantName }).eq('id', tenantId)
-      if (upTenantErr) throw upTenantErr
-
-      const { error: setErr } = await supabase
-        .from('tenant_settings')
-        .upsert(
-          {
-            tenant_id: tenantId,
+      const token = await getToken()
+      const res = await fetch('/api/org-setup/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          tenant_name: tenantName,
+          settings: {
             default_currency: settings.default_currency ?? 'USD',
             margins_visible_to_brokers: settings.margins_visible_to_brokers,
             ops_can_edit_costs: settings.ops_can_edit_costs,
             require_finance_approval_for_award: settings.require_finance_approval_for_award,
             work_email_domain: settings.work_email_domain || null,
-            updated_at: new Date().toISOString(),
           },
-          { onConflict: 'tenant_id' }
-        )
-      if (setErr) throw setErr
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.ok) throw new Error(json.message || 'Save failed')
       setSuccess('Organisation settings saved')
     } catch (e) {
       console.error(e)
