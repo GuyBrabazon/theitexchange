@@ -30,12 +30,17 @@ export default function BuyPage() {
   const [results, setResults] = useState<SupplierResult[]>([])
   const [selected, setSelected] = useState<Record<string, { qty: string; supplier: string }>>({})
   const [sending, setSending] = useState(false)
+  const [authToken, setAuthToken] = useState<string | null>(null)
 
   useEffect(() => {
     const init = async () => {
       try {
         const profile = await ensureProfile()
         setTenantId(profile.tenant_id)
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+        setAuthToken(session?.access_token ?? null)
       } catch (e) {
         console.error(e)
         setError(e instanceof Error ? e.message : 'Failed to load profile')
@@ -52,10 +57,8 @@ export default function BuyPage() {
     try {
       setLoading(true)
       setError('')
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      const token = session?.access_token
+      const token = authToken
+      if (!token) throw new Error('Not authenticated. Please sign in again.')
       const res = await fetch(`/api/buy/search?term=${encodeURIComponent(term)}`, {
         credentials: 'include',
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
@@ -112,15 +115,12 @@ export default function BuyPage() {
         inventory_item_id: id,
         qty_requested: selected[id]?.qty ? Number(selected[id].qty) || null : null,
       }))
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      const token = session?.access_token
+      const token = authToken
+      if (!token) throw new Error('Not authenticated. Please sign in again.')
       const res = await fetch('/api/buy/rfq', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        ...(token ? { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } } : {}),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           supplier_tenant_id: supplierId,
           subject: `RFQ: ${term}`.trim(),
