@@ -51,19 +51,7 @@ export async function GET(request: Request) {
       if (!acc[sid]) {
         acc[sid] = { supplier_tenant_id: sid, supplier_name: tenantMap.get(sid) ?? 'Supplier', items: [] }
       }
-      acc[sid].items.push({
-        id: row.id,
-        model: row.model,
-        description: row.description,
-        oem: row.oem,
-        condition: row.condition,
-        qty_available: row.qty_available,
-        qty_total: row.qty_total,
-        status: row.status,
-        location: row.location,
-        currency: row.currency,
-        cost: row.cost,
-      })
+      acc[sid].items.push(row as ItemRow)
       return acc
     }, {})
 
