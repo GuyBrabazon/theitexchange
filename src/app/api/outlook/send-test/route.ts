@@ -28,11 +28,10 @@ export async function POST(req: Request) {
     }
 
     if (!email) {
-      // fetch auth email if not already set
-      const {
-        data: { user },
-      } = await supa.auth.getUser()
-      email = user?.email ?? ''
+      // fetch auth email if not already set (service role can read auth.users)
+      const { data: authUser, error: authErr } = await supa.auth.admin.getUserById(userId)
+      if (authErr) throw authErr
+      email = authUser?.user?.email ?? ''
     }
     if (!email) return NextResponse.json({ ok: false, message: 'User email missing' }, { status: 400 })
 
