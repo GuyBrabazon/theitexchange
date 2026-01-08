@@ -7,7 +7,8 @@ export const runtime = 'nodejs'
 export async function POST(req: Request) {
   try {
     const supa = supabaseServer()
-    const authHeader = req.headers.get('authorization') ?? (await headers()).get('authorization')
+    const hdrs = await headers()
+    const authHeader = req.headers.get('authorization') ?? (hdrs as Headers).get?.('authorization')
     const token = authHeader?.replace(/Bearer\s+/i, '')
     const {
       data: { user },
