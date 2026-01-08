@@ -25,7 +25,6 @@ export default function QuotesHistoryPage() {
   const [filterBuyer, setFilterBuyer] = useState('')
   const [filterText, setFilterText] = useState('')
   const [filterStart, setFilterStart] = useState('')
-  const [filterEnd, setFilterEnd] = useState('')
   const [filterPart, setFilterPart] = useState('')
 
   useEffect(() => {
@@ -108,7 +107,6 @@ export default function QuotesHistoryPage() {
     return quotes.filter((q) => {
       if (filterBuyer && q.buyer?.id !== filterBuyer) return false
       if (filterStart && new Date(q.created_at) < new Date(filterStart)) return false
-      if (filterEnd && new Date(q.created_at) > new Date(filterEnd + 'T23:59:59')) return false
       const text = filterText.toLowerCase()
       if (text) {
         const hay = `${q.subject ?? ''} ${q.buyer?.name ?? ''} ${q.buyer?.company ?? ''}`.toLowerCase()
@@ -123,7 +121,7 @@ export default function QuotesHistoryPage() {
       }
       return true
     })
-  }, [quotes, filterBuyer, filterText, filterStart, filterEnd, filterPart])
+  }, [quotes, filterBuyer, filterText, filterStart, filterPart])
 
   return (
     <main style={{ padding: 24, display: 'grid', gap: 16 }}>
@@ -165,12 +163,6 @@ export default function QuotesHistoryPage() {
           onChange={(e) => setFilterStart(e.target.value)}
           style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
         />
-        <input
-          type="date"
-          value={filterEnd}
-          onChange={(e) => setFilterEnd(e.target.value)}
-          style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
-        />
       </div>
 
       {error ? (
@@ -191,6 +183,14 @@ export default function QuotesHistoryPage() {
                   <div style={{ color: 'var(--muted)', fontSize: 12 }}>
                     {q.buyer?.name || q.buyer?.company || 'Customer'} • {new Date(q.created_at).toLocaleString()} • status {q.status}
                   </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}>
+                    Convert to order
+                  </button>
+                  <button style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}>
+                    Edit convert
+                  </button>
                 </div>
               </div>
               {q.lines.length ? (
