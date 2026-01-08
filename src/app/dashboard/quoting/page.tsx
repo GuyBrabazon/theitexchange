@@ -226,10 +226,10 @@ export default function QuotingPage() {
         return {
           id: String(r.id ?? ''),
           buyer: buyerObj,
-          subject: r.subject ?? null,
-          status: r.status ?? 'sent',
-          created_at: r.created_at ?? new Date().toISOString(),
-          sent_at: r.sent_at ?? null,
+          subject: r.subject === null || r.subject === undefined ? null : String(r.subject),
+          status: r.status === null || r.status === undefined ? 'sent' : String(r.status),
+          created_at: r.created_at ? String(r.created_at) : new Date().toISOString(),
+          sent_at: r.sent_at ? String(r.sent_at) : null,
         }
       }) ?? []
     const filtered = text
