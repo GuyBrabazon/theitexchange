@@ -74,15 +74,24 @@ export default function QuotingPage() {
         if (buyersErr) throw buyersErr
 
         setItems(
-          (itemsData ?? []).map((r) => ({
-            id: String((r as Record<string, unknown>).id ?? ''),
-            model: (r as Record<string, unknown>).model as string | null,
-            description: (r as Record<string, unknown>).description as string | null,
-            oem: (r as Record<string, unknown>).oem as string | null,
-            qty_available: typeof (r as Record<string, unknown>).qty_available === 'number' ? (r as Record<string, unknown>).qty_available : null,
-            currency: (r as Record<string, unknown>).currency as string | null,
-            cost: typeof (r as Record<string, unknown>).cost === 'number' ? (r as Record<string, unknown>).cost : null,
-          }))
+          (itemsData ?? []).map((r) => {
+            const row = r as Record<string, unknown>
+            const toNum = (val: unknown) => {
+              if (typeof val === 'number') return val
+              if (val === null || val === undefined || val === '') return null
+              const n = Number(val)
+              return Number.isFinite(n) ? n : null
+            }
+            return {
+              id: String(row.id ?? ''),
+              model: (row.model as string | null) ?? null,
+              description: (row.description as string | null) ?? null,
+              oem: (row.oem as string | null) ?? null,
+              qty_available: toNum(row.qty_available),
+              currency: (row.currency as string | null) ?? null,
+              cost: toNum(row.cost),
+            }
+          })
         )
         setBuyers(
           (buyersData ?? []).map((b) => ({
