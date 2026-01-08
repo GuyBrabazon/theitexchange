@@ -128,6 +128,21 @@ export default function QuotesHistoryPage() {
       <div>
         <h1 style={{ marginBottom: 6 }}>Past Quotes</h1>
         <p style={{ color: 'var(--muted)' }}>Search and filter historical quotes. Use this to respond to follow-ups or convert manually.</p>
+        <a
+          href="/dashboard/quoting"
+          style={{
+            display: 'inline-block',
+            marginTop: 6,
+            padding: '6px 10px',
+            borderRadius: 8,
+            border: '1px solid var(--border)',
+            background: 'var(--panel)',
+            textDecoration: 'none',
+            color: 'var(--text)',
+          }}
+        >
+          ← Back to Quotes
+        </a>
       </div>
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

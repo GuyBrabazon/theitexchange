@@ -98,6 +98,21 @@ export default function RfqsPage() {
       <div>
         <h1 style={{ marginBottom: 6 }}>RFQs awaiting response</h1>
         <p style={{ color: 'var(--muted)' }}>Respond to incoming RFQs from other organisations.</p>
+        <a
+          href="/dashboard/quoting"
+          style={{
+            display: 'inline-block',
+            marginTop: 6,
+            padding: '6px 10px',
+            borderRadius: 8,
+            border: '1px solid var(--border)',
+            background: 'var(--panel)',
+            textDecoration: 'none',
+            color: 'var(--text)',
+          }}
+        >
+          ← Back to Quotes
+        </a>
       </div>
 
       {error ? (
