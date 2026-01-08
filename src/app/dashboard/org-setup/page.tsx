@@ -39,6 +39,8 @@ export default function OrgSetupPage() {
     work_email_domain: '',
   })
   const [users, setUsers] = useState<UserRow[]>([])
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRole, setInviteRole] = useState<UserRow['role']>('broker')
 
   useEffect(() => {
     const load = async () => {
@@ -154,6 +156,34 @@ export default function OrgSetupPage() {
   }
 
   const filteredUsers = useMemo(() => users, [users])
+
+  const sendInvite = async () => {
+    setError('')
+    setSuccess('')
+    if (!inviteEmail.trim()) {
+      setError('Invite email is required')
+      return
+    }
+    try {
+      setSaving(true)
+      const res = await fetch('/api/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.ok) throw new Error(json.message || 'Invite failed')
+      setSuccess('Invite sent')
+      setInviteEmail('')
+      setInviteRole('broker')
+    } catch (e) {
+      console.error(e)
+      const msg = e instanceof Error ? e.message : 'Failed to send invite'
+      setError(msg)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -277,6 +307,42 @@ export default function OrgSetupPage() {
         <div style={{ color: 'var(--muted)', fontSize: 12, marginBottom: 4 }}>
           Edit roles for users in this organisation. Invites to new users will inherit the chosen role.
         </div>
+
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            type="email"
+            placeholder="user@company.com"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+            style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+          />
+          <select
+            value={inviteRole ?? 'broker'}
+            onChange={(e) => setInviteRole(e.target.value as UserRow['role'])}
+            style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+          >
+            {roles.map((r) => (
+              <option key={r ?? 'broker'} value={r ?? 'broker'}>
+                {r ?? 'broker'}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={sendInvite}
+            disabled={saving}
+            style={{
+              padding: '10px 12px',
+              borderRadius: 10,
+              border: '1px solid var(--border)',
+              background: 'var(--panel)',
+              fontWeight: 900,
+              cursor: saving ? 'wait' : 'pointer',
+            }}
+          >
+            {saving ? 'Inviting…' : 'Send invite'}
+          </button>
+        </div>
+
         <div style={{ display: 'grid', gap: 8 }}>
           {filteredUsers.map((u) => (
             <div key={u.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'var(--surface-2)' }}>

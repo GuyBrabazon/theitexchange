@@ -39,6 +39,7 @@ export default function AccountPage() {
   const [phone, setPhone] = useState('')
   const [outlookStatus, setOutlookStatus] = useState('Not connected')
   const [outlookBusy, setOutlookBusy] = useState(false)
+  const [canSeeOrg, setCanSeeOrg] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -70,6 +71,7 @@ export default function AccountPage() {
           setName(data.name ?? '')
           setCompany(data.company ?? '')
           setPhone(data.phone ?? '')
+          setCanSeeOrg(data.role === 'admin')
         }
 
         // Check Outlook status
@@ -301,6 +303,29 @@ export default function AccountPage() {
           </button>
           <div style={{ color: 'var(--muted)', fontSize: 12 }}>{outlookStatus}</div>
         </div>
+
+        {canSeeOrg ? (
+          <div style={{ marginTop: 16, padding: 12, border: '1px solid var(--border)', borderRadius: 12, background: 'var(--panel)' }}>
+            <div style={{ fontWeight: 900, marginBottom: 6 }}>Organisation setup</div>
+            <div style={{ color: 'var(--muted)', fontSize: 12, marginBottom: 10 }}>
+              Configure org-wide defaults, domain policy, and roles.
+            </div>
+            <a
+              href="/dashboard/org-setup"
+              style={{
+                padding: '10px 12px',
+                borderRadius: 12,
+                border: '1px solid var(--border)',
+                background: 'var(--surface-2)',
+                fontWeight: 900,
+                color: 'var(--text)',
+                textDecoration: 'none',
+              }}
+            >
+              Open Org Setup
+            </a>
+          </div>
+        ) : null}
       </div>
 
       {/* Profile */}
