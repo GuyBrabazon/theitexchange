@@ -32,6 +32,7 @@ export default function InventoryPage() {
   const [rows, setRows] = useState<InventoryRow[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>('')
+  const [tenantId, setTenantId] = useState<string>('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [manual, setManual] = useState({
     model: '',
@@ -64,6 +65,7 @@ export default function InventoryPage() {
       if (profileErr) throw profileErr
       const tenantId = profile?.tenant_id
       if (!tenantId) throw new Error('Tenant not found')
+      setTenantId(tenantId)
 
       const { data, error: invErr } = await supabase
         .from('inventory_items')
@@ -131,7 +133,9 @@ export default function InventoryPage() {
   }, [rows])
 
   const insertInventory = async (payloads: Partial<InventoryRow>[]) => {
+    if (!tenantId) throw new Error('Tenant not loaded')
     const normalized = payloads.map((p) => ({
+      tenant_id: tenantId,
       model: p.model || null,
       description: p.description || p.model || null,
       oem: p.oem || null,
