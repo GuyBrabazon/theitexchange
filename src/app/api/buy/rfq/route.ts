@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     if (userErr) throw userErr
     if (!user) return NextResponse.json({ ok: false, message: 'Not authenticated' }, { status: 401 })
 
-    const { data: profile, error: profileErr } = await supa.from('users').select('tenant_id').eq('id', user.id).maybeSingle()
+    const { data: profile, error: profileErr } = await supa.from('users').select('tenant_id,name,company,phone').eq('id', user.id).maybeSingle()
     if (profileErr) throw profileErr
     if (!profile?.tenant_id) return NextResponse.json({ ok: false, message: 'Tenant not found' }, { status: 400 })
 
@@ -41,6 +41,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, message: 'At least one line is required' }, { status: 400 })
     }
 
+    const { data: tenantRow, error: tenantErr } = await supa.from('tenants').select('name').eq('id', profile.tenant_id).maybeSingle()
+    if (tenantErr) throw tenantErr
+
+    const requester_name = profile?.name ?? user.user_metadata?.full_name ?? null
+    const requester_email = user.email ?? null
+    const requester_phone = profile?.phone ?? null
+    const requester_company = profile?.company ?? tenantRow?.name ?? null
+
     const { data: rfq, error: rfqErr } = await supa
       .from('rfqs')
       .insert({
@@ -50,6 +58,10 @@ export async function POST(request: Request) {
         note: body.note ?? null,
         status: 'new',
         created_by: user.id,
+        requester_name,
+        requester_email,
+        requester_phone,
+        requester_company,
       })
       .select('id')
       .maybeSingle()

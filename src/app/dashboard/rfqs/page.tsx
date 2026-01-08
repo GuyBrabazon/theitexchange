@@ -10,6 +10,10 @@ type RfqListItem = {
   status: string
   buyer_tenant_id: string
   buyer_tenant_name: string | null
+  requester_name: string | null
+  requester_email: string | null
+  requester_phone: string | null
+  requester_company: string | null
   created_at: string
   line_count: number
 }
@@ -51,7 +55,9 @@ export default function RfqsPage() {
   const loadRfqs = async (tenant: string) => {
     const { data, error } = await supabase
       .from('rfqs')
-      .select('id,subject,note,status,buyer_tenant_id,created_at,rfq_lines(count)')
+      .select(
+        'id,subject,note,status,buyer_tenant_id,created_at,rfq_lines(count),requester_name,requester_email,requester_phone,requester_company'
+      )
       .eq('supplier_tenant_id', tenant)
       .in('status', ['new', 'sent'])
       .order('created_at', { ascending: false })
@@ -74,6 +80,10 @@ export default function RfqsPage() {
         status: r.status == null ? 'new' : String(r.status),
         buyer_tenant_id: String(r.buyer_tenant_id ?? ''),
         buyer_tenant_name: tenantNames.get(String(r.buyer_tenant_id ?? '')) ?? null,
+        requester_name: r.requester_name == null ? null : String(r.requester_name),
+        requester_email: r.requester_email == null ? null : String(r.requester_email),
+        requester_phone: r.requester_phone == null ? null : String(r.requester_phone),
+        requester_company: r.requester_company == null ? null : String(r.requester_company),
         created_at: r.created_at ? String(r.created_at) : new Date().toISOString(),
         line_count: Array.isArray((r as any).rfq_lines) && (r as any).rfq_lines[0]
           ? Number((r as any).rfq_lines[0].count ?? 0)
@@ -131,7 +141,9 @@ export default function RfqsPage() {
                 <div>
                   <div style={{ fontWeight: 900 }}>{r.subject || 'RFQ'}</div>
                   <div style={{ color: 'var(--muted)', fontSize: 12 }}>
-                    From: {r.buyer_tenant_name || r.buyer_tenant_id.slice(0, 8)} • {new Date(r.created_at).toLocaleString()} • Lines: {r.line_count}
+                    From: {r.requester_company || r.buyer_tenant_name || r.buyer_tenant_id.slice(0, 8)}{' '}
+                    {r.requester_name ? `• ${r.requester_name}` : ''} {r.requester_email ? `• ${r.requester_email}` : ''}{' '}
+                    {r.requester_phone ? `• ${r.requester_phone}` : ''} • {new Date(r.created_at).toLocaleString()} • Lines: {r.line_count}
                   </div>
                   {r.note ? <div style={{ marginTop: 6 }}>{r.note}</div> : null}
                 </div>
