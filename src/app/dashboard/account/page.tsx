@@ -73,7 +73,7 @@ export default function AccountPage() {
         }
 
         // Check Outlook status
-        const statusRes = await fetch('/api/outlook/status')
+        const statusRes = await fetch(`/api/outlook/status?uid=${user.id}`)
         if (statusRes.ok) {
           const json = (await statusRes.json()) as { ok: boolean; connected?: boolean; expires_at?: string; message?: string }
           if (json.ok && json.connected) {
