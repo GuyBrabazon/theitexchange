@@ -125,6 +125,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [email, setEmail] = useState<string>('')
   const [userId, setUserId] = useState<string>('')
   const [tenantId, setTenantId] = useState<string>('')
+  const [theme, setTheme] = useState<'light' | 'dark'>('light')
 
   // Notifications
   const [notifOpen, setNotifOpen] = useState(false)
@@ -241,6 +242,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       window.removeEventListener('keydown', onKey)
     }
   }, [notifOpen])
+
+  // Theme handling
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('theme') : null
+    const prefersDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+    const initial = stored === 'light' || stored === 'dark' ? stored : prefersDark ? 'dark' : 'light'
+    setTheme(initial as 'light' | 'dark')
+  }, [])
+
+  useEffect(() => {
+    if (!theme) return
+    document.documentElement.setAttribute('data-theme', theme)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('theme', theme)
+    }
+  }, [theme])
 
   const signOut = async () => {
     await supabase.auth.signOut()
@@ -493,13 +510,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <Section title="Core">
           <NavItem href="/dashboard/lots" label="Lots" importance="primary" />
-          <NavItem href="/dashboard/buyers" label="Buyers" importance="normal" />
-          <NavItem href="/dashboard/sellers" label="Sellers" importance="normal" />
+          <NavItem href="/dashboard/buyers" label="Customers" importance="normal" />
+          <NavItem href="/dashboard/sellers" label="Suppliers" importance="normal" />
           <NavItem href="/dashboard/order-fulfilment" label="Order Fulfilment" importance="primary" />
+          <NavItem href="/dashboard/inventory" label="Inventory" importance="normal" soon />
         </Section>
 
         {/* Footer actions */}
-        <div style={{ marginTop: 18 }}>
+        <div style={{ marginTop: 18, display: 'grid', gap: 10 }}>
+          <button
+            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              borderRadius: 14,
+              border: '1px solid var(--border)',
+              background: 'var(--panel)',
+              color: 'var(--text)',
+              fontWeight: 900,
+              cursor: 'pointer',
+            }}
+          >
+            Toggle {theme === 'light' ? 'dark' : 'light'} mode
+          </button>
+
           <button
             onClick={signOut}
             style={{
@@ -507,7 +541,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               padding: '10px 12px',
               borderRadius: 14,
               border: '1px solid var(--border)',
-              background: 'rgba(0,0,0,0.18)',
+              background: 'var(--panel)',
               color: 'var(--text)',
               fontWeight: 900,
               cursor: 'pointer',
@@ -516,7 +550,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             Sign out
           </button>
 
-          <div style={{ marginTop: 10, fontSize: 12, color: 'rgba(247,242,236,0.55)' }}>
+          <div style={{ marginTop: 4, fontSize: 12, color: 'var(--muted)' }}>
             Tip: “Primary” items are highlighted for faster daily navigation.
           </div>
         </div>

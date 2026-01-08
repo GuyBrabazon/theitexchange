@@ -107,7 +107,7 @@ function Modal({
   )
 }
 
-export default function SellersPage() {
+export default function SuppliersPage() {
   const [tenantId, setTenantId] = useState<string>('')
 
   const [rows, setRows] = useState<SellerRow[]>([])
@@ -144,7 +144,7 @@ export default function SellersPage() {
       setRows((data as SellerRow[]) ?? [])
     } catch (e: unknown) {
       console.error(e)
-      const msg = e instanceof Error ? e.message : 'Failed to load sellers'
+      const msg = e instanceof Error ? e.message : 'Failed to load suppliers'
       setError(msg)
       setRows([])
     } finally {
@@ -231,7 +231,7 @@ export default function SellersPage() {
       await load(tenantId)
     } catch (e: unknown) {
       console.error(e)
-      const msg = e instanceof Error ? e.message : 'Failed to save seller'
+      const msg = e instanceof Error ? e.message : 'Failed to save supplier'
       alert(msg)
     } finally {
       setSaving(false)
@@ -240,7 +240,7 @@ export default function SellersPage() {
 
   const remove = async (r: SellerRow) => {
     if (!tenantId) return
-    const ok = confirm(`Delete seller "${r.name}"? This cannot be undone.`)
+    const ok = confirm(`Delete supplier "${r.name}"? This cannot be undone.`)
     if (!ok) return
 
     setDeletingId(r.id)
@@ -250,7 +250,7 @@ export default function SellersPage() {
       await load(tenantId)
     } catch (e: unknown) {
       console.error(e)
-      const msg = e instanceof Error ? e.message : 'Failed to delete seller'
+      const msg = e instanceof Error ? e.message : 'Failed to delete supplier'
       alert(msg)
     } finally {
       setDeletingId(null)
@@ -261,15 +261,15 @@ export default function SellersPage() {
     <main>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'baseline', flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ marginBottom: 6 }}>Sellers</h1>
-          <div style={{ color: 'var(--muted)' }}>Manage seller profiles (sources / suppliers).</div>
+          <h1 style={{ marginBottom: 6 }}>Suppliers</h1>
+          <div style={{ color: 'var(--muted)' }}>Manage supplier profiles (sources / suppliers).</div>
         </div>
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search sellers…"
+            placeholder="Search suppliers…"
             style={{
               width: 320,
               padding: 10,
@@ -292,7 +292,7 @@ export default function SellersPage() {
               cursor: 'pointer',
             }}
           >
-            + New seller
+            + New supplier
           </button>
 
           <button
@@ -408,11 +408,11 @@ export default function SellersPage() {
             </div>
           ))}
 
-          {filtered.length === 0 ? <div style={{ color: 'var(--muted)' }}>No sellers found.</div> : null}
+          {filtered.length === 0 ? <div style={{ color: 'var(--muted)' }}>No suppliers found.</div> : null}
         </div>
       ) : null}
 
-      <Modal title={isEditing ? 'Edit seller' : 'New seller'} open={modalOpen} onClose={closeModal}>
+      <Modal title={isEditing ? 'Edit supplier' : 'New supplier'} open={modalOpen} onClose={closeModal}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Name *</div>

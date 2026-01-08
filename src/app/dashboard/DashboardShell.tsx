@@ -110,6 +110,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.svg" alt="The IT Exchange" style={{ width: 36, height: 36, borderRadius: 8 }} />
           <div>
             <div style={{ fontWeight: 950, letterSpacing: -0.2, fontSize: 14 }}>The IT Exchange</div>

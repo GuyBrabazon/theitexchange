@@ -9,7 +9,7 @@ export default function Home() {
         alignItems: 'center',
         justifyContent: 'center',
         background:
-          'radial-gradient(circle at 20% 20%, rgba(99,102,241,0.12), transparent 32%), radial-gradient(circle at 80% 10%, rgba(14,165,233,0.18), transparent 30%), #0f172a',
+          'radial-gradient(circle at 20% 20%, rgba(30,58,95,0.18), transparent 32%), radial-gradient(circle at 80% 10%, rgba(47,127,122,0.18), transparent 30%), var(--bg)',
         color: 'var(--text)',
         padding: '48px 16px',
         fontFamily: 'var(--font-geist-sans, system-ui, sans-serif)',

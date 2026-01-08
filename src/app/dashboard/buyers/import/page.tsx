@@ -91,7 +91,7 @@ function pickColumn(row: BuyerRow, col: string | null | undefined) {
   return row[col]
 }
 
-export default function BuyersImportPage() {
+export default function CustomersImportPage() {
   const [tenantId, setTenantId] = useState('')
 
   // Spreadsheet parsing
@@ -346,11 +346,11 @@ export default function BuyersImportPage() {
     <main style={{ padding: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ marginBottom: 6 }}>Import buyers</h1>
+          <h1 style={{ marginBottom: 6 }}>Import customers</h1>
           <div style={{ color: '#666' }}>Upload CSV/XLSX, map columns, dedupe by email.</div>
         </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Link href="/dashboard/buyers">← Buyers</Link>
+          <Link href="/dashboard/buyers">← Customers</Link>
         </div>
       </div>
 
@@ -468,7 +468,7 @@ export default function BuyersImportPage() {
 
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 10 }}>
             <button onClick={importBuyers} disabled={busy} style={{ padding: 12 }}>
-              {busy ? 'Importing…' : 'Import buyers'}
+              {busy ? 'Importing…' : 'Import customers'}
             </button>
 
             {result ? (

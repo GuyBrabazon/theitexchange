@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { useEffect, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'

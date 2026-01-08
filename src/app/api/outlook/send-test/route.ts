@@ -19,8 +19,9 @@ export async function POST() {
 
     await sendTestMail(user.id, email)
     return NextResponse.json({ ok: true })
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error('send-test error', e)
-    return NextResponse.json({ ok: false, message: e?.message ?? 'Failed' }, { status: 500 })
+    const msg = e instanceof Error ? e.message : 'Failed'
+    return NextResponse.json({ ok: false, message: msg }, { status: 500 })
   }
 }

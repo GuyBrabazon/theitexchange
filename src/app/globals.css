@@ -12,37 +12,58 @@
 */
 
 :root {
-  /* Base surfaces */
-  --bg: #0a0907;
-  --panel: #12100e; /* slightly lifted from bg */
-  --panel-2: #181512;
+  /* Light theme (default) */
+  --bg: #f7f9fb;
+  --panel: #eef2f6;
+  --panel-2: #ffffff;
 
-  /* Alias (so older/newer styles can both work) */
   --surface: var(--panel);
   --surface-2: var(--panel-2);
 
-  /* Text */
-  --text: #f7f2ec;
-  --muted: rgba(247, 242, 236, 0.72);
+  --text: #1f2933;
+  --muted: #5b6773;
 
-  /* Borders + shadows */
-  --border: rgba(245, 174, 109, 0.16);
-  --shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
-  --ring: 0 0 0 4px rgba(245, 174, 109, 0.18);
+  --border: #d6dce3;
+  --shadow: 0 12px 30px rgba(17, 24, 39, 0.08);
+  --ring: 0 0 0 3px rgba(30, 58, 95, 0.25);
 
-  /* Brand accents */
-  --accent: #e46609; /* primary */
-  --accent-2: #ab7347; /* secondary */
-  --accent-soft: rgba(245, 174, 109, 0.16);
+  --accent: #1e3a5f;
+  --accent-2: #2f7f7a;
+  --accent-soft: rgba(30, 58, 95, 0.14);
 
-  /* State colors (optional but handy) */
-  --good: #5bbf7a;
-  --warn: #f5ae6d;
-  --bad: #e24b4b;
+  --good: #2e7d32;
+  --warn: #c88719;
+  --bad: #b23a3a;
+  --info: #607d8b;
 
-  /* Radii */
   --r-md: 12px;
   --r-lg: 16px;
+}
+
+:root[data-theme='dark'] {
+  /* Dark theme */
+  --bg: #0f1720;
+  --panel: #182230;
+  --panel-2: #223041;
+
+  --surface: var(--panel);
+  --surface-2: var(--panel-2);
+
+  --text: #e6eaf0;
+  --muted: #9aa4b2;
+
+  --border: #2a3a4c;
+  --shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+  --ring: 0 0 0 3px rgba(59, 130, 196, 0.35);
+
+  --accent: #3b82c4;
+  --accent-2: #3fa7a0;
+  --accent-soft: rgba(59, 130, 196, 0.16);
+
+  --good: #3fae6a;
+  --warn: #d6a64a;
+  --bad: #d16c6c;
+  --info: #6fa3c8;
 }
 
 html,
@@ -78,7 +99,7 @@ hr {
 input,
 select,
 textarea {
-  background: var(--panel);
+  background: var(--panel-2);
   color: var(--text);
   border: 1px solid var(--border);
 }

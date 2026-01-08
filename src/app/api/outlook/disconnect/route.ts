@@ -16,8 +16,9 @@ export async function POST() {
     const { error } = await supa.from('outlook_tokens').delete().eq('user_id', user.id)
     if (error) throw error
     return NextResponse.json({ ok: true })
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error('disconnect error', e)
-    return NextResponse.json({ ok: false, message: e?.message ?? 'Failed' }, { status: 500 })
+    const msg = e instanceof Error ? e.message : 'Failed'
+    return NextResponse.json({ ok: false, message: msg }, { status: 500 })
   }
 }

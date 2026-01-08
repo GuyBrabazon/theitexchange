@@ -124,9 +124,9 @@ function ModalShell({
   )
 }
 
-export default function BuyersPage() {
+export default function CustomersPage() {
   const [tenantId, setTenantId] = useState('')
-  const [buyers, setBuyers] = useState<BuyerRow[]>([])
+  const [customers, setCustomers] = useState<BuyerRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -180,7 +180,7 @@ export default function BuyersPage() {
     setEditBuyer(null)
   }
 
-  const loadBuyers = async (tid: string) => {
+  const loadCustomers = async (tid: string) => {
     setLoading(true)
     setError('')
     try {
@@ -192,12 +192,12 @@ export default function BuyersPage() {
         .limit(5000)
 
       if (error) throw error
-      setBuyers((data as BuyerRow[]) ?? [])
+      setCustomers((data as BuyerRow[]) ?? [])
     } catch (e: unknown) {
       console.error(e)
-      const msg = e instanceof Error ? e.message : 'Failed to load buyers'
+      const msg = e instanceof Error ? e.message : 'Failed to load customers'
       setError(msg)
-      setBuyers([])
+      setCustomers([])
     } finally {
       setLoading(false)
     }
@@ -209,7 +209,7 @@ export default function BuyersPage() {
         setLoading(true)
         const profile = await ensureProfile()
         setTenantId(profile.tenant_id)
-        await loadBuyers(profile.tenant_id)
+        await loadCustomers(profile.tenant_id)
       } catch (e: unknown) {
         console.error(e)
         const msg = e instanceof Error ? e.message : 'Failed to bootstrap'
@@ -223,15 +223,15 @@ export default function BuyersPage() {
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase()
-    if (!s) return buyers
+    if (!s) return customers
     const hit = (v: unknown) => String(v ?? '').toLowerCase().includes(s)
-    return buyers.filter((b) => {
+    return customers.filter((b) => {
       if (hit(b.name) || hit(b.email) || hit(b.company) || hit(b.id)) return true
       const tags = (b.tags ?? []).join(' ')
       if (hit(tags)) return true
       return false
     })
-  }, [buyers, q])
+  }, [customers, q])
 
   const saveEdit = async () => {
     if (!tenantId) return
@@ -294,12 +294,12 @@ export default function BuyersPage() {
       }
 
       // refresh list for consistency
-      await loadBuyers(tenantId)
+      await loadCustomers(tenantId)
       setEditOpen(false)
       setEditBuyer(null)
     } catch (e: unknown) {
       console.error(e)
-      const msg = e instanceof Error ? e.message : 'Failed to save buyer'
+      const msg = e instanceof Error ? e.message : 'Failed to save customer'
       alert(msg)
     } finally {
       setSaving(false)
@@ -308,16 +308,16 @@ export default function BuyersPage() {
 
   const deleteBuyer = async (b: BuyerRow) => {
     if (!tenantId || deletingId) return
-    const confirmed = window.confirm(`Delete buyer "${b.name}"? This cannot be undone.`)
+    const confirmed = window.confirm(`Delete customer "${b.name}"? This cannot be undone.`)
     if (!confirmed) return
     setDeletingId(b.id)
     try {
       const { error } = await supabase.from('buyers').delete().eq('tenant_id', tenantId).eq('id', b.id)
       if (error) throw error
-      setBuyers((prev) => prev.filter((row) => row.id !== b.id))
+      setCustomers((prev) => prev.filter((row) => row.id !== b.id))
     } catch (e: unknown) {
       console.error(e)
-      alert(e instanceof Error ? e.message : 'Failed to delete buyer')
+      alert(e instanceof Error ? e.message : 'Failed to delete customer')
     } finally {
       setDeletingId(null)
     }
@@ -327,15 +327,15 @@ export default function BuyersPage() {
     <main>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
         <div>
-          <h1 style={{ marginBottom: 6 }}>Buyers</h1>
-          <div style={{ color: 'var(--muted)' }}>Manage buyer profiles, tags, and performance inputs.</div>
+          <h1 style={{ marginBottom: 6 }}>Customers</h1>
+          <div style={{ color: 'var(--muted)' }}>Manage customer profiles, tags, and performance inputs.</div>
         </div>
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search buyers�"
+            placeholder="Search customers…"
             style={{
               width: 320,
               padding: 10,
@@ -371,11 +371,11 @@ export default function BuyersPage() {
               cursor: 'pointer',
             }}
           >
-            Add buyer
+            Add customer
           </button>
 
           <button
-            onClick={() => tenantId && loadBuyers(tenantId)}
+            onClick={() => tenantId && loadCustomers(tenantId)}
             disabled={!tenantId || loading}
             style={{
               padding: '10px 12px',
@@ -468,7 +468,7 @@ export default function BuyersPage() {
                       cursor: 'pointer',
                     }}
                   >
-                    Edit buyer
+                    Edit customer
                   </button>
 
                   <button
@@ -483,19 +483,19 @@ export default function BuyersPage() {
                       cursor: deletingId === b.id ? 'wait' : 'pointer',
                     }}
                   >
-                    {deletingId === b.id ? 'Deleting…' : 'Delete buyer'}
+                    {deletingId === b.id ? 'Deleting…' : 'Delete customer'}
                   </button>
                 </div>
               </div>
             </div>
           ))}
 
-          {filtered.length === 0 ? <div style={{ color: 'var(--muted)' }}>No buyers found.</div> : null}
+          {filtered.length === 0 ? <div style={{ color: 'var(--muted)' }}>No customers found.</div> : null}
         </div>
       ) : null}
 
       {editOpen ? (
-        <ModalShell title={editBuyer ? `Edit buyer � ${editBuyer.name}` : 'Add buyer'} onClose={closeEdit}>
+        <ModalShell title={editBuyer ? `Edit customer � ${editBuyer.name}` : 'Add customer'} onClose={closeEdit}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Name</div>
@@ -588,7 +588,7 @@ export default function BuyersPage() {
                 </label>
               </div>
               <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: 12 }}>
-                Used in buyer ranking + recommended invites.
+                Used in customer ranking + recommended invites.
               </div>
             </div>
 
