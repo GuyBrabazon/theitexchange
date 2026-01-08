@@ -45,8 +45,6 @@ export default function InventoryPage() {
     currency: '',
   })
   const [uploadHeaderRow, setUploadHeaderRow] = useState<number>(0)
-  const [quotedPrice, setQuotedPrice] = useState<string>('')
-  const [quotedCustomer, setQuotedCustomer] = useState<string>('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const load = async () => {
@@ -73,12 +71,17 @@ export default function InventoryPage() {
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
         .limit(1000)
-
       if (invErr) throw invErr
 
       const mapped: InventoryRow[] =
         (data ?? []).map((rec) => {
           const row = rec as Record<string, unknown>
+          const toNum = (val: unknown) => {
+            if (typeof val === 'number') return val
+            if (val === null || val === undefined || val === '') return null
+            const n = Number(val)
+            return Number.isFinite(n) ? n : null
+          }
           return {
             id: String(row.id ?? ''),
             tenant_id: String(row.tenant_id ?? ''),
@@ -88,9 +91,9 @@ export default function InventoryPage() {
             condition: (row.condition as string | null) ?? null,
             location: (row.location as string | null) ?? null,
             status: (row.status as string | null) ?? null,
-            qty_total: typeof row.qty_total === 'number' ? row.qty_total : row.qty_total ? Number(row.qty_total) : null,
-            qty_available: typeof row.qty_available === 'number' ? row.qty_available : row.qty_available ? Number(row.qty_available) : null,
-            cost: typeof row.cost === 'number' ? row.cost : row.cost ? Number(row.cost) : null,
+            qty_total: toNum(row.qty_total),
+            qty_available: toNum(row.qty_available),
+            cost: toNum(row.cost),
             currency: (row.currency as string | null) ?? null,
             specs: (row.specs as Record<string, unknown> | null) ?? null,
           }
@@ -126,9 +129,6 @@ export default function InventoryPage() {
     }, {})
     return { total: rows.length, byStatus }
   }, [rows])
-
-  const money = (v: number | null, currency = 'USD') =>
-    v == null ? '—' : Intl.NumberFormat(undefined, { style: 'currency', currency }).format(v)
 
   const insertInventory = async (payloads: Partial<InventoryRow>[]) => {
     const normalized = payloads.map((p) => ({
@@ -167,7 +167,17 @@ export default function InventoryPage() {
           currency: manual.currency || 'USD',
         },
       ])
-      setManual({ model: '', description: '', oem: '', condition: '', location: '', qty_total: '', qty_available: '', cost: '', currency: '' })
+      setManual({
+        model: '',
+        description: '',
+        oem: '',
+        condition: '',
+        location: '',
+        qty_total: '',
+        qty_available: '',
+        cost: '',
+        currency: '',
+      })
       await load()
     } catch (e) {
       console.error(e)
@@ -262,22 +272,6 @@ export default function InventoryPage() {
     setSelectedIds(new Set())
   }
 
-  const markQuoted = async () => {
-    if (!selectedIds.size) return
-    const priceVal = quotedPrice ? Number(quotedPrice) : null
-    const patch = {
-      specs: {
-        quoted_at: new Date().toISOString(),
-        quoted_price: priceVal,
-        quoted_customer: quotedCustomer || null,
-      },
-    }
-    await Promise.all(Array.from(selectedIds).map((id) => updateInventory(id, patch)))
-    setQuotedPrice('')
-    setQuotedCustomer('')
-    setSelectedIds(new Set())
-  }
-
   return (
     <main style={{ padding: 24, display: 'grid', gap: 16 }}>
       <div>
@@ -337,36 +331,6 @@ export default function InventoryPage() {
           >
             Put selected to auction
           </button>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <input
-              type="text"
-              placeholder="Quoted price"
-              value={quotedPrice}
-              onChange={(e) => setQuotedPrice(e.target.value)}
-              style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
-            />
-            <input
-              type="text"
-              placeholder="Quoted customer"
-              value={quotedCustomer}
-              onChange={(e) => setQuotedCustomer(e.target.value)}
-              style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
-            />
-            <button
-              onClick={markQuoted}
-              disabled={!selectedIds.size}
-              style={{
-                padding: '10px 12px',
-                borderRadius: 12,
-                border: '1px solid var(--border)',
-                background: 'var(--panel)',
-                fontWeight: 900,
-                cursor: selectedIds.size ? 'pointer' : 'not-allowed',
-              }}
-            >
-              Mark quoted
-            </button>
-          </div>
         </div>
       </div>
 
@@ -548,22 +512,6 @@ export default function InventoryPage() {
                     }}
                   >
                     In auction
-                  </span>
-                ) : null}
-                {r.specs?.quoted_price !== undefined && r.specs?.quoted_price !== null ? (
-                  <span
-                    style={{
-                      padding: '3px 8px',
-                      borderRadius: 999,
-                      border: '1px solid var(--muted)',
-                      color: 'var(--text)',
-                      fontSize: 11,
-                      fontWeight: 800,
-                    }}
-                  >
-                    Quoted {money(r.specs?.quoted_price as number | null, r.currency || 'USD')}{' '}
-                    {r.specs?.quoted_customer ? `to ${(r.specs?.quoted_customer as string)}` : ''}{' '}
-                    {r.specs?.quoted_at ? `• ${new Date(String(r.specs?.quoted_at)).toLocaleString()}` : ''}
                   </span>
                 ) : null}
               </div>

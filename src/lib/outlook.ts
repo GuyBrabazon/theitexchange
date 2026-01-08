@@ -92,3 +92,32 @@ export async function sendTestMail(userId: string, toEmail: string) {
     throw new Error(`Graph sendMail failed: ${resp.status} ${errText}`)
   }
 }
+
+export async function sendOutlookMail(userId: string, toEmail: string, subject: string, htmlBody: string) {
+  const tokenRow = await getOutlookTokenForUser(userId)
+  const payload = {
+    message: {
+      subject,
+      body: {
+        contentType: 'HTML',
+        content: htmlBody,
+      },
+      toRecipients: [{ emailAddress: { address: toEmail } }],
+    },
+    saveToSentItems: true,
+  }
+
+  const resp = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${tokenRow.access_token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!resp.ok) {
+    const errText = await resp.text()
+    throw new Error(`Graph sendMail failed: ${resp.status} ${errText}`)
+  }
+}
