@@ -71,6 +71,19 @@ export default function AccountPage() {
           setCompany(data.company ?? '')
           setPhone(data.phone ?? '')
         }
+
+        // Check Outlook status
+        const statusRes = await fetch('/api/outlook/status')
+        if (statusRes.ok) {
+          const json = (await statusRes.json()) as { ok: boolean; connected?: boolean; expires_at?: string; message?: string }
+          if (json.ok && json.connected) {
+            setOutlookStatus('Connected')
+          } else if (json.ok) {
+            setOutlookStatus('Not connected')
+          } else {
+            setOutlookStatus(json.message ?? 'Status check failed')
+          }
+        }
       } catch (e: unknown) {
         console.error(e)
         const msg = e instanceof Error ? e.message : 'Failed to load account'
