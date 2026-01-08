@@ -47,6 +47,8 @@ type LineItem = {
   model: string | null
   qty: number | null
   asking_price: number | null
+  inventory_item_id?: string | null
+  qty_available?: number | null
 }
 
 type LotRound = {
@@ -123,10 +125,27 @@ export default function LotOffersPage() {
   }, [offers])
 
   const qtyByLineId = useMemo(() => new Map(items.map((it) => [it.id, it.qty ?? 0])), [items])
+  const qtyAvailByLineId = useMemo(
+    () => new Map(items.map((it) => [it.id, it.qty_available ?? null])),
+    [items]
+  )
   const itemById = useMemo(() => new Map(items.map((it) => [it.id, it])), [items])
 
   const selectedOffer = useMemo(() => offers.find((o) => o.id === selectedOfferId) ?? null, [offers, selectedOfferId])
   const selectedOfferLines = useMemo(() => offerLines.filter((l) => l.offer_id === selectedOfferId), [offerLines, selectedOfferId])
+  const insufficientSelected = useMemo(() => {
+    if (!selectedOffer) return []
+    return selectedOfferLines
+      .filter((l) => l.unit_price != null)
+      .map((l) => {
+        const item = itemById.get(l.line_item_id)
+        const need = l.qty_snapshot ?? item?.qty ?? 0
+        const avail = qtyAvailByLineId.get(l.line_item_id) ?? null
+        const insufficient = avail !== null && avail < need
+        return { line: l, item, need, avail, insufficient }
+      })
+      .filter((r) => r.insufficient)
+  }, [itemById, qtyAvailByLineId, selectedOffer, selectedOfferLines])
 
   const awardedForCurrentRound = useMemo(() => {
     if (!currentRoundId) return awarded
@@ -187,12 +206,28 @@ export default function LotOffersPage() {
 
       const { data: itemData, error: itemErr } = await supabase
         .from('line_items')
-        .select('id,lot_id,description,model,qty,asking_price')
+        .select(
+          `
+          id,lot_id,description,model,qty,asking_price,inventory_item_id,
+          inventory_items ( qty_available )
+        `
+        )
         .eq('lot_id', lotId)
         .order('id', { ascending: false })
         .limit(5000)
       if (itemErr) throw itemErr
-      setItems((itemData as LineItem[]) ?? [])
+      const normalizedItems =
+        (itemData ?? []).map((row: any) => ({
+          id: String(row.id ?? ''),
+          lot_id: String(row.lot_id ?? ''),
+          description: row.description ?? null,
+          model: row.model ?? null,
+          qty: row.qty ?? null,
+          asking_price: row.asking_price ?? null,
+          inventory_item_id: row.inventory_item_id ?? null,
+          qty_available: row.inventory_items?.qty_available ?? null,
+        })) ?? []
+      setItems(normalizedItems)
 
       const { data: offerData, error: offerErr } = await supabase
         .from('offers')
@@ -394,6 +429,14 @@ export default function LotOffersPage() {
 
   const optimizerGrandTotal = useMemo(() => optimizerWinners.reduce((s, r) => s + (r.extended ?? 0), 0), [optimizerWinners])
 
+  const optimizerInsufficient = useMemo(() => {
+    return optimizerWinners.filter((w) => {
+      const avail = qtyAvailByLineId.get(w.line_item_id)
+      const need = w.qty ?? 0
+      return avail !== null && avail !== undefined && need > (avail ?? 0)
+    })
+  }, [optimizerWinners, qtyAvailByLineId])
+
   const awardOptimizerLines = async () => {
     if (!tenantId) return
     if (!currentRoundId) {
@@ -412,6 +455,10 @@ export default function LotOffersPage() {
 
     setBusy(true)
     try {
+      if (optimizerInsufficient.length) {
+        throw new Error('Not enough available inventory for some optimizer winners. Adjust quantities and retry.')
+      }
+
       const rows = optimizerWinners.map((r) => ({
         tenant_id: tenantId,
         lot_id: lotId,
@@ -427,7 +474,12 @@ export default function LotOffersPage() {
 
       // Requires unique(round_id, line_item_id)
       const { error } = await supabase.from('awarded_lines').upsert(rows, { onConflict: 'round_id,line_item_id' })
-      if (error) throw error
+      if (error) {
+        if ((error as any)?.code === 'P0001' || `${error.message}`.toLowerCase().includes('insufficient')) {
+          throw new Error('Not enough available inventory for one or more lines. Adjust quantities in Inventory and retry.')
+        }
+        throw error
+      }
 
       // Mark lot as awarded
       await supabase.from('lots').update({ status: 'awarded' }).eq('id', lotId)
@@ -512,6 +564,17 @@ export default function LotOffersPage() {
         return
       }
 
+      // Inventory pre-check: ensure available qty
+      const insuff = eligible.filter((it) => {
+        const avail = qtyAvailByLineId.get(it.id)
+        const need = it.qty ?? 0
+        return avail !== null && avail !== undefined && need > (avail ?? 0)
+      })
+      if (insuff.length) {
+        alert('Not enough available inventory for some lines. Adjust quantities in Inventory and retry.')
+        return
+      }
+
       // Create awarded_lines rows (take-all has no per-line unit; store qty snapshot)
       const rows = eligible.map((it) => ({
         tenant_id: tenantId,
@@ -529,7 +592,12 @@ export default function LotOffersPage() {
       }))
 
       const { error: awErr } = await supabase.from('awarded_lines').upsert(rows, { onConflict: 'round_id,line_item_id' })
-      if (awErr) throw awErr
+      if (awErr) {
+        if ((awErr as any)?.code === 'P0001' || `${awErr.message}`.toLowerCase().includes('insufficient')) {
+          throw new Error('Not enough available inventory for one or more lines. Adjust quantities in Inventory and retry.')
+        }
+        throw awErr
+      }
 
       alert(`Accepted offer + awarded ${rows.length} items. Buyer invite link should now show winner status + PO upload.`)
       // Mark lot as awarded
@@ -719,6 +787,18 @@ export default function LotOffersPage() {
                   <span>Take-all: <b>{money(selectedOffer.take_all_total, currency)}</b></span>
                   <span>Lines priced: <b>{selectedOfferLines.filter((l) => l.unit_price != null).length}</b></span>
                 </div>
+                {insufficientSelected.length ? (
+                  <div style={{ marginTop: 8, color: 'crimson', fontSize: 12 }}>
+                    Warning: insufficient inventory for {insufficientSelected.length} priced lines. Adjust quantities in Inventory or split the award:
+                    <ul style={{ marginTop: 6, paddingLeft: 16 }}>
+                      {insufficientSelected.map((r) => (
+                        <li key={r.line.line_item_id}>
+                          {r.item?.model || r.item?.description || r.line.line_item_id} — need {r.need}, available {r.avail ?? 'unknown'}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
                 {selectedOffer.notes ? <div style={{ marginTop: 8, color: '#666' }}>{selectedOffer.notes}</div> : null}
               </div>
 

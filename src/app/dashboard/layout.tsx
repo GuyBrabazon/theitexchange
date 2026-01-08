@@ -16,8 +16,8 @@ function NavItem({ href, label, importance = 'normal', soon = false }: NavItemDe
   const pathname = usePathname()
   const active = pathname === href || pathname.startsWith(href + '/')
 
-  const baseBg = active ? 'rgba(245,174,109,0.16)' : 'transparent'
-  const border = active ? 'rgba(245,174,109,0.28)' : 'var(--border)'
+  const baseBg = active ? 'rgba(245,174,109,0.14)' : 'transparent'
+  const border = active ? 'rgba(245,174,109,0.24)' : 'var(--border)'
   const text = active ? 'var(--text)' : 'rgba(247,242,236,0.92)'
   const fontWeight = importance === 'primary' ? 950 : importance === 'quiet' ? 750 : 900
 
@@ -36,8 +36,8 @@ function NavItem({ href, label, importance = 'normal', soon = false }: NavItemDe
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: 10,
-        padding: '10px 12px',
-        borderRadius: 14,
+        padding: '8px 10px',
+        borderRadius: 12,
         textDecoration: 'none',
         border: `1px solid ${border}`,
         background: baseBg,
@@ -512,6 +512,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <NavItem href="/dashboard/lots" label="Lots" importance="primary" />
           <NavItem href="/dashboard/buyers" label="Customers" importance="normal" />
           <NavItem href="/dashboard/sellers" label="Suppliers" importance="normal" />
+          <NavItem href="/dashboard/quoting" label="Quoting" importance="normal" />
           <NavItem href="/dashboard/order-fulfilment" label="Order Fulfilment" importance="primary" />
           <NavItem href="/dashboard/inventory" label="Inventory" importance="normal" soon />
         </Section>
@@ -522,8 +523,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
             style={{
               width: '100%',
-              padding: '10px 12px',
-              borderRadius: 14,
+              padding: '8px 10px',
+              borderRadius: 12,
               border: '1px solid var(--border)',
               background: 'var(--panel)',
               color: 'var(--text)',
@@ -538,8 +539,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             onClick={signOut}
             style={{
               width: '100%',
-              padding: '10px 12px',
-              borderRadius: 14,
+              padding: '8px 10px',
+              borderRadius: 12,
               border: '1px solid var(--border)',
               background: 'var(--panel)',
               color: 'var(--text)',

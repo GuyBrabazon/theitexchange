@@ -764,6 +764,22 @@ export default function NewLotPage() {
   const [lotApprovals, setLotApprovals] = useState<Record<string, boolean>>({})
   const [lotBuyerMap, setLotBuyerMap] = useState<Record<string, Set<string>>>({})
   const [splitMode, setSplitMode] = useState<'auto' | 'split' | 'keep'>('auto')
+  const [sourceMode, setSourceMode] = useState<'inventory' | 'flip'>('inventory')
+  type InventoryPick = {
+    id: string
+    model: string | null
+    description: string | null
+    oem: string | null
+    qty_available: number | null
+    cost: number | null
+    currency: string | null
+    status: string | null
+  }
+  const [inventoryItems, setInventoryItems] = useState<InventoryPick[]>([])
+  const [invSelection, setInvSelection] = useState<Record<string, { qty: string; ask: string }>>({})
+  const updateInvSelection = (id: string, patch: Partial<{ qty: string; ask: string }>) => {
+    setInvSelection((prev) => ({ ...prev, [id]: { qty: prev[id]?.qty ?? '', ask: prev[id]?.ask ?? '', ...patch } }))
+  }
 
   const load = async () => {
     setLoading(true)
@@ -792,6 +808,30 @@ export default function NewLotPage() {
         .limit(5000)
       if (bErr) throw bErr
       setBuyers((bData as Buyer[]) ?? [])
+
+      const { data: invData, error: invErr } = await supabase
+        .from('inventory_items')
+        .select('id,model,description,oem,qty_available,cost,currency,status')
+        .eq('tenant_id', profile.tenant_id)
+        .neq('status', 'sold')
+        .order('created_at', { ascending: false })
+        .limit(1000)
+      if (invErr) throw invErr
+      setInventoryItems(
+        (invData ?? []).map((rec) => {
+          const row = rec as Record<string, unknown>
+          return {
+            id: String(row.id ?? ''),
+            model: (row.model as string | null) ?? null,
+            description: (row.description as string | null) ?? null,
+            oem: (row.oem as string | null) ?? null,
+            qty_available: typeof row.qty_available === 'number' ? row.qty_available : row.qty_available ? Number(row.qty_available) : null,
+            cost: typeof row.cost === 'number' ? row.cost : row.cost ? Number(row.cost) : null,
+            currency: (row.currency as string | null) ?? 'USD',
+            status: (row.status as string | null) ?? null,
+          }
+        })
+      )
     } catch (e: unknown) {
       console.error(e)
       const msg = e instanceof Error ? e.message : 'Failed to load'
@@ -1049,12 +1089,16 @@ export default function NewLotPage() {
     if (!tenantId) return false
     if (!title.trim()) return false
     if (!currency.trim()) return false
+    if (sourceMode === 'inventory') {
+      const hasSel = Object.values(invSelection).some((v) => v.qty && Number(v.qty) > 0)
+      return hasSel
+    }
     if (!groupedLots.length) return false
     // type is optional, but if set must be in allowed list
     const allowed = new Set(LOT_CATEGORIES.map((t) => t.value).filter(Boolean))
     if (category && !allowed.has(category)) return false
     return true
-  }, [tenantId, title, currency, category, LOT_CATEGORIES, groupedLots.length])
+  }, [tenantId, title, currency, category, LOT_CATEGORIES, groupedLots.length, invSelection, sourceMode])
 
   const clearImport = () => {
     setImportName('')
@@ -1138,6 +1182,39 @@ export default function NewLotPage() {
     setError('')
 
     try {
+      if (sourceMode === 'inventory') {
+        const selectedLines = Object.entries(invSelection)
+          .map(([id, sel]) => ({
+            inventory_item_id: id,
+            qty: sel.qty ? Number(sel.qty) : 0,
+            asking_price: sel.ask ? Number(sel.ask) : null,
+          }))
+          .filter((l) => l.qty > 0)
+
+        if (!selectedLines.length) throw new Error('Select at least one inventory item with quantity')
+
+        const lotPayload = {
+          tenant_id: tenantId,
+          title: title.trim() || 'New lot',
+          currency: currency.trim() || 'USD',
+          type: 'priced',
+          seller_id: sellerId || null,
+        }
+
+        const res = await fetch('/api/lots/create-from-inventory', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lot: lotPayload, lines: selectedLines }),
+        })
+        const json = await res.json()
+        if (!res.ok || !json.ok) {
+          throw new Error(json.message || 'Failed to create lot from inventory')
+        }
+
+        router.push(`/dashboard/lots/${json.lot_id}`)
+        return
+      }
+
       let supportsGroupToken = true
       const groupToken = splitMode === 'split' && groupedLots.length > 1 ? crypto.randomUUID() : null
       const allowed = new Set(LOT_CATEGORIES.map((t) => t.value).filter(Boolean))
@@ -1307,9 +1384,120 @@ export default function NewLotPage() {
         </div>
       </div>
 
+      <div style={{ marginTop: 12, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <input type="radio" checked={sourceMode === 'inventory'} onChange={() => setSourceMode('inventory')} />
+          Use inventory (preferred)
+        </label>
+        <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <input type="radio" checked={sourceMode === 'flip'} onChange={() => setSourceMode('flip')} />
+          Flip (manual/CSV)
+        </label>
+      </div>
+
       <hr style={{ margin: '16px 0', borderColor: 'var(--border)' }} />
 
       {error ? <div style={{ color: 'crimson', marginBottom: 12 }}>{error}</div> : null}
+
+      {sourceMode === 'inventory' ? (
+        <div
+          style={{
+            border: '1px solid var(--border)',
+            borderRadius: 12,
+            padding: 12,
+            marginBottom: 16,
+            background: 'var(--panel)',
+            display: 'grid',
+            gap: 12,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <div>
+              <div style={{ fontWeight: 900 }}>Select inventory items for this lot</div>
+              <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+                Only items with available quantity should be selected. Quantities will be reserved on save.
+              </div>
+            </div>
+            <button
+              onClick={() => setInvSelection({})}
+              style={{
+                padding: '8px 10px',
+                borderRadius: 10,
+                border: '1px solid var(--border)',
+                background: 'var(--panel)',
+                cursor: 'pointer',
+              }}
+            >
+              Clear selection
+            </button>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: 'var(--surface-2)' }}>
+                  <th style={{ textAlign: 'left', padding: 8 }}>Select</th>
+                  <th style={{ textAlign: 'left', padding: 8 }}>Model</th>
+                  <th style={{ textAlign: 'left', padding: 8 }}>OEM</th>
+                  <th style={{ textAlign: 'left', padding: 8 }}>Available</th>
+                  <th style={{ textAlign: 'left', padding: 8 }}>Cost</th>
+                  <th style={{ textAlign: 'left', padding: 8 }}>Reserve qty</th>
+                  <th style={{ textAlign: 'left', padding: 8 }}>Ask price</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inventoryItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ padding: 10, color: 'var(--muted)' }}>
+                      No inventory items found. Add items in Inventory or switch to Flip mode.
+                    </td>
+                  </tr>
+                ) : (
+                  inventoryItems.map((item) => {
+                    const sel = invSelection[item.id] || { qty: '', ask: '' }
+                    return (
+                      <tr key={item.id} style={{ borderTop: '1px solid var(--border)' }}>
+                        <td style={{ padding: 8 }}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(sel.qty)}
+                            onChange={(e) => updateInvSelection(item.id, { qty: e.target.checked ? sel.qty || '1' : '' })}
+                          />
+                        </td>
+                        <td style={{ padding: 8 }}>
+                          <div style={{ fontWeight: 900 }}>{item.model || item.description || 'Untitled'}</div>
+                          <div style={{ color: 'var(--muted)', fontSize: 12 }}>{item.description || ''}</div>
+                        </td>
+                        <td style={{ padding: 8 }}>{item.oem || '—'}</td>
+                        <td style={{ padding: 8 }}>{item.qty_available ?? '—'}</td>
+                        <td style={{ padding: 8 }}>{fmtMoney(item.cost ?? null, item.currency || 'USD')}</td>
+                        <td style={{ padding: 8 }}>
+                          <input
+                            type="number"
+                            min={0}
+                            max={item.qty_available ?? undefined}
+                            value={sel.qty}
+                            onChange={(e) => updateInvSelection(item.id, { qty: e.target.value })}
+                            style={{ width: 100, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                          />
+                        </td>
+                        <td style={{ padding: 8 }}>
+                          <input
+                            type="number"
+                            value={sel.ask}
+                            onChange={(e) => updateInvSelection(item.id, { ask: e.target.value })}
+                            style={{ width: 120, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                          />
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
 
       <div
         style={{

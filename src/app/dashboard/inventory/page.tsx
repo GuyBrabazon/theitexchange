@@ -6,51 +6,48 @@ import { buildSheetFromMatrix, parseSpreadsheetMatrix } from '@/lib/parseSpreads
 
 type InventoryRow = {
   id: string
-  lot_id: string | null
-  lot_title: string | null
-  status: string | null
+  tenant_id: string
   model: string | null
   description: string | null
-  qty: number | null
-  asking_price: number | null
-  cost: number | null
   oem: string | null
+  condition: string | null
+  location: string | null
+  status: string | null
+  qty_total: number | null
+  qty_available: number | null
+  cost: number | null
+  currency: string | null
   specs: Record<string, unknown> | null
-  quoted_price?: number | null
-  quoted_customer?: string | null
-  quoted_at?: string | null
-  auction?: boolean | null
 }
-
-type LotOption = { id: string; title: string; status: string | null }
 
 const statusLegend = [
   { label: 'Available', color: 'var(--good)' },
   { label: 'Reserved', color: 'var(--warn)' },
-  { label: 'In auction', color: 'var(--accent)' },
+  { label: 'Auction', color: 'var(--accent)' },
   { label: 'Allocated', color: 'var(--info)' },
+  { label: 'Sold', color: 'var(--bad)' },
 ]
 
 export default function InventoryPage() {
   const [rows, setRows] = useState<InventoryRow[]>([])
-  const [lots, setLots] = useState<LotOption[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [lotFilter, setLotFilter] = useState<string>('all')
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [manual, setManual] = useState({
-    lot_id: '',
     model: '',
-    oem: '',
-    qty: '',
-    ask: '',
-    cost: '',
     description: '',
+    oem: '',
+    condition: '',
+    location: '',
+    qty_total: '',
+    qty_available: '',
+    cost: '',
+    currency: '',
   })
   const [uploadHeaderRow, setUploadHeaderRow] = useState<number>(0)
   const [quotedPrice, setQuotedPrice] = useState<string>('')
   const [quotedCustomer, setQuotedCustomer] = useState<string>('')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const load = async () => {
     setLoading(true)
@@ -70,61 +67,32 @@ export default function InventoryPage() {
       const tenantId = profile?.tenant_id
       if (!tenantId) throw new Error('Tenant not found')
 
-      const { data: lotsRes, error: lotsErr } = await supabase
-        .from('lots')
-        .select('id,title,status,tenant_id')
+      const { data, error: invErr } = await supabase
+        .from('inventory_items')
+        .select('*')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
-        .limit(200)
-      if (lotsErr) throw lotsErr
-      setLots((lotsRes ?? []).map((l) => ({ id: String(l.id), title: l.title ?? 'Untitled lot', status: l.status ?? null })))
-
-      const { data, error: invErr } = await supabase
-        .from('line_items')
-        .select(
-          `
-            id,
-            lot_id,
-            model,
-            description,
-            qty,
-            asking_price,
-            cost,
-            specs,
-            lots (
-              title,
-              status,
-              tenant_id
-            )
-          `
-        )
-        .eq('lots.tenant_id', tenantId)
-        .limit(500)
+        .limit(1000)
 
       if (invErr) throw invErr
 
       const mapped: InventoryRow[] =
-        (data ?? []).map((row) => {
-          const rec = row as Record<string, unknown>
-          const lots = rec.lots as Record<string, unknown> | null | undefined
-          const specs = rec.specs as Record<string, unknown> | null | undefined
-
+        (data ?? []).map((rec) => {
+          const row = rec as Record<string, unknown>
           return {
-            id: String(rec.id ?? ''),
-            lot_id: (rec.lot_id as string | null) ?? null,
-            lot_title: (lots?.title as string | null) ?? null,
-            status: (lots?.status as string | null) ?? null,
-            model: (rec.model as string | null) ?? (rec.description as string | null) ?? '',
-            description: (rec.description as string | null) ?? '',
-            qty: typeof rec.qty === 'number' ? rec.qty : rec.qty ? Number(rec.qty) : null,
-            asking_price: typeof rec.asking_price === 'number' ? rec.asking_price : rec.asking_price ? Number(rec.asking_price) : null,
-            cost: typeof rec.cost === 'number' ? rec.cost : rec.cost ? Number(rec.cost) : null,
-            oem: (specs?.oem as string | null) ?? null,
-            quoted_price: (specs?.quoted_price as number | null) ?? null,
-            quoted_customer: (specs?.quoted_customer as string | null) ?? null,
-            quoted_at: (specs?.quoted_at as string | null) ?? null,
-            auction: (specs?.auction as boolean | null) ?? null,
-            specs: specs ?? null,
+            id: String(row.id ?? ''),
+            tenant_id: String(row.tenant_id ?? ''),
+            model: (row.model as string | null) ?? null,
+            description: (row.description as string | null) ?? null,
+            oem: (row.oem as string | null) ?? null,
+            condition: (row.condition as string | null) ?? null,
+            location: (row.location as string | null) ?? null,
+            status: (row.status as string | null) ?? null,
+            qty_total: typeof row.qty_total === 'number' ? row.qty_total : row.qty_total ? Number(row.qty_total) : null,
+            qty_available: typeof row.qty_available === 'number' ? row.qty_available : row.qty_available ? Number(row.qty_available) : null,
+            cost: typeof row.cost === 'number' ? row.cost : row.cost ? Number(row.cost) : null,
+            currency: (row.currency as string | null) ?? null,
+            specs: (row.specs as Record<string, unknown> | null) ?? null,
           }
         }) ?? []
 
@@ -135,6 +103,7 @@ export default function InventoryPage() {
       setError(msg)
     } finally {
       setLoading(false)
+      setSelectedIds(new Set())
     }
   }
 
@@ -142,76 +111,67 @@ export default function InventoryPage() {
     load()
   }, [])
 
+  const filteredRows = useMemo(() => {
+    return rows.filter((r) => {
+      const statusOk = statusFilter === 'all' || (r.status ?? 'available')?.toLowerCase() === statusFilter
+      return statusOk
+    })
+  }, [rows, statusFilter])
+
   const counters = useMemo(() => {
     const byStatus = rows.reduce<Record<string, number>>((acc, r) => {
       const key = (r.status ?? 'available').toLowerCase()
       acc[key] = (acc[key] || 0) + 1
       return acc
     }, {})
-
     return { total: rows.length, byStatus }
   }, [rows])
 
-  const filteredRows = useMemo(() => {
-    return rows.filter((r) => {
-      const statusOk = statusFilter === 'all' || (r.status ?? 'available')?.toLowerCase() === statusFilter
-      const lotOk = lotFilter === 'all' || r.lot_id === lotFilter
-      return statusOk && lotOk
-    })
-  }, [rows, statusFilter, lotFilter])
+  const money = (v: number | null, currency = 'USD') =>
+    v == null ? '—' : Intl.NumberFormat(undefined, { style: 'currency', currency }).format(v)
 
-  const money = (v: number | null) => (v == null ? '—' : Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(v))
-
-  const toggleSelect = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  const handleManualChange = (field: string, value: string) => {
-    setManual((prev) => ({ ...prev, [field]: value }))
-  }
-
-  const updateLine = async (id: string, patch: Record<string, unknown>) => {
-    try {
-      setLoading(true)
-      const { error: upErr } = await supabase.from('line_items').update(patch).eq('id', id)
-      if (upErr) throw upErr
-      await load()
-    } catch (e) {
-      console.error(e)
-      const msg = e instanceof Error ? e.message : 'Update failed'
-      setError(msg)
-    } finally {
-      setLoading(false)
-    }
+  const insertInventory = async (payloads: Partial<InventoryRow>[]) => {
+    const normalized = payloads.map((p) => ({
+      model: p.model || null,
+      description: p.description || p.model || null,
+      oem: p.oem || null,
+      condition: p.condition || null,
+      location: p.location || null,
+      status: p.status || 'available',
+      qty_total: p.qty_total ?? null,
+      qty_available: p.qty_available ?? p.qty_total ?? null,
+      cost: p.cost ?? null,
+      currency: p.currency || 'USD',
+      specs: p.specs ?? {},
+    }))
+    const { error: insErr } = await supabase.from('inventory_items').insert(normalized)
+    if (insErr) throw insErr
   }
 
   const addManual = async () => {
     try {
       setLoading(true)
-      const qty = manual.qty ? Number(manual.qty) : null
-      const ask = manual.ask ? Number(manual.ask) : null
+      const qty_total = manual.qty_total ? Number(manual.qty_total) : null
+      const qty_available = manual.qty_available ? Number(manual.qty_available) : qty_total
       const cost = manual.cost ? Number(manual.cost) : null
-
-      const { error: insErr } = await supabase.from('line_items').insert({
-        lot_id: manual.lot_id || null,
-        model: manual.model || null,
-        description: manual.description || manual.model || null,
-        qty,
-        asking_price: ask,
-        cost,
-        specs: { oem: manual.oem || null },
-      })
-      if (insErr) throw insErr
-      setManual({ lot_id: '', model: '', oem: '', qty: '', ask: '', cost: '', description: '' })
+      await insertInventory([
+        {
+          model: manual.model,
+          description: manual.description,
+          oem: manual.oem,
+          condition: manual.condition,
+          location: manual.location,
+          qty_total,
+          qty_available,
+          cost,
+          currency: manual.currency || 'USD',
+        },
+      ])
+      setManual({ model: '', description: '', oem: '', condition: '', location: '', qty_total: '', qty_available: '', cost: '', currency: '' })
       await load()
     } catch (e) {
       console.error(e)
-      const msg = e instanceof Error ? e.message : 'Failed to add item'
+      const msg = e instanceof Error ? e.message : 'Failed to add inventory'
       setError(msg)
     } finally {
       setLoading(false)
@@ -221,7 +181,7 @@ export default function InventoryPage() {
   const handleUpload = async (file: File) => {
     try {
       setLoading(true)
-      const matrix = await parseSpreadsheetMatrix(file, 500)
+      const matrix = await parseSpreadsheetMatrix(file, 2000)
       const sheet = buildSheetFromMatrix(matrix, uploadHeaderRow)
 
       const mapVal = (row: Record<string, unknown>, keys: string[]) => {
@@ -235,32 +195,33 @@ export default function InventoryPage() {
 
       const inserts = sheet.rows.map((r) => {
         const obj = r as Record<string, unknown>
-        const model = mapVal(obj, ['model', 'part', 'description'])
+        const model = mapVal(obj, ['model', 'sku', 'part', 'description'])
+        const desc = mapVal(obj, ['description', 'details'])
         const oem = mapVal(obj, ['oem', 'manufacturer'])
-        const qtyRaw = mapVal(obj, ['qty', 'quantity'])
-        const askRaw = mapVal(obj, ['ask', 'asking', 'price', 'asking price'])
+        const condition = mapVal(obj, ['condition'])
+        const location = mapVal(obj, ['location', 'site', 'warehouse'])
+        const qtyRaw = mapVal(obj, ['qty', 'quantity', 'qty_total'])
         const costRaw = mapVal(obj, ['cost', 'cost price'])
-
-        const qty = qtyRaw ? Number(qtyRaw) : null
-        const ask = askRaw ? Number(askRaw) : null
+        const currency = mapVal(obj, ['currency'])
+        const qty_total = qtyRaw ? Number(qtyRaw) : null
         const cost = costRaw ? Number(costRaw) : null
-
         return {
-          lot_id: manual.lot_id || null,
           model: model ? String(model) : null,
-          description: model ? String(model) : null,
-          qty,
-          asking_price: ask,
+          description: desc ? String(desc) : model ? String(model) : null,
+          oem: oem ? String(oem) : null,
+          condition: condition ? String(condition) : null,
+          location: location ? String(location) : null,
+          qty_total,
+          qty_available: qty_total,
           cost,
-          specs: { oem: oem ? String(oem) : null },
+          currency: currency ? String(currency) : 'USD',
+          specs: {},
         }
       })
 
-      const validInserts = inserts.filter((i) => i.model || i.qty || i.asking_price || i.cost)
-      if (!validInserts.length) throw new Error('No rows with values found to import')
-
-      const { error: insErr } = await supabase.from('line_items').insert(validInserts)
-      if (insErr) throw insErr
+      const valid = inserts.filter((i) => i.model || i.qty_total || i.cost)
+      if (!valid.length) throw new Error('No rows with values found to import')
+      await insertInventory(valid)
       await load()
     } catch (e) {
       console.error(e)
@@ -271,20 +232,10 @@ export default function InventoryPage() {
     }
   }
 
-  const updateSpecsForSelection = async (patch: Record<string, unknown>) => {
-    if (!selectedIds.size) return
+  const updateInventory = async (id: string, patch: Record<string, unknown>) => {
     try {
       setLoading(true)
-      const updates = Array.from(selectedIds).map((id) => {
-        const row = rows.find((r) => r.id === id)
-        const specs = row?.specs ?? {}
-        return { id, specs: { ...specs, ...patch } }
-      })
-
-      const { error: upErr } = await supabase.from('line_items').upsert(
-        updates.map((u) => ({ id: u.id, specs: u.specs })),
-        { onConflict: 'id' }
-      )
+      const { error: upErr } = await supabase.from('inventory_items').update(patch).eq('id', id)
       if (upErr) throw upErr
       await load()
     } catch (e) {
@@ -293,23 +244,38 @@ export default function InventoryPage() {
       setError(msg)
     } finally {
       setLoading(false)
-      setSelectedIds(new Set())
     }
   }
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
   const markAuction = async () => {
-    await updateSpecsForSelection({ auction: true })
+    if (!selectedIds.size) return
+    await Promise.all(Array.from(selectedIds).map((id) => updateInventory(id, { status: 'auction', specs: { auction: true } })))
+    setSelectedIds(new Set())
   }
 
   const markQuoted = async () => {
+    if (!selectedIds.size) return
     const priceVal = quotedPrice ? Number(quotedPrice) : null
-    await updateSpecsForSelection({
-      quoted_at: new Date().toISOString(),
-      quoted_price: priceVal,
-      quoted_customer: quotedCustomer || null,
-    })
+    const patch = {
+      specs: {
+        quoted_at: new Date().toISOString(),
+        quoted_price: priceVal,
+        quoted_customer: quotedCustomer || null,
+      },
+    }
+    await Promise.all(Array.from(selectedIds).map((id) => updateInventory(id, patch)))
     setQuotedPrice('')
     setQuotedCustomer('')
+    setSelectedIds(new Set())
   }
 
   return (
@@ -317,7 +283,7 @@ export default function InventoryPage() {
       <div>
         <h1 style={{ marginBottom: 6 }}>Inventory</h1>
         <div style={{ color: 'var(--muted)', marginBottom: 12 }}>
-          Organisation-owned stock with availability, auction, and allocation controls.
+          Organisation-owned stock; lots should pull from here (flip lots leave inventory unlinked).
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button
@@ -429,71 +395,71 @@ export default function InventoryPage() {
         </div>
 
         <div style={{ display: 'grid', gap: 6 }}>
-          <label style={{ fontSize: 12, color: 'var(--muted)' }}>Lot filter</label>
-          <select
-            value={lotFilter}
-            onChange={(e) => setLotFilter(e.target.value)}
-            style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
-          >
-            <option value="all">All lots</option>
-            {lots.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.title}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div style={{ display: 'grid', gap: 6 }}>
           <label style={{ fontSize: 12, color: 'var(--muted)' }}>Manual add</label>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <input
               type="text"
               placeholder="Model/Part"
               value={manual.model}
-              onChange={(e) => handleManualChange('model', e.target.value)}
+              onChange={(e) => setManual((prev) => ({ ...prev, model: e.target.value }))}
+              style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+            />
+            <input
+              type="text"
+              placeholder="Description"
+              value={manual.description}
+              onChange={(e) => setManual((prev) => ({ ...prev, description: e.target.value }))}
               style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
             />
             <input
               type="text"
               placeholder="OEM"
               value={manual.oem}
-              onChange={(e) => handleManualChange('oem', e.target.value)}
+              onChange={(e) => setManual((prev) => ({ ...prev, oem: e.target.value }))}
+              style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+            />
+            <input
+              type="text"
+              placeholder="Condition"
+              value={manual.condition}
+              onChange={(e) => setManual((prev) => ({ ...prev, condition: e.target.value }))}
+              style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+            />
+            <input
+              type="text"
+              placeholder="Location"
+              value={manual.location}
+              onChange={(e) => setManual((prev) => ({ ...prev, location: e.target.value }))}
               style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
             />
             <input
               type="number"
-              placeholder="Qty"
-              value={manual.qty}
-              onChange={(e) => handleManualChange('qty', e.target.value)}
-              style={{ width: 80, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+              placeholder="Qty total"
+              value={manual.qty_total}
+              onChange={(e) => setManual((prev) => ({ ...prev, qty_total: e.target.value }))}
+              style={{ width: 90, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
             />
             <input
               type="number"
-              placeholder="Ask"
-              value={manual.ask}
-              onChange={(e) => handleManualChange('ask', e.target.value)}
-              style={{ width: 90, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+              placeholder="Qty available"
+              value={manual.qty_available}
+              onChange={(e) => setManual((prev) => ({ ...prev, qty_available: e.target.value }))}
+              style={{ width: 110, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
             />
             <input
               type="number"
               placeholder="Cost"
               value={manual.cost}
-              onChange={(e) => handleManualChange('cost', e.target.value)}
+              onChange={(e) => setManual((prev) => ({ ...prev, cost: e.target.value }))}
               style={{ width: 90, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
             />
-            <select
-              value={manual.lot_id}
-              onChange={(e) => handleManualChange('lot_id', e.target.value)}
-              style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
-            >
-              <option value="">No lot</option>
-              {lots.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.title}
-                </option>
-              ))}
-            </select>
+            <input
+              type="text"
+              placeholder="Currency"
+              value={manual.currency}
+              onChange={(e) => setManual((prev) => ({ ...prev, currency: e.target.value }))}
+              style={{ width: 90, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+            />
           </div>
         </div>
 
@@ -536,7 +502,7 @@ export default function InventoryPage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '0.3fr 1.3fr 0.8fr 0.8fr 0.6fr 0.9fr 0.9fr',
+            gridTemplateColumns: '0.3fr 1.3fr 0.8fr 0.8fr 0.9fr 0.9fr 0.8fr',
             gap: 0,
             background: 'var(--surface-2)',
             fontWeight: 900,
@@ -546,9 +512,9 @@ export default function InventoryPage() {
           <div style={{ padding: 10 }}>Select</div>
           <div style={{ padding: 10 }}>Part / Description</div>
           <div style={{ padding: 10 }}>OEM</div>
-          <div style={{ padding: 10 }}>Lot</div>
-          <div style={{ padding: 10 }}>Qty</div>
-          <div style={{ padding: 10 }}>Ask / Cost</div>
+          <div style={{ padding: 10 }}>Condition</div>
+          <div style={{ padding: 10 }}>Qty (avail/total)</div>
+          <div style={{ padding: 10 }}>Cost</div>
           <div style={{ padding: 10 }}>Status</div>
         </div>
 
@@ -557,7 +523,7 @@ export default function InventoryPage() {
             key={r.id}
             style={{
               display: 'grid',
-              gridTemplateColumns: '0.3fr 1.3fr 0.8fr 0.8fr 0.6fr 0.9fr 0.9fr',
+              gridTemplateColumns: '0.3fr 1.3fr 0.8fr 0.8fr 0.9fr 0.9fr 0.8fr',
               gap: 0,
               borderTop: `1px solid var(--border)`,
               background: 'var(--panel)',
@@ -567,10 +533,10 @@ export default function InventoryPage() {
               <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
             </div>
             <div style={{ padding: 10 }}>
-              <div style={{ fontWeight: 900 }}>{r.model || r.description || 'Untitled line'}</div>
+              <div style={{ fontWeight: 900 }}>{r.model || r.description || 'Untitled item'}</div>
               <div style={{ color: 'var(--muted)', fontSize: 12 }}>{r.description || 'No description'}</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
-                {r.auction ? (
+                {r.specs?.auction ? (
                   <span
                     style={{
                       padding: '3px 8px',
@@ -584,7 +550,7 @@ export default function InventoryPage() {
                     In auction
                   </span>
                 ) : null}
-                {r.quoted_price !== null && r.quoted_price !== undefined ? (
+                {r.specs?.quoted_price !== undefined && r.specs?.quoted_price !== null ? (
                   <span
                     style={{
                       padding: '3px 8px',
@@ -595,39 +561,56 @@ export default function InventoryPage() {
                       fontWeight: 800,
                     }}
                   >
-                    Quoted {money(r.quoted_price)} {r.quoted_customer ? `to ${r.quoted_customer}` : ''}
-                    {r.quoted_at ? ` • ${new Date(r.quoted_at).toLocaleString()}` : ''}
+                    Quoted {money(r.specs?.quoted_price as number | null, r.currency || 'USD')}{' '}
+                    {r.specs?.quoted_customer ? `to ${(r.specs?.quoted_customer as string)}` : ''}{' '}
+                    {r.specs?.quoted_at ? `• ${new Date(String(r.specs?.quoted_at)).toLocaleString()}` : ''}
                   </span>
                 ) : null}
               </div>
             </div>
             <div style={{ padding: 10 }}>{r.oem || '—'}</div>
-            <div style={{ padding: 10 }}>{r.lot_title || 'Unassigned'}</div>
+            <div style={{ padding: 10 }}>{r.condition || '—'}</div>
             <div style={{ padding: 10 }}>
               <input
                 type="number"
-                value={r.qty ?? ''}
-                onChange={(e) => updateLine(r.id, { qty: e.target.value === '' ? null : Number(e.target.value) })}
-                style={{ width: '100%', padding: '6px 8px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
-              />
-            </div>
-            <div style={{ padding: 10 }}>
-              <input
-                type="number"
-                value={r.asking_price ?? ''}
-                placeholder="Ask"
-                onChange={(e) => updateLine(r.id, { asking_price: e.target.value === '' ? null : Number(e.target.value) })}
+                value={r.qty_available ?? ''}
+                placeholder="Available"
+                onChange={(e) => updateInventory(r.id, { qty_available: e.target.value === '' ? null : Number(e.target.value) })}
                 style={{ width: '100%', padding: '6px 8px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', marginBottom: 6 }}
               />
               <input
                 type="number"
-                value={r.cost ?? ''}
-                placeholder="Cost"
-                onChange={(e) => updateLine(r.id, { cost: e.target.value === '' ? null : Number(e.target.value) })}
+                value={r.qty_total ?? ''}
+                placeholder="Total"
+                onChange={(e) => updateInventory(r.id, { qty_total: e.target.value === '' ? null : Number(e.target.value) })}
                 style={{ width: '100%', padding: '6px 8px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
               />
             </div>
-            <div style={{ padding: 10 }}>{r.status || 'Available'}</div>
+            <div style={{ padding: 10 }}>
+              <input
+                type="number"
+                value={r.cost ?? ''}
+                placeholder="Cost"
+                onChange={(e) => updateInventory(r.id, { cost: e.target.value === '' ? null : Number(e.target.value) })}
+                style={{ width: '100%', padding: '6px 8px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+              />
+              <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>{r.currency || 'USD'}</div>
+            </div>
+            <div style={{ padding: 10 }}>
+              <select
+                value={r.status ?? 'available'}
+                onChange={(e) => updateInventory(r.id, { status: e.target.value })}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
+              >
+                <option value="available">Available</option>
+                <option value="reserved">Reserved</option>
+                <option value="auction">Auction</option>
+                <option value="allocated">Allocated</option>
+                <option value="sold">Sold</option>
+                <option value="withdrawn">Withdrawn</option>
+                <option value="flip">Flip</option>
+              </select>
+            </div>
           </div>
         ))}
 
@@ -639,7 +622,7 @@ export default function InventoryPage() {
           </div>
         ) : (
           <div style={{ padding: 12, color: 'var(--muted)', fontSize: 12, borderTop: `1px solid var(--border)` }}>
-            Showing {filteredRows.length} line items. Totals and auction controls coming soon.
+            Showing {filteredRows.length} inventory items.
           </div>
         )}
 
