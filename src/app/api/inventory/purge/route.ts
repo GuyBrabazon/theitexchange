@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { headers } from 'next/headers'
 import { supabaseServer } from '@/lib/supabaseServer'
 
 export const runtime = 'nodejs'
@@ -6,7 +7,6 @@ export const runtime = 'nodejs'
 export async function POST() {
   try {
     const supa = supabaseServer()
-    const { headers } = await import('next/headers')
     const authHeader = headers().get('authorization')
     const token = authHeader?.replace(/Bearer\s+/i, '')
     const {
