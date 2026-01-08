@@ -70,13 +70,6 @@ function money(v: number, currency: string) {
   return `${rounded.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${currency}`
 }
 
-function fmtDate(ts: string | null | undefined) {
-  if (!ts) return '—'
-  const d = new Date(ts)
-  if (Number.isNaN(d.getTime())) return ts
-  return d.toLocaleString()
-}
-
 function startOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0)
 }
@@ -85,14 +78,6 @@ function startDateFor(tf: Timeframe, now: Date) {
   if (tf === 'mtd') return startOfMonth(now)
   if (tf === 'last7') return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
   return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-}
-
-function dateKeyLocal(d: Date) {
-  // YYYY-MM-DD in local time
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
 }
 
 function clamp(v: number, a: number, b: number) {
@@ -128,37 +113,6 @@ function Card({
         {right ? <div>{right}</div> : null}
       </div>
       <div style={{ marginTop: 12 }}>{children}</div>
-    </div>
-  )
-}
-
-function MiniBars({
-  series,
-  valueLabel,
-}: {
-  series: { key: string; value: number }[]
-  valueLabel: (v: number) => string
-}) {
-  const max = Math.max(1, ...series.map((s) => s.value))
-  return (
-    <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', height: 90 }}>
-      {series.map((s) => {
-        const h = clamp((s.value / max) * 90, 2, 90)
-        return (
-          <div key={s.key} style={{ width: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-            <div
-              title={`${s.key}: ${valueLabel(s.value)}`}
-              style={{
-                width: 10,
-                height: h,
-                borderRadius: 999,
-                background: 'linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%)',
-                opacity: 0.9,
-              }}
-            />
-          </div>
-        )
-      })}
     </div>
   )
 }
@@ -443,57 +397,6 @@ export default function AnalyticsPage() {
       lotsWithAwards: aggByLot.length,
     }
   }, [aggByLot])
-
-  const series = useMemo(() => {
-    // Daily series for the selected timeframe: Revenue and Profit (estimated)
-    const start = new Date(startDate.getTime())
-    start.setHours(0, 0, 0, 0)
-
-    const end = new Date()
-    end.setHours(23, 59, 59, 999)
-
-    const keys: string[] = []
-    const cur = new Date(start.getTime())
-    while (cur <= end) {
-      keys.push(dateKeyLocal(cur))
-      cur.setDate(cur.getDate() + 1)
-    }
-
-    const revByDay = new Map<string, number>()
-    const profitByDay = new Map<string, number>()
-
-    // Revenue per day from awards.created_at
-    for (const a of awardedLines) {
-      if (!a.created_at) continue
-      const d = new Date(a.created_at)
-      if (Number.isNaN(d.getTime())) continue
-      const k = dateKeyLocal(d)
-      revByDay.set(k, (revByDay.get(k) ?? 0) + n(a.extended))
-    }
-
-    // Profit per day (estimated) — allocate per-lot profit proportionally by awarded revenue per day.
-    // Simple approach: profit = revenue * (profit/revenue) using per-lot margin basis.
-    const lotProfitRate = new Map<string, number>() // profit / revenue for lot
-    for (const r of aggByLot) {
-      const rate = r.awarded_revenue > 0 ? r.estimated_profit / r.awarded_revenue : 0
-      lotProfitRate.set(r.lot_id, rate)
-    }
-
-    for (const a of awardedLines) {
-      if (!a.created_at) continue
-      const d = new Date(a.created_at)
-      if (Number.isNaN(d.getTime())) continue
-      const k = dateKeyLocal(d)
-      const rate = lotProfitRate.get(a.lot_id) ?? 0
-      const ext = n(a.extended)
-      profitByDay.set(k, (profitByDay.get(k) ?? 0) + ext * rate)
-    }
-
-    const revenueSeries = keys.map((k) => ({ key: k, value: n(revByDay.get(k) ?? 0) }))
-    const profitSeries = keys.map((k) => ({ key: k, value: n(profitByDay.get(k) ?? 0) }))
-
-    return { revenueSeries, profitSeries }
-  }, [awardedLines, aggByLot, startDate])
 
   const timeframeLabel = useMemo(() => {
     if (timeframe === 'mtd') return 'Month-to-date'

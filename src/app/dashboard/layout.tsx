@@ -512,6 +512,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <NavItem href="/dashboard/lots" label="Lots" importance="primary" />
           <NavItem href="/dashboard/buyers" label="Customers" importance="normal" />
           <NavItem href="/dashboard/sellers" label="Suppliers" importance="normal" />
+          <NavItem href="/dashboard/buy" label="Buy" importance="normal" />
           <NavItem href="/dashboard/quoting" label="Quoting" importance="normal" />
           <NavItem href="/dashboard/order-fulfilment" label="Order Fulfilment" importance="primary" />
           <NavItem href="/dashboard/inventory" label="Inventory" importance="normal" soon />
