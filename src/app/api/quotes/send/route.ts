@@ -8,6 +8,7 @@ type QuoteItemInput = {
   inventory_item_id: string
   qty: number
   price?: number | null
+  currency?: string | null
 }
 
 export async function POST(req: Request) {
@@ -19,6 +20,7 @@ export async function POST(req: Request) {
       items: QuoteItemInput[]
       note?: string
       subject?: string
+      preferred_currency?: string | null
     }
 
     if (!body.user_id) return NextResponse.json({ ok: false, message: 'user_id required' }, { status: 400 })
@@ -65,7 +67,7 @@ export async function POST(req: Request) {
       .map((it) => {
         const payload = body.items.find((p) => p.inventory_item_id === it.id)!
         const price = payload.price ?? it.cost ?? null
-        const currency = it.currency || 'USD'
+        const currency = payload.currency ?? it.currency ?? body.preferred_currency ?? 'USD'
         const priceStr = price != null ? Intl.NumberFormat(undefined, { style: 'currency', currency }).format(price) : '—'
         const qty = payload.qty
         return `<tr>
@@ -122,6 +124,7 @@ export async function POST(req: Request) {
     const linePayload = body.items.map((item) => {
       const match = items.find((i) => i.id === item.inventory_item_id)!
       const price = item.price ?? match.cost ?? null
+      const currency = item.currency ?? match.currency ?? body.preferred_currency ?? 'USD'
       return {
         quote_id: quoteId,
         inventory_item_id: match.id,
@@ -130,7 +133,7 @@ export async function POST(req: Request) {
         oem: match.oem ?? null,
         qty: item.qty,
         price,
-        currency: match.currency ?? 'USD',
+        currency,
         cost_snapshot: match.cost ?? null,
       }
     })

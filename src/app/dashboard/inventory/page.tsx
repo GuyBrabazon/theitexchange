@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { buildSheetFromMatrix, parseSpreadsheetMatrix } from '@/lib/parseSpreadsheet'
+import { parseSpreadsheetMatrix } from '@/lib/parseSpreadsheet'
 
 type InventoryRow = {
   id: string
@@ -50,6 +50,24 @@ export default function InventoryPage() {
   })
   const [uploadHeaderRow, setUploadHeaderRow] = useState<number>(0)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [mapOpen, setMapOpen] = useState(false)
+  const [headers, setHeaders] = useState<string[]>([])
+  const [dataRows, setDataRows] = useState<string[][]>([])
+  const [mapping, setMapping] = useState({
+    model: '',
+    oem: '',
+    condition: '',
+    quantity: '',
+    cost: '',
+    status: '',
+  })
+  const [pendingFileName, setPendingFileName] = useState<string>('')
+
+  useEffect(() => {
+    if (tenantCurrency) {
+      setManual((prev) => ({ ...prev, currency: tenantCurrency }))
+    }
+  }, [tenantCurrency])
 
   const load = async () => {
     setLoading(true)
@@ -150,6 +168,8 @@ export default function InventoryPage() {
     return { total: rows.length, byStatus }
   }, [rows])
 
+  const previewRows = useMemo(() => dataRows.slice(0, 8), [dataRows])
+
   const insertInventory = async (payloads: Partial<InventoryRow>[]) => {
     if (!tenantId) throw new Error('Tenant not loaded')
     const normalized = payloads.map((p) => ({
@@ -163,14 +183,14 @@ export default function InventoryPage() {
       qty_total: p.qty_total ?? null,
       qty_available: p.qty_available ?? p.qty_total ?? null,
       cost: p.cost ?? null,
-      currency: p.currency || 'USD',
+      currency: p.currency || tenantCurrency || 'USD',
       specs: p.specs ?? {},
     }))
-      const { error: insErr } = await supabase.from('inventory_items').insert(normalized)
-      if (insErr) throw insErr
-    }
+    const { error: insErr } = await supabase.from('inventory_items').insert(normalized)
+    if (insErr) throw insErr
+  }
 
-    const addManual = async () => {
+  const addManual = async () => {
     try {
       setLoading(true)
       const qty_total = manual.qty_total ? Number(manual.qty_total) : null
@@ -210,50 +230,97 @@ export default function InventoryPage() {
     }
   }
 
-  const handleUpload = async (file: File) => {
+  const startUpload = async (file: File) => {
     try {
       setLoading(true)
-      const matrix = await parseSpreadsheetMatrix(file, 2000)
-      const sheet = buildSheetFromMatrix(matrix, uploadHeaderRow)
+      setPendingFileName(file.name)
+      const matrix = await parseSpreadsheetMatrix(file, 5000)
+      const headerRow = matrix[uploadHeaderRow] ?? []
+      const rows = matrix.slice(uploadHeaderRow + 1)
+      const normalizedHeaders = headerRow.map((h, idx) => {
+        const text = String(h ?? '').trim()
+        return text || `Column ${idx + 1}`
+      })
+      setHeaders(normalizedHeaders)
+      setDataRows(rows.map((r) => r.map((c) => String(c ?? ''))))
 
-      const mapVal = (row: Record<string, unknown>, keys: string[]) => {
-        const lower = Object.fromEntries(Object.entries(row).map(([k, v]) => [k.toLowerCase(), v]))
-        for (const k of keys) {
-          const v = lower[k.toLowerCase()]
-          if (v !== undefined && String(v).trim() !== '') return v
+      const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+      const findCol = (keys: string[]) => {
+        const candidates = normalizedHeaders.map((h, i) => ({ h, i, norm: normalize(h) }))
+        for (const key of keys) {
+          const normKey = normalize(key)
+          const hit = candidates.find((c) => c.norm.includes(normKey))
+          if (hit) return hit.h
         }
         return ''
       }
 
-      const inserts = sheet.rows.map((r) => {
-        const obj = r as Record<string, unknown>
-        const model = mapVal(obj, ['model', 'sku', 'part', 'description'])
-        const desc = mapVal(obj, ['description', 'details'])
-        const oem = mapVal(obj, ['oem', 'manufacturer'])
-        const condition = mapVal(obj, ['condition'])
-        const location = mapVal(obj, ['location', 'site', 'warehouse'])
-        const qtyRaw = mapVal(obj, ['qty', 'quantity', 'qty_total'])
-        const costRaw = mapVal(obj, ['cost', 'cost price'])
-        const currency = mapVal(obj, ['currency'])
-        const qty_total = qtyRaw ? Number(qtyRaw) : null
-        const cost = costRaw ? Number(costRaw) : null
-        return {
-          model: model ? String(model) : null,
-          description: desc ? String(desc) : model ? String(model) : null,
-          oem: oem ? String(oem) : null,
-          condition: condition ? String(condition) : null,
-          location: location ? String(location) : null,
-          qty_total,
-          qty_available: qty_total,
-          cost,
-          currency: currency ? String(currency) : 'USD',
-          specs: {},
-        }
+      setMapping({
+        model: findCol(['part', 'model', 'sku', 'description']),
+        oem: findCol(['oem', 'manufacturer', 'brand']),
+        condition: findCol(['condition']),
+        quantity: findCol(['qty', 'quantity']),
+        cost: findCol(['cost', 'price']),
+        status: findCol(['status']),
       })
+      setMapOpen(true)
+    } catch (e) {
+      console.error(e)
+      const msg = e instanceof Error ? e.message : 'Upload failed'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-      const valid = inserts.filter((i) => i.model || i.qty_total || i.cost)
-      if (!valid.length) throw new Error('No rows with values found to import')
-      await insertInventory(valid)
+  const closeMapping = () => {
+    setMapOpen(false)
+    setPendingFileName('')
+    setDataRows([])
+  }
+
+  const confirmMapping = async () => {
+    try {
+      setLoading(true)
+      const colIndex = (name: string) => headers.findIndex((h) => h === name)
+      const idxModel = colIndex(mapping.model)
+      const idxOem = colIndex(mapping.oem)
+      const idxCond = colIndex(mapping.condition)
+      const idxQty = colIndex(mapping.quantity)
+      const idxCost = colIndex(mapping.cost)
+      const idxStatus = colIndex(mapping.status)
+
+      if (idxModel < 0) throw new Error('Please map a part/model column')
+      if (!dataRows.length) throw new Error('No data rows detected to import')
+
+      const rowsToUse = dataRows
+      const mapped = rowsToUse
+        .map((row) => {
+          const getVal = (idx: number) => {
+            if (idx < 0) return ''
+            return (row[idx] ?? '').toString().trim()
+          }
+          const qtyVal = getVal(idxQty)
+          const costVal = getVal(idxCost)
+          const statusVal = getVal(idxStatus)
+          return {
+            model: getVal(idxModel) || null,
+            description: getVal(idxModel) || null,
+            oem: getVal(idxOem) || null,
+            condition: getVal(idxCond) || null,
+            qty_total: qtyVal ? Number(qtyVal) : null,
+            qty_available: qtyVal ? Number(qtyVal) : null,
+            cost: costVal ? Number(costVal) : null,
+            currency: tenantCurrency || 'USD',
+            status: statusVal || 'available',
+            specs: {},
+          }
+        })
+        .filter((r) => r.model || r.qty_total || r.cost)
+
+      if (!mapped.length) throw new Error('No rows with values found to import')
+      await insertInventory(mapped)
+      closeMapping()
       await load()
     } catch (e) {
       console.error(e)
@@ -320,7 +387,7 @@ export default function InventoryPage() {
                 style={{ display: 'none' }}
                 onChange={(e) => {
                   const file = e.target.files?.[0]
-                  if (file) handleUpload(file)
+                  if (file) startUpload(file)
                   e.target.value = ''
                 }}
               />
@@ -483,7 +550,7 @@ export default function InventoryPage() {
             <div style={{ fontWeight: 900 }}>{s.label}</div>
             <div style={{ height: 4, borderRadius: 4, background: s.color }} />
             <div style={{ color: 'var(--muted)', fontSize: 12 }}>
-              {loading ? 'Loading…' : counters.byStatus[s.label.toLowerCase()] || 0} items
+              {loading ? 'Loading...' : counters.byStatus[s.label.toLowerCase()] || 0} items
             </div>
           </div>
         ))}
@@ -605,6 +672,147 @@ export default function InventoryPage() {
           <div style={{ padding: 12, color: 'var(--bad)', fontSize: 12, borderTop: `1px solid var(--border)` }}>{error}</div>
         ) : null}
       </div>
+
+      {mapOpen ? (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 20,
+          }}
+        >
+          <div
+            style={{
+              background: 'var(--panel)',
+              border: '1px solid var(--border)',
+              borderRadius: 14,
+              padding: 16,
+              width: 'min(960px, 90vw)',
+              maxHeight: '85vh',
+              overflow: 'auto',
+              display: 'grid',
+              gap: 12,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: 900, fontSize: 18 }}>Map columns for {pendingFileName || 'upload'}</div>
+                <div style={{ color: 'var(--muted)', fontSize: 13 }}>
+                  Choose which column maps to each field. Status defaults to &quot;available&quot; if not mapped.
+                </div>
+              </div>
+              <button
+                onClick={closeMapping}
+                style={{
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface-2)',
+                  borderRadius: 10,
+                  padding: '8px 10px',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+              {[
+                { key: 'model', label: 'Part number / Model', required: true },
+                { key: 'oem', label: 'OEM' },
+                { key: 'condition', label: 'Condition' },
+                { key: 'quantity', label: 'Quantity (in stock)' },
+                { key: 'cost', label: 'Cost' },
+                { key: 'status', label: 'Status' },
+              ].map((field) => (
+                <div key={field.key} style={{ display: 'grid', gap: 6 }}>
+                  <label style={{ fontSize: 12, color: 'var(--muted)' }}>
+                    {field.label}
+                    {field.required ? ' *' : ''}
+                  </label>
+                  <select
+                    value={(mapping as Record<string, string>)[field.key] ?? ''}
+                    onChange={(e) => setMapping((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                    style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)' }}
+                  >
+                    <option value="">Select column</option>
+                    {headers.map((h) => (
+                      <option key={h} value={h}>
+                        {h}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead style={{ background: 'var(--surface-2)' }}>
+                  <tr>
+                    {headers.map((h) => (
+                      <th key={h} style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid var(--border)' }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={headers.length || 1} style={{ padding: 10, color: 'var(--muted)' }}>
+                        No data rows detected after the selected header row.
+                      </td>
+                    </tr>
+                  ) : (
+                    previewRows.map((row, idx) => (
+                      <tr key={idx} style={{ borderTop: '1px solid var(--border)' }}>
+                        {headers.map((_, cIdx) => (
+                          <td key={`${idx}-${cIdx}`} style={{ padding: 8 }}>
+                            {row[cIdx] ?? ''}
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={closeMapping}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface-2)',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmMapping}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--accent)',
+                  color: 'white',
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                }}
+              >
+                Import rows
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   )
 }

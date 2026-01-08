@@ -40,6 +40,7 @@ export default function AccountPage() {
   const [outlookStatus, setOutlookStatus] = useState('Not connected')
   const [outlookBusy, setOutlookBusy] = useState(false)
   const [canSeeOrg, setCanSeeOrg] = useState(false)
+  const [tenantId, setTenantId] = useState<string>('')
 
   useEffect(() => {
     const load = async () => {
@@ -72,6 +73,7 @@ export default function AccountPage() {
           setCompany(data.company ?? '')
           setPhone(data.phone ?? '')
           setCanSeeOrg(data.role === 'admin')
+          setTenantId(data.tenant_id ?? '')
         }
 
         // Check Outlook status
@@ -324,6 +326,42 @@ export default function AccountPage() {
             >
               Open Org Setup
             </a>
+            <div style={{ marginTop: 12 }}>
+              <button
+                onClick={async () => {
+                  if (!tenantId) return
+                  if (!confirm('This deletes all AVAILABLE inventory for your organisation. Proceed?')) return
+                  setOutlookBusy(true)
+                  try {
+                    const res = await fetch('/api/inventory/purge', { method: 'POST' })
+                    const json = await res.json()
+                    if (!res.ok || !json.ok) throw new Error(json.message || 'Purge failed')
+                    alert('Available inventory purged.')
+                  } catch (e) {
+                    console.error(e)
+                    alert(e instanceof Error ? e.message : 'Purge failed')
+                  } finally {
+                    setOutlookBusy(false)
+                  }
+                }}
+                style={{
+                  marginTop: 8,
+                  padding: '8px 10px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--panel)',
+                  fontWeight: 900,
+                  color: 'var(--bad)',
+                  cursor: outlookBusy ? 'wait' : 'pointer',
+                }}
+                disabled={outlookBusy}
+              >
+                Purge available inventory
+              </button>
+              <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>
+                Admin only. Deletes all inventory with status &quot;available&quot; for this org.
+              </div>
+            </div>
           </div>
         ) : null}
       </div>

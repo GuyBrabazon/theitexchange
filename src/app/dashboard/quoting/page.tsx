@@ -40,6 +40,8 @@ export default function QuotingPage() {
   const [success, setSuccess] = useState<string>('')
   const [history, setHistory] = useState<Record<string, QuoteHistory[]>>({})
   const [userId, setUserId] = useState<string>('')
+  const [defaultCurrency, setDefaultCurrency] = useState<string>('USD')
+  const [historyItemId, setHistoryItemId] = useState<string | null>(null)
   const [quotes, setQuotes] = useState<
     { id: string; buyer: Buyer | null; subject: string | null; status: string; created_at: string; sent_at: string | null }[]
   >([])
@@ -69,18 +71,21 @@ export default function QuotingPage() {
         if (!tenantId) throw new Error('Tenant not found')
         setTenantId(tenantId)
 
-        const [{ data: itemsData, error: itemsErr }, { data: buyersData, error: buyersErr }] = await Promise.all([
-          supabase
-            .from('inventory_items')
-            .select('id,model,description,oem,qty_available,currency,cost')
-            .eq('tenant_id', tenantId)
-            .in('status', ['available', 'reserved', 'auction', 'flip'])
-            .order('created_at', { ascending: false })
-            .limit(500),
-          supabase.from('buyers').select('id,name,email,company').eq('tenant_id', tenantId).order('name', { ascending: true }),
-        ])
+        const [{ data: itemsData, error: itemsErr }, { data: buyersData, error: buyersErr }, { data: settingsData, error: settingsErr }] =
+          await Promise.all([
+            supabase
+              .from('inventory_items')
+              .select('id,model,description,oem,qty_available,currency,cost')
+              .eq('tenant_id', tenantId)
+              .in('status', ['available', 'reserved', 'auction', 'flip'])
+              .order('created_at', { ascending: false })
+              .limit(500),
+            supabase.from('buyers').select('id,name,email,company').eq('tenant_id', tenantId).order('name', { ascending: true }),
+            supabase.from('tenant_settings').select('default_currency').eq('tenant_id', tenantId).maybeSingle(),
+          ])
         if (itemsErr) throw itemsErr
         if (buyersErr) throw buyersErr
+        if (settingsErr) throw settingsErr
 
         setItems(
           (itemsData ?? []).map((r) => {
@@ -110,6 +115,10 @@ export default function QuotingPage() {
             company: (b as Record<string, unknown>).company as string | null,
           }))
         )
+
+        if (settingsData?.default_currency) {
+          setDefaultCurrency(settingsData.default_currency)
+        }
 
         await loadQuotes(tenantId, { buyerId: quoteFilterBuyer, text: quoteFilterText, start: quoteStart, end: quoteEnd })
       } catch (e) {
@@ -277,6 +286,7 @@ export default function QuotingPage() {
           buyer_id: buyer.id,
           items: payloadItems,
           note,
+          preferred_currency: defaultCurrency,
         }),
       })
       const json = (await res.json()) as { ok: boolean; message?: string }
@@ -441,7 +451,7 @@ export default function QuotingPage() {
                 <input
                   type="number"
                   value={sel?.price ?? ''}
-                  placeholder={r.cost != null ? `${money(r.cost, r.currency || 'USD')}` : 'Price'}
+                  placeholder={r.cost != null ? `${money(r.cost, r.currency || defaultCurrency)}` : 'Price'}
                   onChange={(e) => setSelected((prev) => ({ ...prev, [r.id]: { qty: prev[r.id]?.qty ?? '1', price: e.target.value } }))}
                   disabled={!sel}
                   style={{
@@ -453,24 +463,25 @@ export default function QuotingPage() {
                     opacity: sel ? 1 : 0.6,
                   }}
                 />
-                <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>Currency: {r.currency || 'USD'}</div>
+                <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>Currency: {r.currency || defaultCurrency}</div>
               </div>
               <div style={{ padding: 10, color: 'var(--muted)', fontSize: 12, display: 'grid', gap: 4 }}>
-                {parsedHistory(r.id).length === 0 ? (
-                  <span>—</span>
-                ) : (
-                  parsedHistory(r.id)
-                    .slice(0, 3)
-                    .map((h, idx) => (
-                      <span key={`${r.id}-h-${idx}`}>
-                        {h.subject ? `${h.subject} • ` : ''}
-                        {h.qty ? `Qty ${h.qty}` : ''}
-                        {h.price ? ` @ ${money(h.price, r.currency || 'USD')}` : ''}
-                        {h.buyer_name ? ` • ${h.buyer_name}` : ''}
-                        {` • ${new Date(h.created_at).toLocaleString()}`}
-                      </span>
-                    ))
-                )}
+                <button
+                  onClick={() => {
+                    if (!history[r.id]) void loadHistory([r.id])
+                    setHistoryItemId(r.id)
+                  }}
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: 10,
+                    border: '1px solid var(--border)',
+                    background: 'var(--panel)',
+                    color: 'var(--text)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Quote history
+                </button>
               </div>
             </div>
           )
@@ -573,6 +584,68 @@ export default function QuotingPage() {
           {quotes.length === 0 ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>No quotes found.</div> : null}
         </div>
       </div>
+
+      {historyItemId ? (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'grid',
+            placeItems: 'center',
+            padding: 24,
+            zIndex: 50,
+          }}
+          onClick={() => setHistoryItemId(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: 'min(900px, 100%)', maxHeight: '80vh', overflow: 'auto', background: 'var(--panel)', borderRadius: 12, padding: 16 }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+              <h3 style={{ margin: 0 }}>Quote history</h3>
+              <button
+                onClick={() => setHistoryItemId(null)}
+                style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer' }}
+              >
+                Close
+              </button>
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 12 }}>
+              <thead>
+                <tr style={{ background: 'var(--surface-2)', textAlign: 'left' }}>
+                  <th style={{ padding: 8, borderBottom: '1px solid var(--border)' }}>Date</th>
+                  <th style={{ padding: 8, borderBottom: '1px solid var(--border)' }}>Buyer</th>
+                  <th style={{ padding: 8, borderBottom: '1px solid var(--border)' }}>Email</th>
+                  <th style={{ padding: 8, borderBottom: '1px solid var(--border)' }}>Qty</th>
+                  <th style={{ padding: 8, borderBottom: '1px solid var(--border)' }}>Price</th>
+                  <th style={{ padding: 8, borderBottom: '1px solid var(--border)' }}>Subject</th>
+                </tr>
+              </thead>
+              <tbody>
+                {parsedHistory(historyItemId).length === 0 ? (
+                  <tr>
+                    <td style={{ padding: 8, color: 'var(--muted)' }} colSpan={6}>
+                      No history found.
+                    </td>
+                  </tr>
+                ) : (
+                  parsedHistory(historyItemId).map((h, idx) => (
+                    <tr key={`${historyItemId}-row-${idx}`} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: 8 }}>{new Date(h.created_at).toLocaleString()}</td>
+                      <td style={{ padding: 8 }}>{h.buyer_name ?? '—'}</td>
+                      <td style={{ padding: 8 }}>{h.buyer_email ?? '—'}</td>
+                      <td style={{ padding: 8 }}>{h.qty ?? '—'}</td>
+                      <td style={{ padding: 8 }}>{h.price != null ? money(h.price, defaultCurrency) : '—'}</td>
+                      <td style={{ padding: 8 }}>{h.subject ?? '—'}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
     </main>
   )
 }
