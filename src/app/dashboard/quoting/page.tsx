@@ -24,6 +24,18 @@ type QuoteHistory = {
   subject?: string | null
 }
 
+type RfqListItem = {
+  id: string
+  subject: string | null
+  note: string | null
+  status: string
+  buyer_tenant_id: string
+  supplier_tenant_id: string
+  created_at: string
+  buyer_tenant_name: string | null
+  line_count: number
+}
+
 const money = (v: number | null | undefined, currency = 'USD') =>
   v == null ? '—' : Intl.NumberFormat(undefined, { style: 'currency', currency }).format(v)
 
@@ -49,6 +61,8 @@ export default function QuotingPage() {
   const [quoteFilterText, setQuoteFilterText] = useState<string>('')
   const [quoteStart, setQuoteStart] = useState<string>('')
   const [quoteEnd, setQuoteEnd] = useState<string>('')
+  const [rfqs, setRfqs] = useState<RfqListItem[]>([])
+  const [rfqLoading, setRfqLoading] = useState(false)
 
   useEffect(() => {
     const init = async () => {
@@ -121,6 +135,7 @@ export default function QuotingPage() {
         }
 
         await loadQuotes(tenantId, { buyerId: quoteFilterBuyer, text: quoteFilterText, start: quoteStart, end: quoteEnd })
+        await loadRfqs(tenantId)
       } catch (e) {
         console.error(e)
         const msg = e instanceof Error ? e.message : 'Failed to load quoting data'
@@ -250,6 +265,62 @@ export default function QuotingPage() {
     setQuotes(filtered)
   }
 
+  const loadRfqs = async (tenant: string) => {
+    setRfqLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('rfqs')
+        .select('id,subject,note,status,buyer_tenant_id,supplier_tenant_id,created_at,rfq_lines(count)')
+        .eq('supplier_tenant_id', tenant)
+        .in('status', ['new', 'sent'])
+        .order('created_at', { ascending: false })
+        .limit(200)
+      if (error) throw error
+      const buyerTenantIds = Array.from(new Set((data ?? []).map((r) => String(r.buyer_tenant_id ?? '')).filter(Boolean)))
+      const tenantNames =
+        buyerTenantIds.length > 0
+          ? new Map(
+              (
+                (await supabase.from('tenants').select('id,name').in('id', buyerTenantIds)).data ?? []
+              ).map((t: any) => [String(t.id), t.name as string | null])
+            )
+          : new Map()
+      const mapped: RfqListItem[] =
+        (data ?? []).map((r: Record<string, unknown>) => ({
+          id: String(r.id ?? ''),
+          subject: r.subject == null ? null : String(r.subject),
+          note: r.note == null ? null : String(r.note),
+          status: r.status == null ? 'new' : String(r.status),
+          buyer_tenant_id: String(r.buyer_tenant_id ?? ''),
+          supplier_tenant_id: String(r.supplier_tenant_id ?? ''),
+          created_at: r.created_at ? String(r.created_at) : new Date().toISOString(),
+          buyer_tenant_name: tenantNames.get(String(r.buyer_tenant_id ?? '')) ?? null,
+          line_count: Array.isArray((r as any).rfq_lines) && (r as any).rfq_lines[0]
+            ? Number((r as any).rfq_lines[0].count ?? 0)
+            : 0,
+        })) ?? []
+      setRfqs(mapped)
+    } catch (e) {
+      console.error('rfq load error', e)
+    } finally {
+      setRfqLoading(false)
+    }
+  }
+
+  const markRfqQuoted = async (rfqId: string) => {
+    try {
+      setRfqLoading(true)
+      const { error } = await supabase.from('rfqs').update({ status: 'quoted' }).eq('id', rfqId)
+      if (error) throw error
+      if (tenantId) await loadRfqs(tenantId)
+    } catch (e) {
+      console.error('rfq update error', e)
+      setError(e instanceof Error ? e.message : 'Failed to update RFQ')
+    } finally {
+      setRfqLoading(false)
+    }
+  }
+
   const sendQuote = async () => {
     setError('')
     setSuccess('')
@@ -340,6 +411,20 @@ export default function QuotingPage() {
         <p style={{ color: 'var(--muted)', maxWidth: 720 }}>
           Build customer quotes directly from inventory. Select parts, set quantities and prices, and send via your Outlook connection.
         </p>
+        <button
+          style={{
+            padding: '8px 12px',
+            borderRadius: 10,
+            border: '1px solid var(--border)',
+            background: 'var(--panel)',
+            fontWeight: 800,
+            cursor: 'pointer',
+          }}
+          onClick={async () => tenantId && (await loadRfqs(tenantId))}
+          title="Reload RFQs awaiting response"
+        >
+          RFQs pending {rfqs.length ? `(${rfqs.length})` : ''}
+        </button>
       </div>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -505,6 +590,41 @@ export default function QuotingPage() {
         {success ? (
           <div style={{ padding: 12, color: 'var(--good)', fontSize: 12, borderTop: `1px solid var(--border)` }}>{success}</div>
         ) : null}
+      </div>
+
+      <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 16, background: 'var(--panel)', display: 'grid', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <h2 style={{ margin: 0 }}>RFQs awaiting response</h2>
+          {rfqLoading ? <span style={{ color: 'var(--muted)', fontSize: 12 }}>Loading…</span> : null}
+        </div>
+        {rfqs.length === 0 ? (
+          <div style={{ color: 'var(--muted)', fontSize: 12 }}>No RFQs awaiting response.</div>
+        ) : (
+          <div style={{ display: 'grid', gap: 10 }}>
+            {rfqs.map((r) => (
+              <div key={r.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'var(--surface-2)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontWeight: 900 }}>{r.subject || 'RFQ'}</div>
+                    <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+                      From: {r.buyer_tenant_name || r.buyer_tenant_id.slice(0, 8)} • {new Date(r.created_at).toLocaleString()} • Lines:{' '}
+                      {r.line_count}
+                    </div>
+                    {r.note ? <div style={{ marginTop: 6 }}>{r.note}</div> : null}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <button
+                      onClick={() => markRfqQuoted(r.id)}
+                      style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                    >
+                      Mark quoted
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 16, background: 'var(--panel)', display: 'grid', gap: 12 }}>
