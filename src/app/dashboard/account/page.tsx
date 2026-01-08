@@ -248,7 +248,7 @@ export default function AccountPage() {
             onClick={async () => {
               setOutlookBusy(true)
               try {
-                const res = await fetch('/api/outlook/send-test', { method: 'POST' })
+                const res = await fetch(`/api/outlook/send-test?uid=${authId}`, { method: 'POST' })
                 const json = await res.json()
                 if (!res.ok || !json.ok) throw new Error(json.message || 'Failed')
                 setOutlookStatus('Test email sent')

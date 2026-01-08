@@ -4,20 +4,39 @@ import { sendTestMail } from '@/lib/outlook'
 
 export const runtime = 'nodejs'
 
-export async function POST() {
+export async function POST(req: Request) {
   try {
     const supa = supabaseServer()
-    const {
-      data: { user },
-      error: userErr,
-    } = await supa.auth.getUser()
-    if (userErr) throw userErr
-    if (!user) return NextResponse.json({ ok: false, message: 'Not authenticated' }, { status: 401 })
+    const url = new URL(req.url)
+    const uid = url.searchParams.get('uid')
+    let userId = uid ?? ''
+    let email = ''
 
-    const email = user.email ?? ''
+    if (!userId) {
+      const {
+        data: { user },
+        error: userErr,
+      } = await supa.auth.getUser()
+      if (userErr) throw userErr
+      if (!user) return NextResponse.json({ ok: false, message: 'Not authenticated' }, { status: 401 })
+      userId = user.id
+      email = user.email ?? ''
+    } else {
+      const { data: userRow, error } = await supa.from('users').select('id').eq('id', userId).maybeSingle()
+      if (error) throw error
+      if (!userRow) return NextResponse.json({ ok: false, message: 'User not found' }, { status: 404 })
+    }
+
+    if (!email) {
+      // fetch auth email if not already set
+      const {
+        data: { user },
+      } = await supa.auth.getUser()
+      email = user?.email ?? ''
+    }
     if (!email) return NextResponse.json({ ok: false, message: 'User email missing' }, { status: 400 })
 
-    await sendTestMail(user.id, email)
+    await sendTestMail(userId, email)
     return NextResponse.json({ ok: true })
   } catch (e: unknown) {
     console.error('send-test error', e)
