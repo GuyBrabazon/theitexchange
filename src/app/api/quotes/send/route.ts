@@ -101,6 +101,42 @@ export async function POST(req: Request) {
       </div>
     `
 
+    // Persist quote + lines
+    const nowIso = new Date().toISOString()
+    const { data: quoteRow, error: quoteErr } = await supa
+      .from('quotes')
+      .insert({
+        tenant_id: buyer.tenant_id,
+        buyer_id: buyer.id,
+        status: 'sent',
+        subject,
+        note: body.note ?? null,
+        sent_at: nowIso,
+        created_by: body.user_id,
+      })
+      .select('id')
+      .single()
+    if (quoteErr) throw quoteErr
+    const quoteId: string = (quoteRow as { id: string }).id
+
+    const linePayload = body.items.map((item) => {
+      const match = items.find((i) => i.id === item.inventory_item_id)!
+      const price = item.price ?? match.cost ?? null
+      return {
+        quote_id: quoteId,
+        inventory_item_id: match.id,
+        description: match.description ?? match.model ?? null,
+        model: match.model ?? null,
+        oem: match.oem ?? null,
+        qty: item.qty,
+        price,
+        currency: match.currency ?? 'USD',
+        cost_snapshot: match.cost ?? null,
+      }
+    })
+    const { error: qlErr } = await supa.from('quote_lines').insert(linePayload)
+    if (qlErr) throw qlErr
+
     await sendOutlookMail(body.user_id, buyer.email, subject, html)
 
     const movementPayload = body.items.map((item) => {
@@ -125,7 +161,7 @@ export async function POST(req: Request) {
     const { error: movErr } = await supa.from('inventory_movements').insert(movementPayload)
     if (movErr) throw movErr
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, quote_id: quoteId })
   } catch (e) {
     console.error('quote send error', e)
     const msg = e instanceof Error ? e.message : 'Failed to send quote'

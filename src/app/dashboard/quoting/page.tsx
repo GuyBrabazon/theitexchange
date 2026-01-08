@@ -28,6 +28,7 @@ const money = (v: number | null | undefined, currency = 'USD') =>
   v == null ? '—' : Intl.NumberFormat(undefined, { style: 'currency', currency }).format(v)
 
 export default function QuotingPage() {
+  const [tenantId, setTenantId] = useState<string>('')
   const [items, setItems] = useState<QuoteItem[]>([])
   const [buyers, setBuyers] = useState<Buyer[]>([])
   const [selectedBuyer, setSelectedBuyer] = useState<string>('')
@@ -39,6 +40,13 @@ export default function QuotingPage() {
   const [success, setSuccess] = useState<string>('')
   const [history, setHistory] = useState<Record<string, QuoteHistory[]>>({})
   const [userId, setUserId] = useState<string>('')
+  const [quotes, setQuotes] = useState<
+    { id: string; buyer: Buyer | null; subject: string | null; status: string; created_at: string; sent_at: string | null }[]
+  >([])
+  const [quoteFilterBuyer, setQuoteFilterBuyer] = useState<string>('')
+  const [quoteFilterText, setQuoteFilterText] = useState<string>('')
+  const [quoteStart, setQuoteStart] = useState<string>('')
+  const [quoteEnd, setQuoteEnd] = useState<string>('')
 
   useEffect(() => {
     const init = async () => {
@@ -59,6 +67,7 @@ export default function QuotingPage() {
         if (profileErr) throw profileErr
         const tenantId = profile?.tenant_id
         if (!tenantId) throw new Error('Tenant not found')
+        setTenantId(tenantId)
 
         const [{ data: itemsData, error: itemsErr }, { data: buyersData, error: buyersErr }] = await Promise.all([
           supabase
@@ -101,6 +110,8 @@ export default function QuotingPage() {
             company: (b as Record<string, unknown>).company as string | null,
           }))
         )
+
+        await loadQuotes(tenantId, { buyerId: quoteFilterBuyer, text: quoteFilterText, start: quoteStart, end: quoteEnd })
       } catch (e) {
         console.error(e)
         const msg = e instanceof Error ? e.message : 'Failed to load quoting data'
@@ -111,7 +122,7 @@ export default function QuotingPage() {
     }
 
     init()
-  }, [])
+  }, [quoteEnd, quoteFilterBuyer, quoteFilterText, quoteStart])
 
   const visibleItems = useMemo(() => {
     if (!search.trim()) return items
@@ -187,6 +198,49 @@ export default function QuotingPage() {
     setHistory((prev) => ({ ...prev, ...next }))
   }
 
+  const loadQuotes = async (
+    tenantId: string,
+    filters: { buyerId?: string; text?: string; start?: string; end?: string } = {}
+  ) => {
+    let query = supabase
+      .from('quotes')
+      .select('id,buyer_id,status,subject,created_at,sent_at,buyers(id,name,email,company)')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+      .limit(200)
+    if (filters.buyerId) query = query.eq('buyer_id', filters.buyerId)
+    if (filters.start) query = query.gte('created_at', filters.start)
+    if (filters.end) query = query.lte('created_at', filters.end)
+    const { data, error } = await query
+    if (error) {
+      console.error(error)
+      return
+    }
+    const text = (filters.text ?? '').toLowerCase()
+    const mapped =
+      (data ?? []).map((r: Record<string, unknown>) => {
+        const buyerRaw = Array.isArray(r.buyers) ? r.buyers[0] : r.buyers
+        const buyerObj: Buyer | null = buyerRaw
+          ? { id: String(buyerRaw.id ?? ''), name: buyerRaw.name ?? null, email: buyerRaw.email ?? null, company: buyerRaw.company ?? null }
+          : null
+        return {
+          id: String(r.id ?? ''),
+          buyer: buyerObj,
+          subject: r.subject ?? null,
+          status: r.status ?? 'sent',
+          created_at: r.created_at ?? new Date().toISOString(),
+          sent_at: r.sent_at ?? null,
+        }
+      }) ?? []
+    const filtered = text
+      ? mapped.filter((q) => {
+          const hay = `${q.subject ?? ''} ${q.buyer?.name ?? ''} ${q.buyer?.company ?? ''}`.toLowerCase()
+          return hay.includes(text)
+        })
+      : mapped
+    setQuotes(filtered)
+  }
+
   const sendQuote = async () => {
     setError('')
     setSuccess('')
@@ -232,9 +286,37 @@ export default function QuotingPage() {
       setSuccess('Quote sent via Outlook')
       setSelected({})
       void loadHistory(payloadItems.map((p) => p.inventory_item_id))
+      if (tenantId) {
+        await loadQuotes(tenantId, { buyerId: quoteFilterBuyer, text: quoteFilterText, start: quoteStart, end: quoteEnd })
+      }
     } catch (e) {
       console.error(e)
       const msg = e instanceof Error ? e.message : 'Failed to send quote'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const convertQuote = async (quoteId: string) => {
+    setError('')
+    setSuccess('')
+    try {
+      setLoading(true)
+      const res = await fetch('/api/quotes/convert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quote_id: quoteId, user_id: userId }),
+      })
+      const json = (await res.json()) as { ok: boolean; message?: string; sales_order_id?: string }
+      if (!res.ok || !json.ok) throw new Error(json.message || 'Convert failed')
+      setSuccess(`Converted to Sales Order ${json.sales_order_id}`)
+      if (tenantId) {
+        await loadQuotes(tenantId, { buyerId: quoteFilterBuyer, text: quoteFilterText, start: quoteStart, end: quoteEnd })
+      }
+    } catch (e) {
+      console.error(e)
+      const msg = e instanceof Error ? e.message : 'Failed to convert quote'
       setError(msg)
     } finally {
       setLoading(false)
@@ -412,6 +494,84 @@ export default function QuotingPage() {
         {success ? (
           <div style={{ padding: 12, color: 'var(--good)', fontSize: 12, borderTop: `1px solid var(--border)` }}>{success}</div>
         ) : null}
+      </div>
+
+      <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 16, background: 'var(--panel)', display: 'grid', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <h2 style={{ margin: 0 }}>Quotes</h2>
+          <div style={{ color: 'var(--muted)', fontSize: 12 }}>Filter and convert sent quotes.</div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <select
+            value={quoteFilterBuyer}
+            onChange={async (e) => {
+              setQuoteFilterBuyer(e.target.value)
+              if (tenantId) await loadQuotes(tenantId, { buyerId: e.target.value, text: quoteFilterText, start: quoteStart, end: quoteEnd })
+            }}
+            style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+          >
+            <option value="">All customers</option>
+            {buyers.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name || b.company || b.email}
+              </option>
+            ))}
+          </select>
+          <input
+            type="search"
+            placeholder="Search subject/customer"
+            value={quoteFilterText}
+            onChange={async (e) => {
+              const v = e.target.value
+              setQuoteFilterText(v)
+              if (tenantId) await loadQuotes(tenantId, { buyerId: quoteFilterBuyer, text: v, start: quoteStart, end: quoteEnd })
+            }}
+            style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', minWidth: 220 }}
+          />
+          <input
+            type="date"
+            value={quoteStart}
+            onChange={async (e) => {
+              const v = e.target.value
+              setQuoteStart(v)
+              if (tenantId) await loadQuotes(tenantId, { buyerId: quoteFilterBuyer, text: quoteFilterText, start: v, end: quoteEnd })
+            }}
+            style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+          />
+          <input
+            type="date"
+            value={quoteEnd}
+            onChange={async (e) => {
+              const v = e.target.value
+              setQuoteEnd(v)
+              if (tenantId) await loadQuotes(tenantId, { buyerId: quoteFilterBuyer, text: quoteFilterText, start: quoteStart, end: v })
+            }}
+            style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+          />
+        </div>
+
+        <div style={{ display: 'grid', gap: 10 }}>
+          {quotes.map((q) => (
+            <div key={q.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'var(--surface-2)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontWeight: 900 }}>{q.subject || 'Quote'}</div>
+                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+                    {q.buyer?.name || q.buyer?.company || 'Customer'} • {new Date(q.created_at).toLocaleString()} • status {q.status}
+                  </div>
+                </div>
+                <button
+                  onClick={() => convertQuote(q.id)}
+                  style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                >
+                  Convert to Order
+                </button>
+              </div>
+            </div>
+          ))}
+          {quotes.length === 0 ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>No quotes found.</div> : null}
+        </div>
       </div>
     </main>
   )
