@@ -100,6 +100,12 @@ export default function LotOffersPage() {
   const lotId = params.id as string
 
   const [tenantId, setTenantId] = useState<string>('')
+  const [role, setRole] = useState<'admin' | 'broker' | 'ops' | 'finance' | 'readonly'>('broker')
+  const [settings, setSettings] = useState<{
+    margins_visible_to_brokers: boolean
+    ops_can_edit_costs: boolean
+    require_finance_approval_for_award: boolean
+  }>({ margins_visible_to_brokers: true, ops_can_edit_costs: false, require_finance_approval_for_award: false })
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
@@ -156,6 +162,12 @@ export default function LotOffersPage() {
     // "already awarded" means awarded in ANY round for this lot
     return new Set(awarded.map((a) => a.line_item_id))
   }, [awarded])
+
+  const canAward = useMemo(() => {
+    if (role === 'admin' || role === 'finance') return true
+    if (role === 'broker' && !settings.require_finance_approval_for_award) return true
+    return false
+  }, [role, settings.require_finance_approval_for_award])
 
   const loadRounds = useCallback(async (tid: string) => {
     const { data, error } = await supabase
@@ -350,6 +362,27 @@ export default function LotOffersPage() {
   useEffect(() => {
     const init = async () => {
       const profile = await ensureProfile()
+      setRole((profile.role as any) ?? 'broker')
+
+      try {
+        const { data: settingsData } = await supabase
+          .from('tenant_settings')
+          .select('margins_visible_to_brokers,ops_can_edit_costs,require_finance_approval_for_award')
+          .eq('tenant_id', profile.tenant_id)
+          .maybeSingle()
+        if (settingsData) {
+          setSettings((prev) => ({
+            margins_visible_to_brokers:
+              settingsData.margins_visible_to_brokers ?? prev.margins_visible_to_brokers,
+            ops_can_edit_costs: settingsData.ops_can_edit_costs ?? prev.ops_can_edit_costs,
+            require_finance_approval_for_award:
+              settingsData.require_finance_approval_for_award ?? prev.require_finance_approval_for_award,
+          }))
+        }
+      } catch (e) {
+        console.warn('Failed to load tenant settings', e)
+      }
+
       setTenantId(profile.tenant_id)
       await loadAll(profile.tenant_id)
     }
@@ -438,6 +471,10 @@ export default function LotOffersPage() {
   }, [optimizerWinners, qtyAvailByLineId])
 
   const awardOptimizerLines = async () => {
+    if (!canAward) {
+      setError('You do not have permission to award offers.')
+      return
+    }
     if (!tenantId) return
     if (!currentRoundId) {
       alert('No round found for this lot. Create or start a round first.')
@@ -507,6 +544,10 @@ export default function LotOffersPage() {
    * - scope=unsold: award only items not already awarded in any round
    */
   const acceptTakeAllOffer = async (o: OfferRow) => {
+    if (!canAward) {
+      setError('You do not have permission to award offers.')
+      return
+    }
     if (!tenantId) return
     if (!currentRoundId) {
       alert('No round found for this lot. Please refresh or create a round first.')
@@ -705,9 +746,15 @@ export default function LotOffersPage() {
 
                     <button
                       onClick={() => acceptTakeAllOffer(o)}
-                      disabled={busy || !o.take_all_total}
+                      disabled={busy || !o.take_all_total || !canAward}
                       style={{ padding: 10 }}
-                      title={!o.take_all_total ? 'No take-all total on this offer' : 'Accept take-all and award items so invite winners/PO upload works'}
+                      title={
+                        !o.take_all_total
+                          ? 'No take-all total on this offer'
+                          : !canAward
+                          ? 'You do not have permission to award'
+                          : 'Accept take-all and award items so invite winners/PO upload works'
+                      }
                     >
                       {busy ? 'Working…' : 'Accept (Take-all)'}
                     </button>
@@ -767,9 +814,15 @@ export default function LotOffersPage() {
             {selectedOffer ? (
               <button
                 onClick={() => acceptTakeAllOffer(selectedOffer)}
-                disabled={busy || !selectedOffer.take_all_total}
+                disabled={busy || !selectedOffer.take_all_total || !canAward}
                 style={{ padding: 10, borderRadius: 10 }}
-                title={!selectedOffer.take_all_total ? 'No take-all total on this offer' : 'Accept take-all and award items so invite winners/PO upload works'}
+                title={
+                  !selectedOffer.take_all_total
+                    ? 'No take-all total on this offer'
+                    : !canAward
+                    ? 'You do not have permission to award'
+                    : 'Accept take-all and award items so invite winners/PO upload works'
+                }
               >
                 {busy ? 'Working…' : 'Accept (Take-all)'}
               </button>
@@ -849,7 +902,12 @@ export default function LotOffersPage() {
               </div>
             </div>
 
-            <button onClick={awardOptimizerLines} style={{ padding: 12, borderRadius: 10 }} disabled={busy}>
+            <button
+              onClick={awardOptimizerLines}
+              style={{ padding: 12, borderRadius: 10 }}
+              disabled={busy || !canAward}
+              title={!canAward ? 'You do not have permission to award' : undefined}
+            >
               {busy ? 'Working…' : 'Award these lines'}
             </button>
           </div>

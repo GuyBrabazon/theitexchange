@@ -28,11 +28,14 @@ const statusLegend = [
   { label: 'Sold', color: 'var(--bad)' },
 ]
 
+const currencyOptions = ['USD', 'EUR', 'GBP', 'ZAR', 'AUD', 'CAD', 'SGD', 'AED']
+
 export default function InventoryPage() {
   const [rows, setRows] = useState<InventoryRow[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>('')
   const [tenantId, setTenantId] = useState<string>('')
+  const [tenantCurrency, setTenantCurrency] = useState<string>('USD')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [manual, setManual] = useState({
     model: '',
@@ -66,6 +69,21 @@ export default function InventoryPage() {
       const tenantId = profile?.tenant_id
       if (!tenantId) throw new Error('Tenant not found')
       setTenantId(tenantId)
+
+      // Load tenant preferred currency from settings, fallback to tenants.default_currency, then USD
+      try {
+        const [{ data: settings, error: settingsErr }, { data: tenantRec, error: tenantErr }] = await Promise.all([
+          supabase.from('tenant_settings').select('default_currency').eq('tenant_id', tenantId).maybeSingle(),
+          supabase.from('tenants').select('default_currency').eq('id', tenantId).maybeSingle(),
+        ])
+        const cur =
+          (!settingsErr && settings?.default_currency) ||
+          (!tenantErr && tenantRec?.default_currency) ||
+          'USD'
+        setTenantCurrency(String(cur))
+      } catch {
+        setTenantCurrency('USD')
+      }
 
       const { data, error: invErr } = await supabase
         .from('inventory_items')
@@ -148,11 +166,11 @@ export default function InventoryPage() {
       currency: p.currency || 'USD',
       specs: p.specs ?? {},
     }))
-    const { error: insErr } = await supabase.from('inventory_items').insert(normalized)
-    if (insErr) throw insErr
-  }
+      const { error: insErr } = await supabase.from('inventory_items').insert(normalized)
+      if (insErr) throw insErr
+    }
 
-  const addManual = async () => {
+    const addManual = async () => {
     try {
       setLoading(true)
       const qty_total = manual.qty_total ? Number(manual.qty_total) : null
@@ -168,7 +186,7 @@ export default function InventoryPage() {
           qty_total,
           qty_available,
           cost,
-          currency: manual.currency || 'USD',
+          currency: manual.currency || tenantCurrency || 'USD',
         },
       ])
       setManual({
@@ -180,7 +198,7 @@ export default function InventoryPage() {
         qty_total: '',
         qty_available: '',
         cost: '',
-        currency: '',
+        currency: tenantCurrency || 'USD',
       })
       await load()
     } catch (e) {
@@ -409,7 +427,7 @@ export default function InventoryPage() {
             />
             <input
               type="number"
-              placeholder="Qty available"
+              placeholder="Qty in stock"
               value={manual.qty_available}
               onChange={(e) => setManual((prev) => ({ ...prev, qty_available: e.target.value }))}
               style={{ width: 110, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
@@ -421,13 +439,18 @@ export default function InventoryPage() {
               onChange={(e) => setManual((prev) => ({ ...prev, cost: e.target.value }))}
               style={{ width: 90, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
             />
-            <input
-              type="text"
-              placeholder="Currency"
-              value={manual.currency}
+            <select
+              value={manual.currency || tenantCurrency || 'USD'}
               onChange={(e) => setManual((prev) => ({ ...prev, currency: e.target.value }))}
-              style={{ width: 90, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
-            />
+              disabled
+              style={{ width: 110, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
+            >
+              {currencyOptions.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -481,7 +504,7 @@ export default function InventoryPage() {
           <div style={{ padding: 10 }}>Part / Description</div>
           <div style={{ padding: 10 }}>OEM</div>
           <div style={{ padding: 10 }}>Condition</div>
-          <div style={{ padding: 10 }}>Qty (avail/total)</div>
+          <div style={{ padding: 10 }}>Qty in stock / total</div>
           <div style={{ padding: 10 }}>Cost</div>
           <div style={{ padding: 10 }}>Status</div>
         </div>
