@@ -377,10 +377,18 @@ export default function AccountPage() {
               <button
                 onClick={async () => {
                   if (!tenantId) return
+                  const {
+                    data: { session },
+                  } = await supabase.auth.getSession()
+                  const token = session?.access_token
                   if (!confirm('This deletes all AVAILABLE inventory for your organisation. Proceed?')) return
                   setOutlookBusy(true)
                   try {
-                    const res = await fetch('/api/inventory/purge', { method: 'POST', credentials: 'include' })
+                    const res = await fetch('/api/inventory/purge', {
+                      method: 'POST',
+                      credentials: 'include',
+                      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                    })
                     const json = await res.json()
                     if (!res.ok || !json.ok) throw new Error(json.message || 'Purge failed')
                     alert('Available inventory purged.')

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { ensureProfile } from '@/lib/bootstrap'
+import { supabase } from '@/lib/supabase'
 
 type SupplierResult = {
   supplier_tenant_id: string
@@ -51,7 +52,14 @@ export default function BuyPage() {
     try {
       setLoading(true)
       setError('')
-      const res = await fetch(`/api/buy/search?term=${encodeURIComponent(term)}`, { credentials: 'include' })
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      const token = session?.access_token
+      const res = await fetch(`/api/buy/search?term=${encodeURIComponent(term)}`, {
+        credentials: 'include',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
       const json = await res.json()
       if (!res.ok || !json.ok) throw new Error(json.message || 'Search failed')
       setResults(json.results || [])
@@ -104,10 +112,15 @@ export default function BuyPage() {
         inventory_item_id: id,
         qty_requested: selected[id]?.qty ? Number(selected[id].qty) || null : null,
       }))
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      const token = session?.access_token
       const res = await fetch('/api/buy/rfq', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
+        ...(token ? { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } } : {}),
         body: JSON.stringify({
           supplier_tenant_id: supplierId,
           subject: `RFQ: ${term}`.trim(),

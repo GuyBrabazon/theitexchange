@@ -9,10 +9,12 @@ export async function GET(request: Request) {
     const term = (url.searchParams.get('term') || '').trim()
 
     const supa = supabaseServer()
+    const authHeader = request.headers.get('authorization')
+    const token = authHeader?.replace(/Bearer\s+/i, '')
     const {
       data: { user },
       error: userErr,
-    } = await supa.auth.getUser()
+    } = await supa.auth.getUser(token)
     if (userErr) throw userErr
     if (!user) return NextResponse.json({ ok: false, message: 'Not authenticated' }, { status: 401 })
 
