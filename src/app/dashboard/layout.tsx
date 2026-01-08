@@ -501,6 +501,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Section title="General">
           <NavItem href="/dashboard" label="Home" importance="primary" />
           <NavItem href="/dashboard/account" label="My Account" importance="normal" />
+          <NavItem href="/dashboard/org-setup" label="Org Setup" importance="normal" />
         </Section>
 
         <Section title="Intelligence">
