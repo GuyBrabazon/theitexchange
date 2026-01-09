@@ -546,17 +546,6 @@ export default function InventoryPage() {
             style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
           />
         </div>
-
-        <div style={{ display: 'grid', gap: 6 }}>
-          <label style={{ fontSize: 12, color: 'var(--muted)' }}>Upload header row (0-based)</label>
-          <input
-            type="number"
-            min={0}
-            value={uploadHeaderRow}
-            onChange={(e) => setUploadHeaderRow(Number(e.target.value) || 0)}
-            style={{ width: 120, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
-          />
-        </div>
       </div>
 
       <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--panel)' }}>
@@ -1059,6 +1048,16 @@ export default function InventoryPage() {
 
             <div style={{ border: '1px dashed var(--border)', borderRadius: 12, padding: 12, display: 'grid', gap: 8 }}>
               <div style={{ fontWeight: 900 }}>Select file to import</div>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>Header row (0-based)</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={uploadHeaderRow}
+                  onChange={(e) => setUploadHeaderRow(Number(e.target.value) || 0)}
+                  style={{ width: 160, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                />
+              </label>
               <input
                 type="file"
                 accept=".xlsx,.csv"
