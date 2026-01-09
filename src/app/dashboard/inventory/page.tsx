@@ -202,7 +202,6 @@ export default function InventoryPage() {
         oem: '',
         condition: '',
         location: '',
-        qty_total: '',
         qty_available: '',
         cost: '',
         currency: tenantCurrency || 'USD',
