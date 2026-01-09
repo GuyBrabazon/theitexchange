@@ -15,6 +15,8 @@ type OfferInsert = {
   buyer_id: string
   currency: string
   take_all_total?: number
+  tenant_id?: string
+  invite_id?: string
 }
 
 type OfferRow = { id: string; status: string | null }
@@ -56,6 +58,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
     lot_id: inv.lot_id,
     buyer_id: inv.buyer_id,
     currency,
+    tenant_id: inv.tenant_id ?? undefined,
+    invite_id: inv.id,
   }
 
   // Attach take_all_total if take-all
