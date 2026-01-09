@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { parseSpreadsheetMatrix } from '@/lib/parseSpreadsheet'
 
@@ -23,6 +24,7 @@ type InventoryRow = {
 const currencyOptions = ['USD', 'EUR', 'GBP', 'ZAR', 'AUD', 'CAD', 'SGD', 'AED']
 
 export default function InventoryPage() {
+  const router = useRouter()
   const [rows, setRows] = useState<InventoryRow[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>('')
@@ -36,7 +38,6 @@ export default function InventoryPage() {
     oem: '',
     condition: '',
     location: '',
-    qty_total: '',
     qty_available: '',
     cost: '',
     currency: '',
@@ -168,8 +169,8 @@ export default function InventoryPage() {
       condition: p.condition || null,
       location: p.location || null,
       status: p.status || 'available',
-      qty_total: p.qty_total ?? null,
-      qty_available: p.qty_available ?? p.qty_total ?? null,
+      qty_total: null,
+      qty_available: p.qty_available ?? null,
       cost: p.cost ?? null,
       currency: p.currency || tenantCurrency || 'USD',
       specs: p.specs ?? {},
@@ -181,8 +182,7 @@ export default function InventoryPage() {
   const addManual = async () => {
     try {
       setLoading(true)
-      const qty_total = manual.qty_total ? Number(manual.qty_total) : null
-      const qty_available = manual.qty_available ? Number(manual.qty_available) : qty_total
+      const qty_available = manual.qty_available ? Number(manual.qty_available) : null
       const cost = manual.cost ? Number(manual.cost) : null
       await insertInventory([
         {
@@ -345,8 +345,63 @@ export default function InventoryPage() {
 
   const markAuction = async () => {
     if (!selectedIds.size) return
-    await Promise.all(Array.from(selectedIds).map((id) => updateInventory(id, { status: 'auction', specs: { auction: true } })))
-    setSelectedIds(new Set())
+    if (!tenantId) {
+      setError('Tenant not loaded')
+      return
+    }
+    try {
+      setLoading(true)
+      setError('')
+
+      // Create a new draft lot
+      const title = `Auction ${new Date().toLocaleDateString()}`
+      const { data: lotRows, error: lotErr } = await supabase
+        .from('lots')
+        .insert({
+          tenant_id: tenantId,
+          title,
+          type: 'priced',
+          status: 'draft',
+          currency: tenantCurrency || 'USD',
+        })
+        .select('id')
+        .single()
+      if (lotErr) throw lotErr
+      const lotId = lotRows.id as string
+
+      // Build line items from selected inventory
+      const selected = rows.filter((r) => selectedIds.has(r.id))
+      const linePayload = selected.map((r) => ({
+        lot_id: lotId,
+        description: r.description || r.model || 'Item',
+        model: r.model || r.description || 'Item',
+        qty: r.qty_available ?? r.qty_total ?? 1,
+        asking_price: r.cost ?? 0,
+        specs: r.specs ?? {},
+        line_ref: r.id,
+      }))
+      if (linePayload.length) {
+        const { error: liErr } = await supabase.from('line_items').insert(linePayload)
+        if (liErr) throw liErr
+      }
+
+      // Mark inventory as moved to auction and zero available qty
+      const { error: invErr } = await supabase
+        .from('inventory_items')
+        .update({ status: 'auction', qty_available: 0 })
+        .in('id', Array.from(selectedIds))
+      if (invErr) throw invErr
+
+      // Redirect to the new lot
+      router.push(`/dashboard/lots/${lotId}`)
+    } catch (e) {
+      console.error(e)
+      const msg = e instanceof Error ? e.message : 'Failed to create auction lot'
+      setError(msg)
+    } finally {
+      setLoading(false)
+      setSelectedIds(new Set())
+    }
   }
 
   return (
@@ -536,7 +591,7 @@ export default function InventoryPage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '0.3fr 1.3fr 0.8fr 0.8fr 0.9fr 0.9fr 0.8fr',
+            gridTemplateColumns: '0.3fr 1.3fr 0.8fr 0.8fr 0.9fr 0.8fr',
             gap: 0,
             background: 'var(--surface-2)',
             fontWeight: 900,
@@ -547,7 +602,7 @@ export default function InventoryPage() {
           <div style={{ padding: 10 }}>Part / Description</div>
           <div style={{ padding: 10 }}>OEM</div>
           <div style={{ padding: 10 }}>Condition</div>
-          <div style={{ padding: 10 }}>Qty in stock / QTY Available</div>
+          <div style={{ padding: 10 }}>Available QTY</div>
           <div style={{ padding: 10 }}>Cost</div>
           <div style={{ padding: 10 }}>Status</div>
         </div>
@@ -557,7 +612,7 @@ export default function InventoryPage() {
             key={r.id}
             style={{
               display: 'grid',
-              gridTemplateColumns: '0.3fr 1.3fr 0.8fr 0.8fr 0.9fr 0.9fr 0.8fr',
+              gridTemplateColumns: '0.3fr 1.3fr 0.8fr 0.8fr 0.9fr 0.8fr',
               gap: 0,
               borderTop: `1px solid var(--border)`,
               background: 'var(--panel)',
@@ -594,13 +649,6 @@ export default function InventoryPage() {
                 value={r.qty_available ?? ''}
                 placeholder="Available"
                 onChange={(e) => updateInventory(r.id, { qty_available: e.target.value === '' ? null : Number(e.target.value) })}
-                style={{ width: '100%', padding: '6px 8px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', marginBottom: 6 }}
-              />
-              <input
-                type="number"
-                value={r.qty_total ?? ''}
-                placeholder="Total"
-                onChange={(e) => updateInventory(r.id, { qty_total: e.target.value === '' ? null : Number(e.target.value) })}
                 style={{ width: '100%', padding: '6px 8px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
               />
             </div>
