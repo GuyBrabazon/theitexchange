@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, NextRequest } from 'next/server'
 import { supabaseServer } from '@/lib/supabaseServer'
 import React from 'react'
 import { Document, Page, Text, View, StyleSheet, pdf } from '@react-pdf/renderer'
@@ -124,8 +124,9 @@ function buildDoc(opts: {
   )
 }
 
-export async function POST(_: Request, { params }: { params: { id: string } }) {
+export async function POST(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params
     const supa = supabaseServer()
     const {
       data: { user },
@@ -145,7 +146,7 @@ export async function POST(_: Request, { params }: { params: { id: string } }) {
     }
 
     // Load PO
-    const { data: poRow, error: poErr } = await supa.from('purchase_orders').select('*').eq('id', params.id).maybeSingle()
+    const { data: poRow, error: poErr } = await supa.from('purchase_orders').select('*').eq('id', id).maybeSingle()
     if (poErr) throw poErr
     if (!poRow) return NextResponse.json({ ok: false, message: 'PO not found' }, { status: 404 })
     if (poRow.tenant_id !== tenantId) return NextResponse.json({ ok: false, message: 'Tenant mismatch' }, { status: 403 })
