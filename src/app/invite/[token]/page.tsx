@@ -249,23 +249,23 @@ export default function InviteTokenPage() {
         }
 
         // Load PO uploads for this invite/lot
-        if (data?.lot_id && data?.id) {
+        if (normalizedInvite.lot_id && normalizedInvite.id) {
           const { data: poData } = await supabase
             .from('po_uploads')
             .select('id,file_name,file_path,created_at')
-            .eq('lot_id', data.lot_id)
-            .eq('invite_id', data.id)
+            .eq('lot_id', normalizedInvite.lot_id)
+            .eq('invite_id', normalizedInvite.id)
             .order('created_at', { ascending: false })
-            .limit(20)
+            .limit(50)
           setPoUploads((poData as PoUpload[]) ?? [])
         }
 
         // Offer summary (for status chips)
-        if (data?.lot_id) {
+        if (normalizedInvite.lot_id) {
           const { data: offers } = await supabase
             .from('offers')
             .select('id,take_all_total,status')
-            .eq('lot_id', data.lot_id)
+            .eq('lot_id', normalizedInvite.lot_id)
             .limit(200)
           const anyOffers = Array.isArray(offers) && offers.length > 0
           const hasTakeAll = Array.isArray(offers) && offers.some((o) => o.take_all_total != null)
@@ -275,12 +275,12 @@ export default function InviteTokenPage() {
         }
 
         // Winner check (awarded_lines for this buyer/lot)
-        if (data?.lot_id && data?.buyer_id) {
+        if (normalizedInvite.lot_id && normalizedInvite.buyer_id) {
           const { data: awards } = await supabase
             .from('awarded_lines')
             .select('id')
-            .eq('lot_id', data.lot_id)
-            .eq('buyer_id', data.buyer_id)
+            .eq('lot_id', normalizedInvite.lot_id)
+            .eq('buyer_id', normalizedInvite.buyer_id)
             .limit(1)
           setIsWinner(Array.isArray(awards) && awards.length > 0)
         }
