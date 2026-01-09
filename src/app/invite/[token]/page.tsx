@@ -428,6 +428,8 @@ export default function InviteTokenPage() {
           ? 'Partial offers received'
           : 'No offers yet'
 
+  const showAwarded = lotStatus === 'awarded' || isWinner || offerSummary.acceptedOffer
+
   return (
     <main
       style={{
@@ -508,8 +510,25 @@ export default function InviteTokenPage() {
               background: 'var(--panel-2, #0b1220)',
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-              <div style={{ fontWeight: 900 }}>Lot</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ fontWeight: 900, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span>Lot</span>
+                {showAwarded ? (
+                  <span
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: 10,
+                      background: 'rgba(16,185,129,0.15)',
+                      border: '1px solid rgba(16,185,129,0.35)',
+                      color: '#0f5132',
+                      fontWeight: 900,
+                      fontSize: 12,
+                    }}
+                  >
+                    You are the winner of this lot
+                  </span>
+                ) : null}
+              </div>
                   <div
                     style={{
                       display: 'inline-flex',
@@ -896,7 +915,7 @@ export default function InviteTokenPage() {
           </div>
         </div>
 
-        {lotStatus === 'awarded' && isWinner ? (
+        {showAwarded ? (
           <div style={{ marginTop: 16, borderTop: '1px solid var(--border, #1f2937)', paddingTop: 14 }}>
             <div style={{ fontWeight: 900, marginBottom: 6 }}>Purchase Order upload</div>
             <div style={{ color: 'var(--muted, #94a3b8)', fontSize: 12, marginBottom: 8 }}>
