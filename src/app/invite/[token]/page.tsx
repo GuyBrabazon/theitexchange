@@ -340,31 +340,30 @@ export default function InviteTokenPage() {
       setSubmitting(true)
       setSubmitError('')
 
-      const { data: offerData, error: offerErr } = await supabase
-        .from('offers')
-        .insert({
-          tenant_id: invite.tenant_id,
-          lot_id: invite.lot_id,
-          buyer_id: invite.buyer_id,
-          invite_id: invite.id,
-          total_offer: usingLineMode ? totalFromLines : parsed,
-          notes: combinedNotes || null,
-          currency: invite.lots?.currency ?? null,
-          status: 'new',
-        })
-        .select('id')
-        .single()
+      const payload =
+        usingLineMode && linePayload.length
+          ? {
+              mode: 'lines' as const,
+              lines: linePayload.map((p) => ({
+                line_item_id: p.line_item_id,
+                unit_price: p.unit_price,
+                qty: p.qty_snapshot,
+              })),
+            }
+          : {
+              mode: 'take_all' as const,
+              take_all_total: parsed ?? totalFromLines ?? 0,
+            }
 
-      if (offerErr) throw offerErr
-      const offerId = (offerData as { id: string } | null)?.id
-
-      if (usingLineMode && offerId) {
-        const payload = linePayload.map((p) => ({
-          ...p,
-          offer_id: offerId,
-        }))
-        const { error: lineErr } = await supabase.from('offer_lines').insert(payload)
-        if (lineErr) throw lineErr
+      const res = await fetch(`/api/invite/${token}/offer`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        const msg = json?.error || 'Offer submit failed'
+        throw new Error(msg)
       }
 
       setSubmitted(true)
