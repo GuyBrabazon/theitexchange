@@ -539,14 +539,7 @@ export default function InventoryPage() {
             />
             <input
               type="number"
-              placeholder="Qty total"
-              value={manual.qty_total}
-              onChange={(e) => setManual((prev) => ({ ...prev, qty_total: e.target.value }))}
-              style={{ width: 90, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
-            />
-            <input
-              type="number"
-              placeholder="Qty in stock"
+              placeholder="Available QTY"
               value={manual.qty_available}
               onChange={(e) => setManual((prev) => ({ ...prev, qty_available: e.target.value }))}
               style={{ width: 110, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
