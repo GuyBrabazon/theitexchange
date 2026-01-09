@@ -152,6 +152,22 @@ export default function BuyPage() {
         <h1 style={{ marginBottom: 6 }}>Buy</h1>
         <div style={{ color: 'var(--muted)', marginBottom: 12 }}>Search all suppliers for a part number and send RFQs.</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <a
+            href="/dashboard/my-rfqs"
+            style={{
+              padding: '8px 12px',
+              borderRadius: 10,
+              border: '1px solid var(--border)',
+              background: 'var(--panel)',
+              textDecoration: 'none',
+              fontWeight: 800,
+              color: 'var(--text)',
+            }}
+          >
+            My RFQs
+          </a>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <input
             type="text"
             value={term}
