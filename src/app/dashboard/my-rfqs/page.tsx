@@ -20,6 +20,7 @@ type Rfq = {
   created_at: string
   supplier_tenant_id: string
   supplier_tenant_name: string | null
+  supplier_name: string | null
   lines: RfqLine[]
 }
 
@@ -49,7 +50,9 @@ export default function MyRfqsPage() {
 
         const { data, error: rfqErr } = await supabase
           .from('rfqs')
-          .select('id,subject,note,status,supplier_tenant_id,created_at,rfq_lines(id,qty_requested,quoted_price,quoted_currency)')
+          .select(
+            'id,subject,note,status,supplier_tenant_id,supplier_name,created_at,rfq_lines(id,qty_requested,quoted_price,quoted_currency)'
+          )
           .eq('buyer_tenant_id', tenant)
           .order('created_at', { ascending: false })
           .limit(200)
@@ -73,7 +76,8 @@ export default function MyRfqsPage() {
             status: r.status == null ? 'new' : String(r.status),
             created_at: r.created_at ? String(r.created_at) : new Date().toISOString(),
             supplier_tenant_id: String(r.supplier_tenant_id ?? ''),
-            supplier_tenant_name: supplierNames.get(String(r.supplier_tenant_id ?? '')) ?? null,
+            supplier_tenant_name: r.supplier_name ?? supplierNames.get(String(r.supplier_tenant_id ?? '')) ?? null,
+            supplier_name: r.supplier_name ?? supplierNames.get(String(r.supplier_tenant_id ?? '')) ?? null,
             lines: Array.isArray(r.rfq_lines)
               ? r.rfq_lines.map((l: any) => ({
                   id: String(l.id ?? ''),

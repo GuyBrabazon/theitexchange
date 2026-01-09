@@ -43,11 +43,14 @@ export async function POST(request: Request) {
 
     const { data: tenantRow, error: tenantErr } = await supa.from('tenants').select('name').eq('id', profile.tenant_id).maybeSingle()
     if (tenantErr) throw tenantErr
+    const { data: supplierTenant, error: supTenantErr } = await supa.from('tenants').select('name').eq('id', body.supplier_tenant_id).maybeSingle()
+    if (supTenantErr) throw supTenantErr
 
     const requester_name = profile?.name ?? user.user_metadata?.full_name ?? null
     const requester_email = user.email ?? null
     const requester_phone = profile?.phone ?? null
     const requester_company = profile?.company ?? tenantRow?.name ?? null
+    const supplier_name = supplierTenant?.name ?? null
 
     const { data: rfq, error: rfqErr } = await supa
       .from('rfqs')
@@ -62,6 +65,7 @@ export async function POST(request: Request) {
         requester_email,
         requester_phone,
         requester_company,
+        supplier_name,
       })
       .select('id')
       .maybeSingle()
