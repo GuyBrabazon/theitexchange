@@ -508,28 +508,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Section title="General">
           <NavItem href="/dashboard" label="Home" importance="primary" icon="⌂" />
           <NavItem href="/dashboard/account" label="My Account" importance="normal" icon="⚙" />
-          <NavItem href="/dashboard/inventory" label="Inventory" importance="normal" icon="▣" />
+          <NavItem href="/dashboard/inventory" label="Inventory" importance="normal" icon="▦" />
         </Section>
 
         <Section title="Intelligence">
-          <NavItem href="/dashboard/analytics" label="Analytics" importance="primary" icon="▤" />
+          <NavItem href="/dashboard/analytics" label="Analytics" importance="primary" icon="⧉" />
           <NavItem href="/dashboard/reports" label="Reports" importance="normal" icon="⎙" />
         </Section>
 
         <Section title="Sales">
-          <NavItem href="/dashboard/lots" label="Auctions" importance="primary" icon="⏵" />
+          <NavItem href="/dashboard/lots" label="Auctions" importance="primary" icon="▦↗" />
           <NavItem href="/dashboard/quoting" label="Quoting" importance="normal" icon="✉" />
-          <NavItem href="/dashboard/buyers" label="Customers" importance="normal" icon="◎" />
+          <NavItem href="/dashboard/buyers" label="Customers" importance="normal" icon="▦→" />
         </Section>
 
         <Section title="Buying">
           <NavItem href="/dashboard/buy" label="Buy" importance="normal" icon="⇄" />
-          <NavItem href="/dashboard/sellers" label="Suppliers" importance="normal" icon="▦" />
+          <NavItem href="/dashboard/sellers" label="Suppliers" importance="normal" icon="→▦" />
         </Section>
 
         <Section title="Logistics">
           <NavItem href="/dashboard/order-fulfilment" label="Order fulfilment" importance="primary" icon="⇪" />
-          <NavItem href="/dashboard/fulfilment" label="Warehouse" importance="normal" icon="▥" />
+          <NavItem href="/dashboard/fulfilment" label="Warehouse" importance="normal" icon="▦▦" />
         </Section>
 
         {/* Footer actions */}
