@@ -10,7 +10,7 @@ type NavItemDef = {
   label: string
   importance?: 'primary' | 'normal' | 'quiet'
   soon?: boolean
-  icon?: React.ReactNode
+  icon?: string
 }
 
 function NavItem({ href, label, importance = 'normal', soon = false, icon }: NavItemDef) {
@@ -49,7 +49,16 @@ function NavItem({ href, label, importance = 'normal', soon = false, icon }: Nav
     >
       <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         {icon ? (
-          <span aria-hidden style={{ fontSize: 13, lineHeight: 1, color: 'var(--muted)' }}>
+          <span
+            aria-hidden
+            className="material-symbols-outlined"
+            style={{
+              fontSize: 16,
+              lineHeight: 1,
+              color: active ? 'var(--text)' : 'var(--muted)',
+              fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20",
+            }}
+          >
             {icon}
           </span>
         ) : (
@@ -256,6 +265,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const prefersDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
     const initial = stored === 'light' || stored === 'dark' ? stored : prefersDark ? 'dark' : 'light'
     setTheme(initial as 'light' | 'dark')
+
+    // Inject Material Symbols (Google Icons) once for sidebar glyphs
+    if (typeof document !== 'undefined' && !document.getElementById('material-symbols-font')) {
+      const link = document.createElement('link')
+      link.id = 'material-symbols-font'
+      link.rel = 'stylesheet'
+      link.href =
+        'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0'
+      document.head.appendChild(link)
+    }
   }, [])
 
   useEffect(() => {
@@ -504,34 +523,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </div>
 
-        {/* Groups */}
-        <Section title="General">
-          <NavItem href="/dashboard" label="Home" importance="primary" icon="⌂" />
-          <NavItem href="/dashboard/account" label="My Account" importance="normal" icon="⚙" />
-          <NavItem href="/dashboard/inventory" label="Inventory" importance="normal" icon="▦" />
-        </Section>
+		{/* Groups */}
+		<Section title="General">
+		  <NavItem href="/dashboard" label="Home" importance="primary" icon="home" />
+		  <NavItem href="/dashboard/account" label="My Account" importance="normal" icon="account_circle" />
+		  <NavItem href="/dashboard/inventory" label="Inventory" importance="normal" icon="inventory_2" />
+		</Section>
 
-        <Section title="Intelligence">
-          <NavItem href="/dashboard/analytics" label="Analytics" importance="primary" icon="⧉" />
-          <NavItem href="/dashboard/reports" label="Reports" importance="normal" icon="⎙" />
-        </Section>
+		<Section title="Intelligence">
+		  <NavItem href="/dashboard/analytics" label="Analytics" importance="primary" icon="insights" />
+		  <NavItem href="/dashboard/reports" label="Reports" importance="normal" icon="description" />
+		</Section>
 
-        <Section title="Sales">
-          <NavItem href="/dashboard/lots" label="Auctions" importance="primary" icon="▦↗" />
-          <NavItem href="/dashboard/quoting" label="Quoting" importance="normal" icon="✉" />
-          <NavItem href="/dashboard/buyers" label="Customers" importance="normal" icon="▦→" />
-        </Section>
+		<Section title="Sales">
+		  <NavItem href="/dashboard/lots" label="Auctions" importance="primary" icon="gavel" />
+		  <NavItem href="/dashboard/quoting" label="Quoting" importance="normal" icon="mail" />
+		  <NavItem href="/dashboard/buyers" label="Customers" importance="normal" icon="groups" />
+		</Section>
 
-        <Section title="Buying">
-          <NavItem href="/dashboard/buy" label="Buy" importance="normal" icon="⇄" />
-          <NavItem href="/dashboard/sellers" label="Suppliers" importance="normal" icon="→▦" />
-        </Section>
+		<Section title="Buying">
+		  <NavItem href="/dashboard/buy" label="Buy" importance="normal" icon="shopping_cart" />
+		  <NavItem href="/dashboard/sellers" label="Suppliers" importance="normal" icon="warehouse" />
+		</Section>
 
-        <Section title="Logistics">
-          <NavItem href="/dashboard/order-fulfilment" label="Order fulfilment" importance="primary" icon="⇪" />
-          <NavItem href="/dashboard/fulfilment" label="Warehouse" importance="normal" icon="▦▦" />
-        </Section>
-
+		<Section title="Logistics">
+		  <NavItem href="/dashboard/order-fulfilment" label="Order fulfilment" importance="primary" icon="local_shipping" />
+		  <NavItem href="/dashboard/fulfilment" label="Warehouse" importance="normal" icon="inventory" />
+		</Section>
         {/* Footer actions */}
         <div style={{ marginTop: 18, display: 'grid', gap: 10 }}>
           <button
