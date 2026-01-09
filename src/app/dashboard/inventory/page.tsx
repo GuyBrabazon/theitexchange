@@ -61,6 +61,7 @@ export default function InventoryPage() {
   })
   const [pendingFileName, setPendingFileName] = useState<string>('')
   const [manualOpen, setManualOpen] = useState(false)
+  const [uploadOpen, setUploadOpen] = useState(false)
 
   useEffect(() => {
     if (tenantCurrency) {
@@ -228,6 +229,7 @@ export default function InventoryPage() {
   const startUpload = async (file: File) => {
     try {
       setLoading(true)
+      setUploadOpen(false)
       setPendingFileName(file.name)
       const matrix = await parseSpreadsheetMatrix(file, 5000)
       const headerRow = matrix[uploadHeaderRow] ?? []
@@ -355,6 +357,42 @@ export default function InventoryPage() {
     })
   }
 
+  const downloadTemplate = () => {
+    const headers = [
+      'Type',
+      'Kind',
+      'Model',
+      'OEM',
+      'Condition',
+      'Location',
+      'Serial',
+      'Qty_available',
+      'Cost',
+      'Currency',
+      'CPU_model',
+      'CPU_qty',
+      'Memory_model',
+      'Memory_qty',
+      'NIC_model',
+      'NIC_qty',
+      'Drive_model',
+      'Drive_qty',
+      'GPU_model',
+      'GPU_qty',
+      'Cable_model',
+      'Cable_qty',
+      'Compat_tags',
+    ]
+    const csv = headers.join(',') + '\n'
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'proforma-stock.xlsx'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const markAuction = async () => {
     if (!selectedIds.size) return
     if (!tenantId) {
@@ -433,20 +471,9 @@ export default function InventoryPage() {
               fontWeight: 900,
               cursor: 'pointer',
             }}
+            onClick={() => setUploadOpen(true)}
           >
-            <label style={{ cursor: 'pointer' }}>
-              Upload XLSX
-              <input
-                type="file"
-                accept=".xlsx"
-                style={{ display: 'none' }}
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) startUpload(file)
-                  e.target.value = ''
-                }}
-              />
-            </label>
+            Upload XLSX
           </button>
           <button
             style={{
@@ -953,6 +980,90 @@ export default function InventoryPage() {
               >
                 {loading ? 'Saving…' : 'Add line'}
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {uploadOpen ? (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 25,
+          }}
+        >
+          <div
+            style={{
+              background: 'var(--panel)',
+              border: '1px solid var(--border)',
+              borderRadius: 14,
+              padding: 16,
+              width: 'min(760px, 92vw)',
+              maxHeight: '85vh',
+              overflow: 'auto',
+              display: 'grid',
+              gap: 12,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: 900, fontSize: 18 }}>Upload XLSX</div>
+                <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+                  Download the proforma, fill it in, then upload and map columns.
+                </div>
+              </div>
+              <button
+                onClick={() => setUploadOpen(false)}
+                style={{
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface-2)',
+                  borderRadius: 10,
+                  padding: '8px 10px',
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+              <button
+                onClick={downloadTemplate}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--panel)',
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                }}
+              >
+                Download Proforma Stock XLSX
+              </button>
+              <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+                Headers: Type, Kind, Model, OEM, Condition, Location, Serial, Qty_available, Cost, Currency, CPU/Memory/NIC/Drive/GPU/Cable fields, Compat_tags.
+              </div>
+            </div>
+
+            <div style={{ border: '1px dashed var(--border)', borderRadius: 12, padding: 12, display: 'grid', gap: 8 }}>
+              <div style={{ fontWeight: 900 }}>Select file to import</div>
+              <input
+                type="file"
+                accept=".xlsx,.csv"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) startUpload(file)
+                  e.target.value = ''
+                }}
+              />
+              <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+                After choosing a file, you’ll be asked to map columns before import.
+              </div>
             </div>
           </div>
         </div>
