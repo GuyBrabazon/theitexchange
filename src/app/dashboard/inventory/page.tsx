@@ -582,7 +582,7 @@ export default function InventoryPage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '0.25fr 1.1fr 0.7fr 0.7fr 0.7fr 0.7fr',
+            gridTemplateColumns: '0.25fr 0.9fr 1.0fr 0.7fr 0.7fr 0.7fr 0.7fr',
             gap: 0,
             background: 'var(--surface-2)',
             fontWeight: 900,
@@ -590,7 +590,8 @@ export default function InventoryPage() {
           }}
         >
           <div style={{ padding: 8 }}>Select</div>
-          <div style={{ padding: 8 }}>Part / Description</div>
+          <div style={{ padding: 8 }}>Part number</div>
+          <div style={{ padding: 8 }}>Description</div>
           <div style={{ padding: 8 }}>OEM</div>
           <div style={{ padding: 8 }}>Condition</div>
           <div style={{ padding: 8 }}>Available QTY</div>
@@ -603,7 +604,7 @@ export default function InventoryPage() {
             key={r.id}
             style={{
               display: 'grid',
-              gridTemplateColumns: '0.25fr 1.1fr 0.7fr 0.7fr 0.7fr 0.7fr',
+              gridTemplateColumns: '0.25fr 0.9fr 1.0fr 0.7fr 0.7fr 0.7fr 0.7fr',
               gap: 0,
               borderTop: `1px solid var(--border)`,
               background: 'var(--panel)',
@@ -612,9 +613,9 @@ export default function InventoryPage() {
             <div style={{ padding: 8 }}>
               <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
             </div>
-            <div style={{ padding: 8 }}>
-              <div style={{ fontWeight: 900 }}>{r.model || r.description || 'Untitled item'}</div>
-              <div style={{ color: 'var(--muted)', fontSize: 12 }}>{r.description || 'No description'}</div>
+            <div style={{ padding: 8, fontWeight: 900 }}>{r.model || 'Untitled item'}</div>
+            <div style={{ padding: 8, color: 'var(--muted)', fontSize: 12 }}>
+              {r.description || 'No description'}
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
                 {r.specs?.auction ? (
                   <span
