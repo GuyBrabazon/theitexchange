@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { parseSpreadsheetMatrix } from '@/lib/parseSpreadsheet'
+import * as XLSX from 'xlsx'
 
 type InventoryRow = {
   id: string
@@ -383,8 +384,38 @@ export default function InventoryPage() {
       'Cable_qty',
       'Compat_tags',
     ]
-    const csv = headers.join(',') + '\n'
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const sample = [
+      'server',
+      'system',
+      'Dell R740',
+      'Dell',
+      'Refurb',
+      'Warehouse A',
+      'SN123',
+      2,
+      1200,
+      'USD',
+      'Intel Xeon Gold 6148',
+      2,
+      '32GB DDR4',
+      8,
+      'Intel X710',
+      2,
+      '1.92TB SAS',
+      8,
+      'RTX A4000',
+      1,
+      'SFP+ cable',
+      2,
+      'ram_ddr4_32gb,cpu_gold61xx',
+    ]
+    const ws = XLSX.utils.aoa_to_sheet([headers, sample])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Stock')
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+    const blob = new Blob([wbout], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
