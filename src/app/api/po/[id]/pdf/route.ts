@@ -124,9 +124,9 @@ function buildDoc(opts: {
   )
 }
 
-export async function POST(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(_: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { id } = await params
+    const { id } = params
     const supa = supabaseServer()
     // Load PO
     const { data: poRow, error: poErr } = await supa.from('purchase_orders').select('*').eq('id', id).maybeSingle()
