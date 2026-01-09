@@ -228,7 +228,7 @@ export default function InviteTokenPage() {
             .select(
               'id,lot_id,description,model,qty,serial_tag,cpu,cpu_qty,memory_part_numbers,memory_qty,network_card,expansion_card,gpu,asking_price,specs'
             )
-            .eq('lot_id', data.lot_id)
+            .eq('lot_id', normalizedInvite.lot_id)
             .order('id', { ascending: true })
             .limit(500)
 
