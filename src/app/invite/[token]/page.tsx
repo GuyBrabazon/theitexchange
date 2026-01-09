@@ -222,7 +222,7 @@ export default function InviteTokenPage() {
 
         setInvite(normalizedInvite)
 
-        if (data?.lot_id) {
+        if (normalizedInvite.lot_id) {
           const { data: liData, error: liErr } = await supabase
             .from('line_items')
             .select(
