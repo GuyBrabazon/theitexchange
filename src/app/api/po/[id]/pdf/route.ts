@@ -124,9 +124,12 @@ function buildDoc(opts: {
   )
 }
 
-export async function POST(_: NextRequest, { params }: { params: { id: string } }) {
+// Accept any context shape to align with Next route typing (params may be a Promise)
+export async function POST(_: NextRequest, context: any) {
   try {
-    const { id } = params
+    const rawParams = context?.params
+    const resolved = rawParams && typeof rawParams.then === 'function' ? await rawParams : rawParams
+    const id = resolved?.id as string
     const supa = supabaseServer()
     // Load PO
     const { data: poRow, error: poErr } = await supa.from('purchase_orders').select('*').eq('id', id).maybeSingle()
