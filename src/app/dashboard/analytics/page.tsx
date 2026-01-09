@@ -183,6 +183,8 @@ export default function AnalyticsPage() {
   const [lineItems, setLineItems] = useState<LineItem[]>([])
   const [financials, setFinancials] = useState<Map<string, LotFinancial>>(new Map())
   const [inventoryCounts, setInventoryCounts] = useState<Record<string, number>>({})
+  const [quotesSent, setQuotesSent] = useState(0)
+  const [quotesWon, setQuotesWon] = useState(0)
 
   const now = useMemo(() => new Date(), [])
   const startDate = useMemo(() => startDateFor(timeframe, now), [timeframe, now])
@@ -258,6 +260,29 @@ export default function AnalyticsPage() {
         setInventoryCounts(counts)
       } catch (invErr) {
         console.warn('inventory stats load failed', invErr)
+      }
+
+      // Quotes (win rate)
+      try {
+        const { data: quoteData, error: quoteErr } = await supabase
+          .from('quotes')
+          .select('status,created_at')
+          .eq('tenant_id', profile.tenant_id)
+          .gte('created_at', startIso)
+          .limit(5000)
+        if (quoteErr) throw quoteErr
+        const sentCount = quoteData?.length ?? 0
+        const winCount =
+          quoteData?.filter((q) => {
+            const status = String((q as { status?: string }).status ?? '').toLowerCase()
+            return status === 'ordered' || status === 'accepted'
+          }).length ?? 0
+        setQuotesSent(sentCount)
+        setQuotesWon(winCount)
+      } catch (qErr) {
+        console.warn('quotes load failed', qErr)
+        setQuotesSent(0)
+        setQuotesWon(0)
       }
     } catch (e: unknown) {
       console.error(e)
@@ -504,7 +529,7 @@ export default function AnalyticsPage() {
         ))}
       </div>
 
-      <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12 }}>
+      <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
         <Card title="Profit (estimated)" subtitle="Based on lot_financials: cost known / asking known / estimated @ target margin">
           <div style={{ fontSize: 24, fontWeight: 950 }}>{money(totals.profit, currencyHint)}</div>
           <div style={{ marginTop: 8, color: 'var(--muted)', fontSize: 12 }}>
@@ -532,6 +557,16 @@ export default function AnalyticsPage() {
           <div style={{ fontSize: 24, fontWeight: 950 }}>{totals.leftoverLots}</div>
           <div style={{ marginTop: 8, color: 'var(--muted)', fontSize: 12 }}>
             Measured as: 0 &lt; awarded distinct items &lt; total items
+          </div>
+        </Card>
+
+        <Card title="Quotes / Converted" subtitle="Quotes in timeframe">
+          <div style={{ fontSize: 24, fontWeight: 950 }}>
+            {quotesWon} / {quotesSent}
+          </div>
+          <div style={{ marginTop: 8, color: 'var(--muted)', fontSize: 12 }}>
+            Win rate:{' '}
+            <b style={{ color: 'var(--text)' }}>{quotesSent ? Math.round((quotesWon / quotesSent) * 100) : 0}%</b>
           </div>
         </Card>
       </div>
