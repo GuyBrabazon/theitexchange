@@ -191,7 +191,6 @@ export default function InventoryPage() {
           oem: manual.oem,
           condition: manual.condition,
           location: manual.location,
-          qty_total,
           qty_available,
           cost,
           currency: manual.currency || tenantCurrency || 'USD',
