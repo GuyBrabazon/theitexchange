@@ -119,16 +119,35 @@ export default function MyRfqsPage() {
                   </div>
                   {r.note ? <div>{r.note}</div> : null}
                 </div>
-                {title === 'RFQs quoted' ? (
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <button style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}>
-                      Convert to PO
-                    </button>
-                    <button style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}>
-                      Send counter offer
-                    </button>
-                  </div>
-                ) : null}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <a
+                    href={`mailto:?subject=${encodeURIComponent(`RFQ ${r.id} - ${r.subject || 'RFQ'}`)}&body=${encodeURIComponent(
+                      `RFQ ID: ${r.id}\nSubject: ${r.subject || 'RFQ'}\nSupplier: ${r.supplier_tenant_name || r.supplier_name || r.supplier_tenant_id}\nTenant ID: ${
+                        r.supplier_tenant_id
+                      }\n\nQuestions:\n`
+                    )}`}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: 10,
+                      border: '1px solid var(--border)',
+                      background: 'var(--panel)',
+                      textDecoration: 'none',
+                      color: 'var(--text)',
+                    }}
+                  >
+                    Email Supplier
+                  </a>
+                  {title === 'RFQs quoted' ? (
+                    <>
+                      <button style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}>
+                        Convert to PO
+                      </button>
+                      <button style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}>
+                        Send counter offer
+                      </button>
+                    </>
+                  ) : null}
+                </div>
               </div>
               <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
                 <div
