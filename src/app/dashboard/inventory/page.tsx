@@ -101,7 +101,7 @@ export default function InventoryPage() {
         .select('*')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
-        .limit(1000)
+        .limit(10000)
       if (invErr) throw invErr
 
       const mapped: InventoryRow[] =
@@ -547,7 +547,7 @@ export default function InventoryPage() {
           <div style={{ padding: 10 }}>Part / Description</div>
           <div style={{ padding: 10 }}>OEM</div>
           <div style={{ padding: 10 }}>Condition</div>
-          <div style={{ padding: 10 }}>Qty in stock / total</div>
+          <div style={{ padding: 10 }}>Qty in stock / QTY Available</div>
           <div style={{ padding: 10 }}>Cost</div>
           <div style={{ padding: 10 }}>Status</div>
         </div>

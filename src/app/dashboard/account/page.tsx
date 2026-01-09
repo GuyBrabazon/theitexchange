@@ -159,7 +159,7 @@ export default function AccountPage() {
   }
 
   return (
-    <main style={{ padding: 24, maxWidth: 720 }}>
+    <main style={{ padding: 24 }}>
       <h1 style={{ marginBottom: 6 }}>My Account</h1>
       <div style={{ color: 'var(--muted)', marginBottom: 16 }}>
         Manage your personal profile
@@ -169,317 +169,319 @@ export default function AccountPage() {
         <div style={{ color: 'crimson', marginBottom: 12 }}>{error}</div>
       ) : null}
 
-      {/* Identity */}
-      <div
-        style={{
-          border: '1px solid var(--border)',
-          borderRadius: 12,
-          padding: 14,
-          background: 'var(--panel)',
-          marginBottom: 16,
-        }}
-      >
-        <div style={{ fontWeight: 950, marginBottom: 8 }}>Identity</div>
-
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div>
-            User ID:{' '}
-            <b style={{ color: 'var(--text)' }}>
-              {authId || '—'}
-            </b>
-          </div>
-          {authId ? (
-            <button
-              onClick={() => copyText(authId)}
-              style={{
-                padding: '6px 10px',
-                borderRadius: 10,
-                border: '1px solid var(--border)',
-                background: 'var(--panel)',
-                fontWeight: 900,
-              }}
-            >
-              Copy
-            </button>
-          ) : null}
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
-          <div>
-            Tenant ID:{' '}
-            <b style={{ color: 'var(--text)' }}>
-              {row?.tenant_id ?? '—'}
-            </b>
-          </div>
-          {row?.tenant_id ? (
-            <button
-            onClick={() => copyText(row.tenant_id!)}
-            style={{
-                padding: '6px 10px',
-                borderRadius: 10,
-                border: '1px solid var(--border)',
-                background: 'var(--panel)',
-                fontWeight: 900,
-            }}
-            >
-            Copy
-            </button>
-          ) : null}
-        </div>
-
-        <div style={{ marginTop: 8, color: 'var(--muted)', fontSize: 12 }}>
-          Email (auth): <b>{authEmail || '—'}</b>
-        </div>
-      </div>
-
-      {/* Appearance */}
-      <div
-        style={{
-          border: '1px solid var(--border)',
-          borderRadius: 12,
-          padding: 14,
-          background: 'var(--panel)',
-          marginBottom: 16,
-        }}
-      >
-        <div style={{ fontWeight: 950, marginBottom: 8 }}>Appearance</div>
-        <div style={{ color: 'var(--muted)', marginBottom: 10, fontSize: 12 }}>
-          Switch between light and dark themes. Preference is saved to this device.
-        </div>
-        <button
-          onClick={toggleTheme}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12, alignItems: 'stretch' }}>
+        {/* Identity */}
+        <div
           style={{
-            padding: '10px 12px',
-            borderRadius: 12,
             border: '1px solid var(--border)',
+            borderRadius: 12,
+            padding: 14,
             background: 'var(--panel)',
-            fontWeight: 900,
-            cursor: 'pointer',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
           }}
         >
-          Toggle {theme === 'light' ? 'dark' : 'light'} mode
-        </button>
-      </div>
-
-      {/* Outlook */}
-      <div
-        style={{
-          border: '1px solid var(--border)',
-          borderRadius: 12,
-          padding: 14,
-          background: 'var(--panel)',
-          marginBottom: 16,
-        }}
-      >
-        <div style={{ fontWeight: 950, marginBottom: 8 }}>Outlook connection</div>
-        <div style={{ color: 'var(--muted)', marginBottom: 10, fontSize: 12 }}>
-          Connect Outlook to send invites directly from your mailbox and enable future inbox processing.
-        </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <button
-            onClick={() => {
-              if (!authId) {
-                alert('User not loaded yet')
-                return
-              }
-              window.location.href = `/api/outlook/authorize?uid=${authId}`
-            }}
-            style={{
-              padding: '10px 12px',
-              borderRadius: 12,
-              border: '1px solid var(--border)',
-              background: 'var(--panel)',
-              fontWeight: 900,
-              cursor: 'pointer',
-            }}
-          >
-            Connect Outlook
-          </button>
-          <button
-            onClick={async () => {
-              setOutlookBusy(true)
-              try {
-                const res = await fetch(`/api/outlook/send-test?uid=${authId}`, { method: 'POST' })
-                const json = await res.json()
-                if (!res.ok || !json.ok) throw new Error(json.message || 'Failed')
-                setOutlookStatus('Test email sent')
-              } catch (e) {
-                console.error(e)
-                setOutlookStatus('Test failed')
-                alert(e instanceof Error ? e.message : 'Test failed')
-              } finally {
-                setOutlookBusy(false)
-              }
-            }}
-            disabled={outlookBusy}
-            style={{
-              padding: '10px 12px',
-              borderRadius: 12,
-              border: '1px solid var(--border)',
-              background: 'var(--panel)',
-              fontWeight: 900,
-              cursor: outlookBusy ? 'wait' : 'pointer',
-            }}
-          >
-            Send test email
-          </button>
-          <button
-            onClick={async () => {
-              setOutlookBusy(true)
-              try {
-                const res = await fetch('/api/outlook/disconnect', { method: 'POST' })
-                const json = await res.json()
-                if (!res.ok || !json.ok) throw new Error(json.message || 'Failed')
-                setOutlookStatus('Disconnected')
-              } catch (e) {
-                console.error(e)
-                alert(e instanceof Error ? e.message : 'Failed to disconnect')
-              } finally {
-                setOutlookBusy(false)
-              }
-            }}
-            disabled={outlookBusy}
-            style={{
-              padding: '10px 12px',
-              borderRadius: 12,
-              border: '1px solid var(--border)',
-              background: 'var(--panel)',
-              fontWeight: 900,
-              cursor: outlookBusy ? 'wait' : 'pointer',
-            }}
-          >
-            Disconnect
-          </button>
-          <div style={{ color: 'var(--muted)', fontSize: 12 }}>{outlookStatus}</div>
-        </div>
-
-        {canSeeOrg ? (
-          <div style={{ marginTop: 16, padding: 12, border: '1px solid var(--border)', borderRadius: 12, background: 'var(--panel)' }}>
-            <div style={{ fontWeight: 900, marginBottom: 6 }}>Organisation setup</div>
-            <div style={{ color: 'var(--muted)', fontSize: 12, marginBottom: 10 }}>
-              Configure org-wide defaults, domain policy, and roles.
+          <div style={{ fontWeight: 950 }}>Identity</div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div>
+              User ID: <b style={{ color: 'var(--text)' }}>{authId || '—'}</b>
             </div>
-            <a
-              href="/dashboard/org-setup"
-              style={{
-                padding: '10px 12px',
-                borderRadius: 12,
-                border: '1px solid var(--border)',
-                background: 'var(--surface-2)',
-                fontWeight: 900,
-                color: 'var(--text)',
-                textDecoration: 'none',
-              }}
-            >
-              Open Org Setup
-            </a>
-            <div style={{ marginTop: 12 }}>
+            {authId ? (
               <button
-                onClick={async () => {
-                  if (!tenantId) return
-                  const {
-                    data: { session },
-                  } = await supabase.auth.getSession()
-                  const token = session?.access_token
-                  if (!confirm('This deletes all AVAILABLE inventory for your organisation. Proceed?')) return
-                  setOutlookBusy(true)
-                  try {
-                    const res = await fetch('/api/inventory/purge', {
-                      method: 'POST',
-                      credentials: 'include',
-                      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-                    })
-                    const json = await res.json()
-                    if (!res.ok || !json.ok) throw new Error(json.message || 'Purge failed')
-                    alert('Available inventory purged.')
-                  } catch (e) {
-                    console.error(e)
-                    alert(e instanceof Error ? e.message : 'Purge failed')
-                  } finally {
-                    setOutlookBusy(false)
-                  }
-                }}
+                onClick={() => copyText(authId)}
                 style={{
-                  marginTop: 8,
-                  padding: '8px 10px',
+                  padding: '6px 10px',
                   borderRadius: 10,
                   border: '1px solid var(--border)',
                   background: 'var(--panel)',
                   fontWeight: 900,
-                  color: 'var(--bad)',
-                  cursor: outlookBusy ? 'wait' : 'pointer',
                 }}
-                disabled={outlookBusy}
               >
-                Purge available inventory
+                Copy
               </button>
-              <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>
-                Admin only. Deletes all inventory with status &quot;available&quot; for this org.
-              </div>
+            ) : null}
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div>
+              Tenant ID: <b style={{ color: 'var(--text)' }}>{row?.tenant_id ?? '—'}</b>
             </div>
-          </div>
-        ) : null}
-      </div>
-
-      {/* Profile */}
-      <div
-        style={{
-          border: '1px solid var(--border)',
-          borderRadius: 12,
-          padding: 14,
-          background: 'var(--panel)',
-        }}
-      >
-        <div style={{ fontWeight: 950, marginBottom: 12 }}>Profile</div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
-          <div>
-            <label style={{ fontSize: 12, color: 'var(--muted)' }}>Name</label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your name"
-              style={{ width: '100%', padding: 10, borderRadius: 10, border: '1px solid var(--border)' }}
-            />
+            {row?.tenant_id ? (
+              <button
+                onClick={() => copyText(row.tenant_id!)}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--panel)',
+                  fontWeight: 900,
+                }}
+              >
+                Copy
+              </button>
+            ) : null}
           </div>
 
-          <div>
-            <label style={{ fontSize: 12, color: 'var(--muted)' }}>Company</label>
-            <input
-              value={company}
-              onChange={(e) => setCompany(e.target.value)}
-              placeholder="Company name"
-              style={{ width: '100%', padding: 10, borderRadius: 10, border: '1px solid var(--border)' }}
-            />
-          </div>
-
-          <div>
-            <label style={{ fontSize: 12, color: 'var(--muted)' }}>Phone</label>
-            <input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+1 555 123 4567"
-              style={{ width: '100%', padding: 10, borderRadius: 10, border: '1px solid var(--border)' }}
-            />
-          </div>
+          <div style={{ color: 'var(--muted)', fontSize: 12 }}>Email (auth): <b>{authEmail || '—'}</b></div>
         </div>
 
-        <div style={{ marginTop: 16 }}>
+        {/* Appearance */}
+        <div
+          style={{
+            border: '1px solid var(--border)',
+            borderRadius: 12,
+            padding: 14,
+            background: 'var(--panel)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+          }}
+        >
+          <div style={{ fontWeight: 950 }}>Appearance</div>
+          <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+            Switch between light and dark themes. Preference is saved to this device.
+          </div>
           <button
-            onClick={save}
-            disabled={saving}
+            onClick={toggleTheme}
             style={{
-              padding: '10px 14px',
+              padding: '10px 12px',
               borderRadius: 12,
               border: '1px solid var(--border)',
-              background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%)',
-              color: '#fff',
-              fontWeight: 950,
+              background: 'var(--panel)',
+              fontWeight: 900,
               cursor: 'pointer',
             }}
           >
-            {saving ? 'Saving…' : 'Save'}
+            Toggle {theme === 'light' ? 'dark' : 'light'} mode
           </button>
+        </div>
+
+        {/* Outlook */}
+        <div
+          style={{
+            border: '1px solid var(--border)',
+            borderRadius: 12,
+            padding: 14,
+            background: 'var(--panel)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+          }}
+        >
+          <div style={{ fontWeight: 950 }}>Outlook connection</div>
+          <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+            Connect Outlook to send invites directly from your mailbox and enable future inbox processing.
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => {
+                if (!authId) {
+                  alert('User not loaded yet')
+                  return
+                }
+                window.location.href = `/api/outlook/authorize?uid=${authId}`
+              }}
+              style={{
+                padding: '10px 12px',
+                borderRadius: 12,
+                border: '1px solid var(--border)',
+                background: 'var(--panel)',
+                fontWeight: 900,
+                cursor: 'pointer',
+              }}
+            >
+              Connect Outlook
+            </button>
+            <button
+              onClick={async () => {
+                setOutlookBusy(true)
+                try {
+                  const res = await fetch(`/api/outlook/send-test?uid=${authId}`, { method: 'POST' })
+                  const json = await res.json()
+                  if (!res.ok || !json.ok) throw new Error(json.message || 'Failed')
+                  setOutlookStatus('Test email sent')
+                } catch (e) {
+                  console.error(e)
+                  setOutlookStatus('Test failed')
+                  alert(e instanceof Error ? e.message : 'Test failed')
+                } finally {
+                  setOutlookBusy(false)
+                }
+              }}
+              disabled={outlookBusy}
+              style={{
+                padding: '10px 12px',
+                borderRadius: 12,
+                border: '1px solid var(--border)',
+                background: 'var(--panel)',
+                fontWeight: 900,
+                cursor: outlookBusy ? 'wait' : 'pointer',
+              }}
+            >
+              Send test email
+            </button>
+            <button
+              onClick={async () => {
+                setOutlookBusy(true)
+                try {
+                  const res = await fetch('/api/outlook/disconnect', { method: 'POST' })
+                  const json = await res.json()
+                  if (!res.ok || !json.ok) throw new Error(json.message || 'Failed')
+                  setOutlookStatus('Disconnected')
+                } catch (e) {
+                  console.error(e)
+                  alert(e instanceof Error ? e.message : 'Failed to disconnect')
+                } finally {
+                  setOutlookBusy(false)
+                }
+              }}
+              disabled={outlookBusy}
+              style={{
+                padding: '10px 12px',
+                borderRadius: 12,
+                border: '1px solid var(--border)',
+                background: 'var(--panel)',
+                fontWeight: 900,
+                cursor: outlookBusy ? 'wait' : 'pointer',
+              }}
+            >
+              Disconnect
+            </button>
+          </div>
+          <div style={{ color: 'var(--muted)', fontSize: 12 }}>{outlookStatus}</div>
+
+          {canSeeOrg ? (
+            <div style={{ marginTop: 6, padding: 12, border: '1px solid var(--border)', borderRadius: 12, background: 'var(--panel)' }}>
+              <div style={{ fontWeight: 900, marginBottom: 6 }}>Organisation setup</div>
+              <div style={{ color: 'var(--muted)', fontSize: 12, marginBottom: 10 }}>
+                Configure org-wide defaults, domain policy, and roles.
+              </div>
+              <a
+                href="/dashboard/org-setup"
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 12,
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface-2)',
+                  fontWeight: 900,
+                  color: 'var(--text)',
+                  textDecoration: 'none',
+                }}
+              >
+                Open Org Setup
+              </a>
+              <div style={{ marginTop: 12 }}>
+                <button
+                  onClick={async () => {
+                    if (!tenantId) return
+                    const {
+                      data: { session },
+                    } = await supabase.auth.getSession()
+                    const token = session?.access_token
+                    if (!confirm('This deletes all AVAILABLE inventory for your organisation. Proceed?')) return
+                    setOutlookBusy(true)
+                    try {
+                      const res = await fetch('/api/inventory/purge', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                      })
+                      const json = await res.json()
+                      if (!res.ok || !json.ok) throw new Error(json.message || 'Purge failed')
+                      alert('Available inventory purged.')
+                    } catch (e) {
+                      console.error(e)
+                      alert(e instanceof Error ? e.message : 'Purge failed')
+                    } finally {
+                      setOutlookBusy(false)
+                    }
+                  }}
+                  style={{
+                    marginTop: 8,
+                    padding: '8px 10px',
+                    borderRadius: 10,
+                    border: '1px solid var(--border)',
+                    background: 'var(--panel)',
+                    fontWeight: 900,
+                    color: 'var(--bad)',
+                    cursor: outlookBusy ? 'wait' : 'pointer',
+                  }}
+                  disabled={outlookBusy}
+                >
+                  Purge available inventory
+                </button>
+                <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>
+                  Admin only. Deletes all inventory with status &quot;available&quot; for this org.
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Profile */}
+        <div
+          style={{
+            border: '1px solid var(--border)',
+            borderRadius: 12,
+            padding: 14,
+            background: 'var(--panel)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+          }}
+        >
+          <div style={{ fontWeight: 950 }}>Profile</div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Name</label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your name"
+                style={{ width: '100%', padding: 10, borderRadius: 10, border: '1px solid var(--border)' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Company</label>
+              <input
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                placeholder="Company name"
+                style={{ width: '100%', padding: 10, borderRadius: 10, border: '1px solid var(--border)' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Phone</label>
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+1 555 123 4567"
+                style={{ width: '100%', padding: 10, borderRadius: 10, border: '1px solid var(--border)' }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <button
+              onClick={save}
+              disabled={saving}
+              style={{
+                padding: '10px 14px',
+                borderRadius: 12,
+                border: '1px solid var(--border)',
+                background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%)',
+                color: '#fff',
+                fontWeight: 950,
+                cursor: 'pointer',
+              }}
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
         </div>
       </div>
     </main>

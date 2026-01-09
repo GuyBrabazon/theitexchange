@@ -787,7 +787,7 @@ export default function DashboardHomePage() {
                   fontWeight: 900,
                 }}
               >
-                Import Buyers
+                Import Customers
               </Link>
 
               <Link
@@ -801,7 +801,7 @@ export default function DashboardHomePage() {
                   fontWeight: 900,
                 }}
               >
-                Manage Buyers
+                Manage Customers
               </Link>
 
               <Link

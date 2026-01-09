@@ -302,10 +302,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!showSidebar) return <>{children}</>
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)' }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)' }}>
       <aside
         style={{
-          width: 300,
+          width: 'min(320px, 100vw - 24px)',
           padding: 16,
           borderRight: '1px solid var(--border)',
           background: 'linear-gradient(180deg, rgba(245,174,109,0.06) 0%, rgba(10,9,7,0.0) 60%)',
@@ -313,6 +313,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           top: 0,
           height: '100vh',
           overflow: 'visible',
+          flex: '0 0 auto',
         }}
       >
         {/* Brand + bell */}
@@ -524,32 +525,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
 		{/* Groups */}
-		<Section title="General">
-		  <NavItem href="/dashboard" label="Home" importance="primary" icon="home" />
-		  <NavItem href="/dashboard/account" label="My Account" importance="normal" icon="account_circle" />
-		  <NavItem href="/dashboard/inventory" label="Inventory" importance="normal" icon="inventory_2" />
-		</Section>
+        <Section title="General">
+          <NavItem href="/dashboard" label="Home" importance="primary" icon="home" />
+          <NavItem href="/dashboard/account" label="My Account" importance="normal" icon="account_circle" />
+          <NavItem href="/dashboard/inventory" label="Inventory" importance="normal" icon="inventory_2" />
+        </Section>
 
-		<Section title="Intelligence">
-		  <NavItem href="/dashboard/analytics" label="Analytics" importance="primary" icon="insights" />
-		  <NavItem href="/dashboard/reports" label="Reports" importance="normal" icon="description" />
-		</Section>
+        <Section title="Intelligence">
+          <NavItem href="/dashboard/analytics" label="Analytics" importance="primary" icon="insights" />
+          <NavItem href="/dashboard/reports" label="Reports" importance="normal" icon="description" />
+        </Section>
 
-		<Section title="Sales">
-		  <NavItem href="/dashboard/lots" label="Auctions" importance="primary" icon="gavel" />
-		  <NavItem href="/dashboard/quoting" label="Quoting" importance="normal" icon="mail" />
-		  <NavItem href="/dashboard/buyers" label="Customers" importance="normal" icon="groups" />
-		</Section>
+        <Section title="Sales">
+          <NavItem href="/dashboard/lots" label="Auctions" importance="primary" icon="gavel" />
+          <NavItem href="/dashboard/quoting" label="Quoting" importance="normal" icon="mail" />
+          <NavItem href="/dashboard/buyers" label="Customers" importance="normal" icon="groups" />
+        </Section>
 
-		<Section title="Buying">
-		  <NavItem href="/dashboard/buy" label="Buy" importance="normal" icon="shopping_cart" />
-		  <NavItem href="/dashboard/sellers" label="Suppliers" importance="normal" icon="warehouse" />
-		</Section>
+        <Section title="Buying">
+          <NavItem href="/dashboard/buy" label="Buy" importance="normal" icon="shopping_cart" />
+          <NavItem href="/dashboard/sellers" label="Suppliers" importance="normal" icon="warehouse" />
+        </Section>
 
-		<Section title="Logistics">
-		  <NavItem href="/dashboard/order-fulfilment" label="Order fulfilment" importance="primary" icon="local_shipping" />
-		  <NavItem href="/dashboard/fulfilment" label="Warehouse" importance="normal" icon="inventory" />
-		</Section>
+        <Section title="Logistics">
+          <NavItem href="/dashboard/order-fulfilment" label="Order fulfilment" importance="primary" icon="local_shipping" />
+          <NavItem href="/dashboard/fulfilment" label="Warehouse" importance="normal" icon="inventory" />
+        </Section>
         {/* Footer actions */}
         <div style={{ marginTop: 18, display: 'grid', gap: 10 }}>
           <button
