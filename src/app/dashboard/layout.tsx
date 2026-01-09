@@ -10,9 +10,10 @@ type NavItemDef = {
   label: string
   importance?: 'primary' | 'normal' | 'quiet'
   soon?: boolean
+  icon?: React.ReactNode
 }
 
-function NavItem({ href, label, importance = 'normal', soon = false }: NavItemDef) {
+function NavItem({ href, label, importance = 'normal', soon = false, icon }: NavItemDef) {
   const pathname = usePathname()
   const active = pathname === href || pathname.startsWith(href + '/')
 
@@ -47,16 +48,22 @@ function NavItem({ href, label, importance = 'normal', soon = false }: NavItemDe
       }}
     >
       <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span
-          aria-hidden
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: 999,
-            background: iconDot,
-            boxShadow: active ? '0 0 0 4px rgba(245,174,109,0.10)' : 'none',
-          }}
-        />
+        {icon ? (
+          <span aria-hidden style={{ fontSize: 14, lineHeight: 1 }}>
+            {icon}
+          </span>
+        ) : (
+          <span
+            aria-hidden
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: 999,
+              background: iconDot,
+              boxShadow: active ? '0 0 0 4px rgba(245,174,109,0.10)' : 'none',
+            }}
+          />
+        )}
         {label}
       </span>
 
@@ -499,23 +506,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Groups */}
         <Section title="General">
-          <NavItem href="/dashboard" label="Home" importance="primary" />
-          <NavItem href="/dashboard/account" label="My Account" importance="normal" />
+          <NavItem href="/dashboard" label="Home" importance="primary" icon="🏠" />
+          <NavItem href="/dashboard/account" label="My Account" importance="normal" icon="👤" />
+          <NavItem href="/dashboard/inventory" label="Inventory" importance="normal" icon="📦" />
         </Section>
 
         <Section title="Intelligence">
-          <NavItem href="/dashboard/analytics" label="Analytics" importance="primary" />
-          <NavItem href="/dashboard/reports" label="Reports" importance="normal"/>
+          <NavItem href="/dashboard/analytics" label="Analytics" importance="primary" icon="📊" />
+          <NavItem href="/dashboard/reports" label="Reports" importance="normal" icon="📑" />
         </Section>
 
-        <Section title="Core">
-          <NavItem href="/dashboard/lots" label="Lots" importance="primary" />
-          <NavItem href="/dashboard/buyers" label="Customers" importance="normal" />
-          <NavItem href="/dashboard/sellers" label="Suppliers" importance="normal" />
-          <NavItem href="/dashboard/buy" label="Buy" importance="normal" />
-          <NavItem href="/dashboard/quoting" label="Quoting" importance="normal" />
-          <NavItem href="/dashboard/order-fulfilment" label="Order Fulfilment" importance="primary" />
-          <NavItem href="/dashboard/inventory" label="Inventory" importance="normal" soon />
+        <Section title="Sales">
+          <NavItem href="/dashboard/lots" label="Auctions" importance="primary" icon="🎯" />
+          <NavItem href="/dashboard/quoting" label="Quoting" importance="normal" icon="✉️" />
+          <NavItem href="/dashboard/buyers" label="Customers" importance="normal" icon="👥" />
+        </Section>
+
+        <Section title="Buying">
+          <NavItem href="/dashboard/buy" label="Buy" importance="normal" icon="🛒" />
+          <NavItem href="/dashboard/sellers" label="Suppliers" importance="normal" icon="🏭" />
+        </Section>
+
+        <Section title="Logistics">
+          <NavItem href="/dashboard/order-fulfilment" label="Order fulfilment" importance="primary" icon="🚚" />
+          <NavItem href="/dashboard/fulfilment" label="Warehouse" importance="normal" icon="🏢" />
         </Section>
 
         {/* Footer actions */}
