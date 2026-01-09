@@ -111,7 +111,8 @@ export default function MyRfqsPage() {
                 <div>
                   <div style={{ fontWeight: 800 }}>{r.subject || 'RFQ'}</div>
                   <div style={{ color: 'var(--muted)', fontSize: 12 }}>
-                    Supplier: {r.supplier_tenant_name || r.supplier_tenant_id.slice(0, 8)} • {new Date(r.created_at).toLocaleString()}
+                    Supplier: {r.supplier_tenant_name || 'Supplier'} • Tenant ID: {r.supplier_tenant_id} •{' '}
+                    {new Date(r.created_at).toLocaleString()}
                   </div>
                   {r.note ? <div>{r.note}</div> : null}
                 </div>
