@@ -21,6 +21,7 @@ type Rfq = {
   supplier_tenant_id: string
   supplier_tenant_name: string | null
   supplier_name: string | null
+  supplier_email: string | null
   lines: RfqLine[]
 }
 
@@ -51,7 +52,7 @@ export default function MyRfqsPage() {
         const { data, error: rfqErr } = await supabase
           .from('rfqs')
           .select(
-            'id,subject,note,status,supplier_tenant_id,supplier_name,created_at,rfq_lines(id,qty_requested,quoted_price,quoted_currency)'
+            'id,subject,note,status,supplier_tenant_id,supplier_name,supplier_email,created_at,rfq_lines(id,qty_requested,quoted_price,quoted_currency)'
           )
           .eq('buyer_tenant_id', tenant)
           .order('created_at', { ascending: false })
@@ -78,6 +79,7 @@ export default function MyRfqsPage() {
             supplier_tenant_id: String(r.supplier_tenant_id ?? ''),
             supplier_tenant_name: r.supplier_name ?? supplierNames.get(String(r.supplier_tenant_id ?? '')) ?? null,
             supplier_name: r.supplier_name ?? supplierNames.get(String(r.supplier_tenant_id ?? '')) ?? null,
+            supplier_email: r.supplier_email == null ? null : String(r.supplier_email),
             lines: Array.isArray(r.rfq_lines)
               ? r.rfq_lines.map((l: any) => ({
                   id: String(l.id ?? ''),
@@ -119,18 +121,16 @@ export default function MyRfqsPage() {
                   </div>
                   {r.note ? <div>{r.note}</div> : null}
                 </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <a
-                    href={`mailto:?subject=${encodeURIComponent(`RFQ ${r.id} - ${r.subject || 'RFQ'}`)}&body=${encodeURIComponent(
-                      `RFQ ID: ${r.id}\nSubject: ${r.subject || 'RFQ'}\nSupplier: ${r.supplier_tenant_name || r.supplier_name || r.supplier_tenant_id}\nTenant ID: ${
-                        r.supplier_tenant_id
-                      }\n\nQuestions:\n`
-                    )}`}
-                    style={{
-                      padding: '8px 12px',
-                      borderRadius: 10,
-                      border: '1px solid var(--border)',
-                      background: 'var(--panel)',
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <a
+              href={`mailto:${encodeURIComponent(r.supplier_email ?? '')}?subject=${encodeURIComponent(`RFQ ${r.id} - ${r.subject || 'RFQ'}`)}&body=${encodeURIComponent(
+                `RFQ ID: ${r.id}\nSubject: ${r.subject || 'RFQ'}\nSupplier: ${r.supplier_name || r.supplier_tenant_name || r.supplier_tenant_id}\nTenant ID: ${r.supplier_tenant_id}\n\nQuestions:\n`
+              )}`}
+              style={{
+                padding: '8px 12px',
+                borderRadius: 10,
+                border: '1px solid var(--border)',
+                background: 'var(--panel)',
                       textDecoration: 'none',
                       color: 'var(--text)',
                     }}

@@ -14,6 +14,7 @@ type RfqListItem = {
   requester_email: string | null
   requester_phone: string | null
   requester_company: string | null
+  supplier_email: string | null
   created_at: string
   line_count: number
   lines: RfqLine[]
@@ -73,7 +74,7 @@ export default function RfqsPage() {
     const { data, error } = await supabase
       .from('rfqs')
       .select(
-        'id,subject,note,status,buyer_tenant_id,created_at,rfq_lines(id,inventory_item_id,qty_requested,inventory_items(id,model,description,oem,qty_available,cost,currency)),requester_name,requester_email,requester_phone,requester_company'
+        'id,subject,note,status,buyer_tenant_id,created_at,supplier_email,rfq_lines(id,inventory_item_id,qty_requested,inventory_items(id,model,description,oem,qty_available,cost,currency)),requester_name,requester_email,requester_phone,requester_company'
       )
       .eq('supplier_tenant_id', tenant)
       .in('status', ['new', 'sent'])
@@ -160,6 +161,7 @@ export default function RfqsPage() {
         requester_email: r.requester_email == null ? null : String(r.requester_email),
         requester_phone: r.requester_phone == null ? null : String(r.requester_phone),
         requester_company: r.requester_company == null ? null : String(r.requester_company),
+        supplier_email: r.supplier_email == null ? null : String(r.supplier_email),
         created_at: r.created_at ? String(r.created_at) : new Date().toISOString(),
         line_count: Array.isArray((r as any).rfq_lines) ? (r as any).rfq_lines.length : 0,
         lines: Array.isArray((r as any).rfq_lines)
@@ -223,8 +225,14 @@ export default function RfqsPage() {
         const { error } = await supabase.from('rfq_lines').update({ quoted_price: u.quoted_price, quoted_currency: u.quoted_currency }).eq('id', u.id)
         if (error) throw error
       }
-      // mark rfq quoted
-      const { error: rfqErr } = await supabase.from('rfqs').update({ status: 'quoted' }).eq('id', rfqId)
+      // mark rfq quoted and store supplier contact email
+      const {
+        data: { user },
+        error: userErr,
+      } = await supabase.auth.getUser()
+      if (userErr) throw userErr
+      const supplierEmail = user?.email ?? null
+      const { error: rfqErr } = await supabase.from('rfqs').update({ status: 'quoted', supplier_email: supplierEmail }).eq('id', rfqId)
       if (rfqErr) throw rfqErr
       // refresh
       if (tenantId) await loadRfqs(tenantId)
