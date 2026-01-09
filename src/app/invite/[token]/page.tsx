@@ -181,24 +181,29 @@ export default function InviteTokenPage() {
         setLoading(true)
         setError('')
 
-        const { data, error: inviteErr } = await supabase
-          .from('lot_invites')
-          .select('id,tenant_id,lot_id,buyer_id,status,created_at,lots(title,status,currency),buyers(name,company,email)')
-          .eq('token', token)
-          .maybeSingle()
+        const res = await fetch(`/api/invite/${token}/status`)
+        const statusJson = await res.json()
+        if (!res.ok || !statusJson?.invite) throw new Error(statusJson?.error || 'Invite not found or expired')
 
-        if (inviteErr) throw inviteErr
-        if (!data) throw new Error('Invite not found or expired')
+        // Fetch buyer details (API response doesn't include)
+        let buyerData: any = null
+        if (statusJson.invite?.buyer_id) {
+          const { data: bRow } = await supabase
+            .from('buyers')
+            .select('name,company,email')
+            .eq('id', statusJson.invite.buyer_id)
+            .maybeSingle()
+          buyerData = bRow
+        }
 
-        const buyerRaw = Array.isArray((data as any)?.buyers) ? (data as any).buyers[0] : (data as any)?.buyers
-        const lotRaw = Array.isArray((data as any)?.lots) ? (data as any).lots[0] : (data as any)?.lots
+        const lotRaw = statusJson.lot || {}
         const normalizedInvite: InviteRow = {
-          id: String((data as any)?.id ?? ''),
-          tenant_id: (data as any)?.tenant_id ?? null,
-          lot_id: (data as any)?.lot_id ?? null,
-          buyer_id: (data as any)?.buyer_id ?? null,
-          status: (data as any)?.status ?? null,
-          created_at: (data as any)?.created_at ?? null,
+          id: String(statusJson.invite.id ?? ''),
+          tenant_id: statusJson.invite.tenant_id ?? null,
+          lot_id: statusJson.invite.lot_id ?? null,
+          buyer_id: statusJson.invite.buyer_id ?? null,
+          status: statusJson.invite.status ?? null,
+          created_at: statusJson.invite.created_at ?? null,
           lots: lotRaw
             ? {
                 title: lotRaw.title ?? null,
@@ -206,11 +211,11 @@ export default function InviteTokenPage() {
                 currency: lotRaw.currency ?? null,
               }
             : undefined,
-          buyers: buyerRaw
+          buyers: buyerData
             ? {
-                name: buyerRaw.name ?? null,
-                company: buyerRaw.company ?? null,
-                email: buyerRaw.email ?? null,
+                name: buyerData.name ?? null,
+                company: buyerData.company ?? null,
+                email: buyerData.email ?? null,
               }
             : undefined,
         }
