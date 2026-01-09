@@ -25,6 +25,8 @@ type PurchaseOrderRow = {
   notes: string | null
   created_at: string | null
   signed_url: string | null
+  po_number?: string | null
+  pdf_path?: string | null
 }
 
 function fmtDate(ts: string | null | undefined) {
@@ -77,6 +79,7 @@ export default function LotPOsPage() {
 
   const [lot, setLot] = useState<LotLite | null>(null)
   const [pos, setPos] = useState<PurchaseOrderRow[]>([])
+  const [generatingId, setGeneratingId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -103,7 +106,7 @@ export default function LotPOsPage() {
   }, [load])
 
   const header = useMemo(() => {
-    const t = lot?.title ?? `Lot ${lotId.slice(0, 8)}…`
+    const t = lot?.title ?? `Lot ${lotId.slice(0, 8)}`
     return `${t} | Status: ${statusLabel(lot?.status)}`
   }, [lotId, lot?.title, lot?.status])
 
@@ -112,11 +115,7 @@ export default function LotPOsPage() {
     setSaving(true)
     setError('')
     try {
-      const ok = confirm(
-        status === 'order_processing'
-          ? 'Mark this lot as Order Processing?'
-          : 'Mark this lot as Sold?'
-      )
+      const ok = confirm(status === 'order_processing' ? 'Mark this lot as Order Processing?' : 'Mark this lot as Sold?')
       if (!ok) return
 
       const res = await fetch(`/api/lots/${lotId}/status`, {
@@ -137,6 +136,25 @@ export default function LotPOsPage() {
     }
   }
 
+  const generatePdf = async (poId: string) => {
+    if (generatingId) return
+    setGeneratingId(poId)
+    setError('')
+    try {
+      const res = await fetch(`/api/po/${poId}/pdf`, { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok || !json.ok) throw new Error(json.message || 'Failed to generate PDF')
+      if (json.url) window.open(json.url, '_blank', 'noreferrer')
+      await load()
+    } catch (e: unknown) {
+      console.error(e)
+      const msg = e instanceof Error ? e.message : 'Failed to generate PDF'
+      setError(msg)
+    } finally {
+      setGeneratingId(null)
+    }
+  }
+
   return (
     <main style={{ padding: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
@@ -147,7 +165,7 @@ export default function LotPOsPage() {
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <Link href={`/dashboard/lots/${lotId}`} style={{ textDecoration: 'none', fontWeight: 900 }}>
-            ← Back to Lot
+            Back to Lot
           </Link>
 
           <Link
@@ -161,7 +179,7 @@ export default function LotPOsPage() {
               fontWeight: 900,
             }}
           >
-            Go to Order Fulfilment →
+            Go to Order Fulfilment
           </Link>
 
           <button
@@ -233,17 +251,25 @@ export default function LotPOsPage() {
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline', flexWrap: 'wrap' }}>
-                      <div style={{ fontWeight: 950 }}>{p.file_name ?? '(PO file)'}</div>
+                      <div style={{ fontWeight: 950 }}>
+                        {p.po_number ? `${p.po_number} - ` : ''}
+                        {p.file_name ?? '(PO file)'}
+                      </div>
                       <div style={{ color: 'var(--muted)', fontSize: 12 }}>{fmtDate(p.created_at)}</div>
                     </div>
 
                     <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: 12, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                       <span>
-                        Buyer: <b style={{ color: 'var(--text)' }}>{p.buyer_id ? p.buyer_id.slice(0, 8) + '…' : 'n/a'}</b>
+                        Buyer: <b style={{ color: 'var(--text)' }}>{p.buyer_id ? p.buyer_id.slice(0, 8) : 'n/a'}</b>
                       </span>
                       <span>
                         Type: <b style={{ color: 'var(--text)' }}>{p.content_type ?? 'n/a'}</b>
                       </span>
+                      {p.pdf_path ? (
+                        <span>
+                          PDF stored: <b style={{ color: 'var(--text)' }}>{p.pdf_path}</b>
+                        </span>
+                      ) : null}
                     </div>
 
                     {p.notes ? (
@@ -271,6 +297,21 @@ export default function LotPOsPage() {
                         }}
                       >
                         Download
+                      </button>
+
+                      <button
+                        onClick={() => generatePdf(p.id)}
+                        disabled={!!generatingId}
+                        style={{
+                          padding: '8px 10px',
+                          borderRadius: 10,
+                          border: '1px solid var(--border)',
+                          background: 'rgba(245,174,109,0.12)',
+                          fontWeight: 900,
+                          cursor: generatingId ? 'wait' : 'pointer',
+                        }}
+                      >
+                        {generatingId === p.id ? 'Generating...' : 'Download PO PDF'}
                       </button>
                     </div>
                   </div>

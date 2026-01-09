@@ -15,7 +15,9 @@ export async function GET(_: Request, ctx: { params: Promise<{ id: string }> }) 
   // Load POs
   const { data: pos, error: poErr } = await sb
     .from('purchase_orders')
-    .select('id,tenant_id,lot_id,buyer_id,invite_id,token,file_name,file_path,content_type,notes,created_at')
+    .select(
+      'id,tenant_id,lot_id,buyer_id,invite_id,token,file_name,file_path,content_type,notes,created_at,po_number,pdf_path'
+    )
     .eq('lot_id', id)
     .order('created_at', { ascending: false })
 
