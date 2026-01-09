@@ -407,6 +407,7 @@ export default function InviteTokenPage() {
 
   const currency = invite.lots?.currency ?? ''
   const lotStatus = (invite.lots?.status ?? '').toLowerCase() || 'unknown'
+  const hasPoUpload = poUploads.length > 0
   const statusLabelMap: Record<string, string> = {
     draft: 'Draft',
     open: 'Open',
@@ -836,6 +837,7 @@ export default function InviteTokenPage() {
           </div>
         ) : null}
 
+        {!hasPoUpload ? (
         <div style={{ marginTop: 16, borderTop: '1px solid var(--border, #1f2937)', paddingTop: 14 }}>
           <div style={{ fontWeight: 900 }}>Submit offer</div>
           <div style={{ marginTop: 8, display: 'grid', gap: 10 }}>
@@ -914,36 +916,41 @@ export default function InviteTokenPage() {
             </div>
           </div>
         </div>
+        ) : null}
 
         {showAwarded ? (
           <div style={{ marginTop: 16, borderTop: '1px solid var(--border, #1f2937)', paddingTop: 14 }}>
             <div style={{ fontWeight: 900, marginBottom: 6 }}>Purchase Order upload</div>
             <div style={{ color: 'var(--muted, #94a3b8)', fontSize: 12, marginBottom: 8 }}>
-              Congratulations, this invite has been awarded. Upload your PO here.
+              {hasPoUpload
+                ? 'PO received for this award.'
+                : 'Congratulations, this invite has been awarded. Upload your PO here.'}
             </div>
-            <form
-              action={`/api/invite/${token}/po`}
-              method="post"
-              encType="multipart/form-data"
-              style={{ display: 'grid', gap: 8, maxWidth: 420 }}
-            >
-              <input type="file" name="file" required />
-              <textarea name="notes" rows={3} placeholder="Notes (optional)" style={{ padding: 8, borderRadius: 8 }} />
-              <button
-                type="submit"
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: 10,
-                  border: '1px solid var(--border, #1f2937)',
-                  background: 'linear-gradient(135deg, var(--accent, #38bdf8) 0%, #10b981 100%)',
-                  color: '#fff',
-                  fontWeight: 900,
-                  cursor: 'pointer',
-                }}
+            {!hasPoUpload ? (
+              <form
+                action={`/api/invite/${token}/po`}
+                method="post"
+                encType="multipart/form-data"
+                style={{ display: 'grid', gap: 8, maxWidth: 420 }}
               >
-                Upload PO
-              </button>
-            </form>
+                <input type="file" name="file" required />
+                <textarea name="notes" rows={3} placeholder="Notes (optional)" style={{ padding: 8, borderRadius: 8 }} />
+                <button
+                  type="submit"
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    border: '1px solid var(--border, #1f2937)',
+                    background: 'linear-gradient(135deg, var(--accent, #38bdf8) 0%, #10b981 100%)',
+                    color: '#fff',
+                    fontWeight: 900,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Upload PO
+                </button>
+              </form>
+            ) : null}
             <div style={{ marginTop: 10, color: 'var(--muted, #94a3b8)', fontSize: 12 }}>
               Recent uploads:
               <ul>

@@ -128,28 +128,11 @@ export async function POST(_: NextRequest, { params }: { params: Promise<{ id: s
   try {
     const { id } = await params
     const supa = supabaseServer()
-    const {
-      data: { user },
-      error: userErr,
-    } = await supa.auth.getUser()
-    if (userErr) throw userErr
-    if (!user) return NextResponse.json({ ok: false, message: 'Not authenticated' }, { status: 401 })
-
-    // User profile / tenant / role
-    const { data: profile, error: profileErr } = await supa.from('users').select('tenant_id,role,email').eq('id', user.id).maybeSingle()
-    if (profileErr) throw profileErr
-    if (!profile?.tenant_id) return NextResponse.json({ ok: false, message: 'Tenant not found' }, { status: 400 })
-    const tenantId = profile.tenant_id as string
-    const role = (profile.role as string) ?? 'broker'
-    if (!['admin', 'ops', 'finance'].includes(role)) {
-      return NextResponse.json({ ok: false, message: 'Forbidden' }, { status: 403 })
-    }
-
     // Load PO
     const { data: poRow, error: poErr } = await supa.from('purchase_orders').select('*').eq('id', id).maybeSingle()
     if (poErr) throw poErr
     if (!poRow) return NextResponse.json({ ok: false, message: 'PO not found' }, { status: 404 })
-    if (poRow.tenant_id !== tenantId) return NextResponse.json({ ok: false, message: 'Tenant mismatch' }, { status: 403 })
+    const tenantId = poRow.tenant_id as string
 
     const po: PurchaseOrderRow = {
       id: String(poRow.id),
