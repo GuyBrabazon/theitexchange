@@ -60,6 +60,7 @@ export default function InventoryPage() {
     status: '',
   })
   const [pendingFileName, setPendingFileName] = useState<string>('')
+  const [manualOpen, setManualOpen] = useState(false)
 
   useEffect(() => {
     if (tenantCurrency) {
@@ -213,6 +214,7 @@ export default function InventoryPage() {
         cost: '',
         currency: tenantCurrency || 'USD',
       })
+      setManualOpen(false)
       await load()
     } catch (e) {
       console.error(e)
@@ -455,9 +457,9 @@ export default function InventoryPage() {
               fontWeight: 900,
               cursor: 'pointer',
             }}
-            onClick={addManual}
+            onClick={() => setManualOpen(true)}
           >
-            Add item
+            Add line manually
           </button>
           <button
             style={{
@@ -850,6 +852,184 @@ export default function InventoryPage() {
                 }}
               >
                 Import rows
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {manualOpen ? (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 30,
+          }}
+        >
+          <div
+            style={{
+              background: 'var(--panel)',
+              border: '1px solid var(--border)',
+              borderRadius: 14,
+              padding: 16,
+              width: 'min(760px, 92vw)',
+              maxHeight: '85vh',
+              overflow: 'auto',
+              display: 'grid',
+              gap: 12,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: 900, fontSize: 18 }}>Add inventory line</div>
+                <div style={{ color: 'var(--muted)', fontSize: 12 }}>Single line entry for quick captures.</div>
+              </div>
+              <button
+                onClick={() => setManualOpen(false)}
+                style={{
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface-2)',
+                  borderRadius: 10,
+                  padding: '8px 10px',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>Model / Part number</span>
+                <input
+                  type="text"
+                  placeholder="Model/Part"
+                  value={manual.model}
+                  onChange={(e) => setManual((prev) => ({ ...prev, model: e.target.value }))}
+                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>Description</span>
+                <input
+                  type="text"
+                  placeholder="Description"
+                  value={manual.description}
+                  onChange={(e) => setManual((prev) => ({ ...prev, description: e.target.value }))}
+                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>OEM</span>
+                <input
+                  type="text"
+                  placeholder="OEM"
+                  value={manual.oem}
+                  onChange={(e) => setManual((prev) => ({ ...prev, oem: e.target.value }))}
+                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>Condition</span>
+                <input
+                  type="text"
+                  placeholder="Condition"
+                  value={manual.condition}
+                  onChange={(e) => setManual((prev) => ({ ...prev, condition: e.target.value }))}
+                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>Location</span>
+                <input
+                  type="text"
+                  placeholder="Location"
+                  value={manual.location}
+                  onChange={(e) => setManual((prev) => ({ ...prev, location: e.target.value }))}
+                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>Category</span>
+                <select
+                  value={manual.category}
+                  onChange={(e) => setManual((prev) => ({ ...prev, category: e.target.value }))}
+                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
+                >
+                  {categoryOptions.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>Available QTY</span>
+                <input
+                  type="number"
+                  placeholder="Available QTY"
+                  value={manual.qty_available}
+                  onChange={(e) => setManual((prev) => ({ ...prev, qty_available: e.target.value }))}
+                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>Cost</span>
+                <input
+                  type="number"
+                  placeholder="Cost"
+                  value={manual.cost}
+                  onChange={(e) => setManual((prev) => ({ ...prev, cost: e.target.value }))}
+                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>Currency</span>
+                <select
+                  value={manual.currency || tenantCurrency || 'USD'}
+                  onChange={(e) => setManual((prev) => ({ ...prev, currency: e.target.value }))}
+                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
+                >
+                  {currencyOptions.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setManualOpen(false)}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface-2)',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={addManual}
+                disabled={loading}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%)',
+                  color: '#fff',
+                  fontWeight: 900,
+                  cursor: loading ? 'wait' : 'pointer',
+                }}
+              >
+                {loading ? 'Saving…' : 'Add line'}
               </button>
             </div>
           </div>
