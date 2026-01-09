@@ -201,9 +201,43 @@ export default function RfqsPage() {
     setQuotedPrices((prev) => ({ ...prev, [lineId]: val }))
   }
 
-  const sendQuote = (rfqId: string) => {
-    // TODO: integrate with quotes/send API once flow is finalized
-    alert('Send Quote (stub) for RFQ ' + rfqId)
+  const sendQuote = async (rfqId: string) => {
+    try {
+      const rfq = rfqs.find((r) => r.id === rfqId)
+      if (!rfq) throw new Error('RFQ not found')
+      const updates = rfq.lines
+        .map((l) => {
+          const price = quotedPrices[l.id]
+          if (price === undefined || price === '') return null
+          const num = Number(price)
+          if (!Number.isFinite(num) || num <= 0) return null
+          return { id: l.id, quoted_price: num, quoted_currency: l.currency || 'USD' }
+        })
+        .filter(Boolean) as { id: string; quoted_price: number; quoted_currency: string }[]
+      if (!updates.length) {
+        alert('Enter at least one quoted price before sending.')
+        return
+      }
+      // update lines
+      for (const u of updates) {
+        const { error } = await supabase.from('rfq_lines').update({ quoted_price: u.quoted_price, quoted_currency: u.quoted_currency }).eq('id', u.id)
+        if (error) throw error
+      }
+      // mark rfq quoted
+      const { error: rfqErr } = await supabase.from('rfqs').update({ status: 'quoted' }).eq('id', rfqId)
+      if (rfqErr) throw rfqErr
+      // refresh
+      if (tenantId) await loadRfqs(tenantId)
+      setQuotedPrices((prev) => {
+        const next = { ...prev }
+        updates.forEach((u) => delete next[u.id])
+        return next
+      })
+      alert('Quote sent')
+    } catch (e) {
+      console.error('send quote error', e)
+      setError(e instanceof Error ? e.message : 'Failed to send quote')
+    }
   }
 
   const sendQuoteEmail = (rfqId: string) => {
