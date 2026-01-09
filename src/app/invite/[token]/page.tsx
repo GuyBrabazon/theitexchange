@@ -185,7 +185,6 @@ export default function InviteTokenPage() {
           .from('lot_invites')
           .select('id,tenant_id,lot_id,buyer_id,status,created_at,lots(title,status,currency),buyers(name,company,email)')
           .eq('token', token)
-          .eq('status', 'invited')
           .maybeSingle()
 
         if (inviteErr) throw inviteErr
