@@ -14,6 +14,7 @@ type InventoryRow = {
   condition: string | null
   location: string | null
   status: string | null
+  category: string | null
   qty_total: number | null
   qty_available: number | null
   cost: number | null
@@ -22,6 +23,7 @@ type InventoryRow = {
 }
 
 const currencyOptions = ['USD', 'EUR', 'GBP', 'ZAR', 'AUD', 'CAD', 'SGD', 'AED']
+const categoryOptions = ['server', 'storage', 'networking', 'component', 'pc', 'laptop']
 
 export default function InventoryPage() {
   const router = useRouter()
@@ -38,6 +40,7 @@ export default function InventoryPage() {
     oem: '',
     condition: '',
     location: '',
+    category: 'component',
     qty_available: '',
     cost: '',
     currency: '',
@@ -51,6 +54,7 @@ export default function InventoryPage() {
     model: '',
     oem: '',
     condition: '',
+    category: '',
     quantity: '',
     cost: '',
     status: '',
@@ -121,6 +125,7 @@ export default function InventoryPage() {
             description: (row.description as string | null) ?? null,
             oem: (row.oem as string | null) ?? null,
             condition: (row.condition as string | null) ?? null,
+            category: (row.category as string | null) ?? null,
             location: (row.location as string | null) ?? null,
             status: (row.status as string | null) ?? null,
             qty_total: toNum(row.qty_total),
@@ -167,6 +172,7 @@ export default function InventoryPage() {
       description: p.description || p.model || null,
       oem: p.oem || null,
       condition: p.condition || null,
+      category: categoryOptions.includes((p.category || '').toString().toLowerCase()) ? (p.category as string) : 'component',
       location: p.location || null,
       status: p.status || 'available',
       qty_total: null,
@@ -202,6 +208,7 @@ export default function InventoryPage() {
         oem: '',
         condition: '',
         location: '',
+        category: 'component',
         qty_available: '',
         cost: '',
         currency: tenantCurrency || 'USD',
@@ -245,6 +252,7 @@ export default function InventoryPage() {
         model: findCol(['part', 'model', 'sku', 'description']),
         oem: findCol(['oem', 'manufacturer', 'brand']),
         condition: findCol(['condition']),
+        category: findCol(['type', 'category']),
         quantity: findCol(['qty', 'quantity']),
         cost: findCol(['cost', 'price']),
         status: findCol(['status']),
@@ -273,6 +281,7 @@ export default function InventoryPage() {
       const idxOem = colIndex(mapping.oem)
       const idxCond = colIndex(mapping.condition)
       const idxQty = colIndex(mapping.quantity)
+      const idxCat = colIndex(mapping.category)
       const idxCost = colIndex(mapping.cost)
       const idxStatus = colIndex(mapping.status)
 
@@ -289,11 +298,14 @@ export default function InventoryPage() {
           const qtyVal = getVal(idxQty)
           const costVal = getVal(idxCost)
           const statusVal = getVal(idxStatus)
+          const catVal = getVal(idxCat)
+          const normalizedCat = categoryOptions.includes(catVal.toLowerCase()) ? catVal.toLowerCase() : 'component'
           return {
             model: getVal(idxModel) || null,
             description: getVal(idxModel) || null,
             oem: getVal(idxOem) || null,
             condition: getVal(idxCond) || null,
+            category: normalizedCat,
             qty_total: qtyVal ? Number(qtyVal) : null,
             qty_available: qtyVal ? Number(qtyVal) : null,
             cost: costVal ? Number(costVal) : null,
@@ -530,6 +542,17 @@ export default function InventoryPage() {
               onChange={(e) => setManual((prev) => ({ ...prev, condition: e.target.value }))}
               style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
             />
+            <select
+              value={manual.category}
+              onChange={(e) => setManual((prev) => ({ ...prev, category: e.target.value }))}
+              style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
+            >
+              {categoryOptions.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
             <input
               type="text"
               placeholder="Location"
@@ -582,7 +605,7 @@ export default function InventoryPage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '0.25fr 0.9fr 1.0fr 0.7fr 0.7fr 0.7fr 0.7fr',
+            gridTemplateColumns: '0.25fr 0.9fr 1.0fr 0.65fr 0.65fr 0.65fr 0.65fr 0.65fr',
             gap: 0,
             background: 'var(--surface-2)',
             fontWeight: 900,
@@ -594,6 +617,7 @@ export default function InventoryPage() {
           <div style={{ padding: 8 }}>Description</div>
           <div style={{ padding: 8 }}>OEM</div>
           <div style={{ padding: 8 }}>Condition</div>
+          <div style={{ padding: 8 }}>Category</div>
           <div style={{ padding: 8 }}>Available QTY</div>
           <div style={{ padding: 8 }}>Cost</div>
           <div style={{ padding: 8 }}>Status</div>
@@ -604,7 +628,7 @@ export default function InventoryPage() {
             key={r.id}
             style={{
               display: 'grid',
-              gridTemplateColumns: '0.25fr 0.9fr 1.0fr 0.7fr 0.7fr 0.7fr 0.7fr',
+              gridTemplateColumns: '0.25fr 0.9fr 1.0fr 0.65fr 0.65fr 0.65fr 0.65fr 0.65fr',
               gap: 0,
               borderTop: `1px solid var(--border)`,
               background: 'var(--panel)',
@@ -635,6 +659,7 @@ export default function InventoryPage() {
             </div>
             <div style={{ padding: 8 }}>{r.oem || '—'}</div>
             <div style={{ padding: 8 }}>{r.condition || '—'}</div>
+            <div style={{ padding: 8 }}>{r.category || 'component'}</div>
             <div style={{ padding: 8 }}>
               <input
                 type="number"
@@ -740,7 +765,8 @@ export default function InventoryPage() {
                 { key: 'model', label: 'Part number / Model', required: true },
                 { key: 'oem', label: 'OEM' },
                 { key: 'condition', label: 'Condition' },
-                { key: 'quantity', label: 'Quantity (in stock)' },
+                { key: 'category', label: 'Type / Category' },
+                { key: 'quantity', label: 'Quantity (available)' },
                 { key: 'cost', label: 'Cost' },
                 { key: 'status', label: 'Status' },
               ].map((field) => (
