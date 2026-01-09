@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabaseServer'
+import React from 'react'
 import { Document, Page, Text, View, StyleSheet, pdf } from '@react-pdf/renderer'
 
 export const runtime = 'nodejs'
@@ -51,59 +52,75 @@ function buildDoc(opts: {
   headerText?: string | null
 }) {
   const total = opts.lines.reduce((s, l) => s + l.qty * l.price, 0)
-  return (
-    <Document>
-      <Page size="A4" style={styles.page}>
-        <View style={{ ...styles.row, marginBottom: 12 }}>
-          <Text style={{ ...styles.header, color: opts.brandColor || '#1E3A5F' }}>{opts.headerText || 'Purchase Order'}</Text>
-          <Text style={{ fontSize: 11 }}>PO#: {opts.poNumber}</Text>
-        </View>
-
-        <View style={{ ...styles.row, marginBottom: 10 }}>
-          <View>
-            <Text style={styles.label}>Buyer</Text>
-            <Text style={styles.value}>{opts.buyerName || 'Buyer'}</Text>
-          </View>
-          <View>
-            <Text style={styles.label}>Supplier</Text>
-            <Text style={styles.value}>{opts.tenantName || 'Supplier'}</Text>
-          </View>
-          <View>
-            <Text style={styles.label}>Date</Text>
-            <Text style={styles.value}>{opts.createdAt}</Text>
-          </View>
-        </View>
-
-        <View style={styles.tableHeader}>
-          <Text style={{ ...styles.cell }}>SKU</Text>
-          <Text style={{ ...styles.cellWide }}>Description</Text>
-          <Text style={{ ...styles.cell, textAlign: 'right' }}>Qty</Text>
-          <Text style={{ ...styles.cell, textAlign: 'right' }}>Unit ({opts.currency})</Text>
-          <Text style={{ ...styles.cell, textAlign: 'right' }}>Line ({opts.currency})</Text>
-        </View>
-        {opts.lines.map((l, idx) => (
-          <View key={idx} style={styles.line}>
-            <Text style={{ ...styles.cell }}>{l.sku}</Text>
-            <Text style={{ ...styles.cellWide }}>{l.desc}</Text>
-            <Text style={{ ...styles.cell, textAlign: 'right' }}>{l.qty}</Text>
-            <Text style={{ ...styles.cell, textAlign: 'right' }}>{l.price.toFixed(2)}</Text>
-            <Text style={{ ...styles.cell, textAlign: 'right' }}>{(l.qty * l.price).toFixed(2)}</Text>
-          </View>
-        ))}
-
-        <View style={{ ...styles.row, marginTop: 10 }}>
-          <Text style={styles.label}>Total ({opts.currency})</Text>
-          <Text style={{ fontSize: 12, fontWeight: 'bold' }}>{total.toFixed(2)}</Text>
-        </View>
-
-        {opts.terms ? (
-          <View style={styles.footer}>
-            <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>Terms</Text>
-            <Text>{opts.terms}</Text>
-          </View>
-        ) : null}
-      </Page>
-    </Document>
+  return React.createElement(
+    Document,
+    null,
+    React.createElement(
+      Page,
+      { size: 'A4', style: styles.page },
+      React.createElement(
+        View,
+        { style: { ...styles.row, marginBottom: 12 } },
+        React.createElement(Text, { style: { ...styles.header, color: opts.brandColor || '#1E3A5F' } }, opts.headerText || 'Purchase Order'),
+        React.createElement(Text, { style: { fontSize: 11 } }, `PO#: ${opts.poNumber}`),
+      ),
+      React.createElement(
+        View,
+        { style: { ...styles.row, marginBottom: 10 } },
+        React.createElement(
+          View,
+          null,
+          React.createElement(Text, { style: styles.label }, 'Buyer'),
+          React.createElement(Text, { style: styles.value }, opts.buyerName || 'Buyer'),
+        ),
+        React.createElement(
+          View,
+          null,
+          React.createElement(Text, { style: styles.label }, 'Supplier'),
+          React.createElement(Text, { style: styles.value }, opts.tenantName || 'Supplier'),
+        ),
+        React.createElement(
+          View,
+          null,
+          React.createElement(Text, { style: styles.label }, 'Date'),
+          React.createElement(Text, { style: styles.value }, opts.createdAt),
+        ),
+      ),
+      React.createElement(
+        View,
+        { style: styles.tableHeader },
+        React.createElement(Text, { style: { ...styles.cell } }, 'SKU'),
+        React.createElement(Text, { style: { ...styles.cellWide } }, 'Description'),
+        React.createElement(Text, { style: { ...styles.cell, textAlign: 'right' } }, 'Qty'),
+        React.createElement(Text, { style: { ...styles.cell, textAlign: 'right' } }, `Unit (${opts.currency})`),
+        React.createElement(Text, { style: { ...styles.cell, textAlign: 'right' } }, `Line (${opts.currency})`),
+      ),
+      opts.lines.map((l, idx) =>
+        React.createElement(
+          View,
+          { key: idx, style: styles.line },
+          React.createElement(Text, { style: { ...styles.cell } }, l.sku),
+          React.createElement(Text, { style: { ...styles.cellWide } }, l.desc),
+          React.createElement(Text, { style: { ...styles.cell, textAlign: 'right' } }, String(l.qty)),
+          React.createElement(Text, { style: { ...styles.cell, textAlign: 'right' } }, l.price.toFixed(2)),
+          React.createElement(Text, { style: { ...styles.cell, textAlign: 'right' } }, (l.qty * l.price).toFixed(2)),
+        ),
+      ),
+      React.createElement(
+        View,
+        { style: { ...styles.row, marginTop: 10 } },
+        React.createElement(Text, { style: styles.label }, `Total (${opts.currency})`),
+        React.createElement(Text, { style: { fontSize: 12, fontWeight: 'bold' } }, total.toFixed(2)),
+      ),
+      opts.terms
+        ? React.createElement(
+            View,
+            { style: styles.footer },
+            React.createElement(Text, { style: { fontWeight: 'bold', marginBottom: 4 } }, 'Terms'),
+            React.createElement(Text, null, opts.terms),
+          )
+        : null,
+    ),
   )
 }
 
