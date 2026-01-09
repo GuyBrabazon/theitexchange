@@ -9,6 +9,13 @@ type TenantSettings = {
   ops_can_edit_costs: boolean
   require_finance_approval_for_award: boolean
   work_email_domain: string | null
+  po_logo_path: string | null
+  po_brand_color: string | null
+  po_brand_color_secondary: string | null
+  po_terms: string | null
+  po_header: string | null
+  po_number_start: number | null
+  po_number_current: number | null
 }
 
 type UserRow = {
@@ -37,6 +44,13 @@ export default function OrgSetupPage() {
     ops_can_edit_costs: false,
     require_finance_approval_for_award: false,
     work_email_domain: '',
+    po_logo_path: '',
+    po_brand_color: '',
+    po_brand_color_secondary: '',
+    po_terms: '',
+    po_header: '',
+    po_number_start: 1000,
+    po_number_current: 1000,
   })
   const [users, setUsers] = useState<UserRow[]>([])
   const [inviteEmail, setInviteEmail] = useState('')
@@ -91,6 +105,13 @@ export default function OrgSetupPage() {
             ops_can_edit_costs: settingsRow.ops_can_edit_costs ?? false,
             require_finance_approval_for_award: settingsRow.require_finance_approval_for_award ?? false,
             work_email_domain: settingsRow.work_email_domain ?? '',
+            po_logo_path: settingsRow.po_logo_path ?? '',
+            po_brand_color: settingsRow.po_brand_color ?? '',
+            po_brand_color_secondary: settingsRow.po_brand_color_secondary ?? '',
+            po_terms: settingsRow.po_terms ?? '',
+            po_header: settingsRow.po_header ?? '',
+            po_number_start: settingsRow.po_number_start ?? 1000,
+            po_number_current: settingsRow.po_number_current ?? settingsRow.po_number_start ?? 1000,
           })
         }
 
@@ -138,6 +159,13 @@ export default function OrgSetupPage() {
             ops_can_edit_costs: settings.ops_can_edit_costs,
             require_finance_approval_for_award: settings.require_finance_approval_for_award,
             work_email_domain: settings.work_email_domain || null,
+            po_logo_path: settings.po_logo_path || null,
+            po_brand_color: settings.po_brand_color || null,
+            po_brand_color_secondary: settings.po_brand_color_secondary || null,
+            po_terms: settings.po_terms || null,
+            po_header: settings.po_header || null,
+            po_number_start: settings.po_number_start ?? null,
+            po_number_current: settings.po_number_current ?? null,
           },
         }),
       })
@@ -296,6 +324,80 @@ export default function OrgSetupPage() {
           </label>
         </div>
 
+        <div style={{ display: 'grid', gap: 12, marginTop: 6 }}>
+          <h3 style={{ margin: 0 }}>PO template</h3>
+          <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
+            <div style={{ display: 'grid', gap: 6 }}>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Logo path (storage URL)</label>
+              <input
+                type="text"
+                value={settings.po_logo_path ?? ''}
+                onChange={(e) => setSettings((prev) => ({ ...prev, po_logo_path: e.target.value }))}
+                placeholder="e.g. https://.../logo.png"
+                style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+              />
+            </div>
+            <div style={{ display: 'grid', gap: 6 }}>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Primary brand color</label>
+              <input
+                type="color"
+                value={settings.po_brand_color || '#1e3a5f'}
+                onChange={(e) => setSettings((prev) => ({ ...prev, po_brand_color: e.target.value }))}
+                style={{ height: 44, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+              />
+            </div>
+            <div style={{ display: 'grid', gap: 6 }}>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Secondary brand color</label>
+              <input
+                type="color"
+                value={settings.po_brand_color_secondary || '#2f7f7a'}
+                onChange={(e) => setSettings((prev) => ({ ...prev, po_brand_color_secondary: e.target.value }))}
+                style={{ height: 44, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+              />
+            </div>
+            <div style={{ display: 'grid', gap: 6 }}>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>PO number start</label>
+              <input
+                type="number"
+                value={settings.po_number_start ?? 1000}
+                onChange={(e) => setSettings((prev) => ({ ...prev, po_number_start: Number(e.target.value) || 0 }))}
+                style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+              />
+            </div>
+            <div style={{ display: 'grid', gap: 6 }}>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>PO number current</label>
+              <input
+                type="number"
+                value={settings.po_number_current ?? settings.po_number_start ?? 1000}
+                onChange={(e) => setSettings((prev) => ({ ...prev, po_number_current: Number(e.target.value) || 0 }))}
+                style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+              />
+              <div style={{ color: 'var(--muted)', fontSize: 12 }}>Next PO will use this number and increment.</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gap: 8 }}>
+            <label style={{ fontSize: 12, color: 'var(--muted)' }}>PO header (optional)</label>
+            <input
+              type="text"
+              value={settings.po_header ?? ''}
+              onChange={(e) => setSettings((prev) => ({ ...prev, po_header: e.target.value }))}
+              placeholder="e.g. Purchase Order"
+              style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gap: 6 }}>
+            <label style={{ fontSize: 12, color: 'var(--muted)' }}>PO terms / footer</label>
+            <textarea
+              value={settings.po_terms ?? ''}
+              onChange={(e) => setSettings((prev) => ({ ...prev, po_terms: e.target.value }))}
+              rows={4}
+              placeholder="Payment terms, delivery notes, etc."
+              style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', resize: 'vertical' }}
+            />
+          </div>
+        </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button
             onClick={saveSettings}

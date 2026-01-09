@@ -24,6 +24,13 @@ export async function POST(req: Request) {
         ops_can_edit_costs?: boolean
         require_finance_approval_for_award?: boolean
         work_email_domain?: string | null
+        po_logo_path?: string | null
+        po_brand_color?: string | null
+        po_brand_color_secondary?: string | null
+        po_terms?: string | null
+        po_header?: string | null
+        po_number_start?: number | null
+        po_number_current?: number | null
       }
     }
 
@@ -52,6 +59,13 @@ export async function POST(req: Request) {
             ops_can_edit_costs: body.settings.ops_can_edit_costs ?? false,
             require_finance_approval_for_award: body.settings.require_finance_approval_for_award ?? false,
             work_email_domain: body.settings.work_email_domain ?? null,
+            po_logo_path: body.settings.po_logo_path ?? null,
+            po_brand_color: body.settings.po_brand_color ?? null,
+            po_brand_color_secondary: body.settings.po_brand_color_secondary ?? null,
+            po_terms: body.settings.po_terms ?? null,
+            po_header: body.settings.po_header ?? null,
+            po_number_start: body.settings.po_number_start ?? null,
+            po_number_current: body.settings.po_number_current ?? null,
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'tenant_id' }
