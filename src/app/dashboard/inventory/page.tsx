@@ -63,6 +63,9 @@ export default function InventoryPage() {
   const [pendingFileName, setPendingFileName] = useState<string>('')
   const [manualOpen, setManualOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [containedComponents, setContainedComponents] = useState<Array<{ model: string; oem: string; qty: string }>>([
+    { model: '', oem: '', qty: '' },
+  ])
 
   useEffect(() => {
     if (tenantCurrency) {
@@ -193,18 +196,56 @@ export default function InventoryPage() {
       setLoading(true)
       const qty_available = manual.qty_available ? Number(manual.qty_available) : null
       const cost = manual.cost ? Number(manual.cost) : null
-      await insertInventory([
-        {
-          model: manual.model,
-          description: manual.description,
-          oem: manual.oem,
-          condition: manual.condition,
-          location: manual.location,
-          qty_available,
-          cost,
-          currency: manual.currency || tenantCurrency || 'USD',
-        },
-      ])
+      const filteredComponents =
+        manual.category !== 'component'
+          ? containedComponents
+              .map((c) => ({
+                model: c.model.trim(),
+                oem: c.oem.trim(),
+                qty: c.qty ? Number(c.qty) : 0,
+              }))
+              .filter((c) => (c.model || c.oem) && c.qty > 0)
+          : []
+
+      if (manual.category !== 'component' && filteredComponents.length > 0) {
+        const res = await fetch('/api/inventory/add-with-components', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tenant_id: tenantId,
+            item: {
+              model: manual.model,
+              description: manual.description,
+              oem: manual.oem,
+              condition: manual.condition,
+              location: manual.location,
+              category: manual.category,
+              qty_available,
+              cost,
+              currency: manual.currency || tenantCurrency || 'USD',
+            },
+            components: filteredComponents,
+          }),
+        })
+        if (!res.ok) {
+          const msg = await res.text()
+          throw new Error(msg || 'Failed to add system with components')
+        }
+      } else {
+        await insertInventory([
+          {
+            model: manual.model,
+            description: manual.description,
+            oem: manual.oem,
+            condition: manual.condition,
+            location: manual.location,
+            category: manual.category,
+            qty_available,
+            cost,
+            currency: manual.currency || tenantCurrency || 'USD',
+          },
+        ])
+      }
       setManual({
         model: '',
         description: '',
@@ -216,6 +257,7 @@ export default function InventoryPage() {
         cost: '',
         currency: tenantCurrency || 'USD',
       })
+      setContainedComponents([{ model: '', oem: '', qty: '' }])
       setManualOpen(false)
       await load()
     } catch (e) {
@@ -552,7 +594,7 @@ export default function InventoryPage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '0.25fr 0.9fr 1.0fr 0.65fr 0.65fr 0.65fr 0.65fr 0.65fr',
+            gridTemplateColumns: '0.25fr 0.9fr 1.0fr 0.65fr 0.65fr 0.65fr 0.65fr 0.65fr 0.65fr',
             gap: 0,
             background: 'var(--surface-2)',
             fontWeight: 900,
@@ -575,7 +617,7 @@ export default function InventoryPage() {
             key={r.id}
             style={{
               display: 'grid',
-              gridTemplateColumns: '0.25fr 0.9fr 1.0fr 0.65fr 0.65fr 0.65fr 0.65fr 0.65fr',
+              gridTemplateColumns: '0.25fr 0.9fr 1.0fr 0.65fr 0.65fr 0.65fr 0.65fr 0.65fr 0.65fr',
               gap: 0,
               borderTop: `1px solid var(--border)`,
               background: 'var(--panel)',
@@ -604,8 +646,8 @@ export default function InventoryPage() {
                 ) : null}
               </div>
             </div>
-            <div style={{ padding: 8 }}>{r.oem || '—'}</div>
-            <div style={{ padding: 8 }}>{r.condition || '—'}</div>
+            <div style={{ padding: 8 }}>{r.oem || '-'}</div>
+            <div style={{ padding: 8 }}>{r.condition || '-'}</div>
             <div style={{ padding: 8 }}>{r.category || 'component'}</div>
             <div style={{ padding: 8 }}>
               <input
@@ -912,6 +954,72 @@ export default function InventoryPage() {
                   ))}
                 </select>
               </label>
+              {manual.category !== 'component' ? (
+                <div style={{ gridColumn: '1 / -1', display: 'grid', gap: 8, padding: 10, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+                  <div style={{ fontWeight: 900 }}>Contained components (optional)</div>
+                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+                    Add parts inside this system. Components are created as separate inventory items and linked to the system.
+                  </div>
+                  {containedComponents.map((c, idx) => (
+                    <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 80px', gap: 8, alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        placeholder="Component model/part"
+                        value={c.model}
+                        onChange={(e) =>
+                          setContainedComponents((prev) => prev.map((row, i) => (i === idx ? { ...row, model: e.target.value } : row)))
+                        }
+                        style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                      />
+                      <input
+                        type="text"
+                        placeholder="OEM"
+                        value={c.oem}
+                        onChange={(e) =>
+                          setContainedComponents((prev) => prev.map((row, i) => (i === idx ? { ...row, oem: e.target.value } : row)))
+                        }
+                        style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                      />
+                      <input
+                        type="number"
+                        placeholder="Qty"
+                        value={c.qty}
+                        onChange={(e) =>
+                          setContainedComponents((prev) => prev.map((row, i) => (i === idx ? { ...row, qty: e.target.value } : row)))
+                        }
+                        style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                      />
+                      <button
+                        onClick={() => setContainedComponents((prev) => prev.filter((_, i) => i !== idx))}
+                        style={{
+                          padding: '8px 10px',
+                          borderRadius: 10,
+                          border: '1px solid var(--border)',
+                          background: 'var(--surface-2)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  <div>
+                    <button
+                      onClick={() => setContainedComponents((prev) => [...prev, { model: '', oem: '', qty: '' }])}
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: 10,
+                        border: '1px solid var(--border)',
+                        background: 'var(--panel)',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Add component
+                    </button>
+                  </div>
+                </div>
+              ) : null}
               <label style={{ display: 'grid', gap: 6 }}>
                 <span style={{ fontSize: 12, color: 'var(--muted)' }}>Available QTY</span>
                 <input
@@ -1068,7 +1176,7 @@ export default function InventoryPage() {
                 }}
               />
               <div style={{ color: 'var(--muted)', fontSize: 12 }}>
-                After choosing a file, you’ll be asked to map columns before import.
+                After choosing a file, you'll be asked to map columns before import.
               </div>
             </div>
           </div>
