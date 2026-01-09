@@ -582,20 +582,20 @@ export default function InventoryPage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '0.3fr 1.3fr 0.8fr 0.8fr 0.9fr 0.8fr',
+            gridTemplateColumns: '0.25fr 1.1fr 0.7fr 0.7fr 0.7fr 0.7fr',
             gap: 0,
             background: 'var(--surface-2)',
             fontWeight: 900,
             fontSize: 12,
           }}
         >
-          <div style={{ padding: 10 }}>Select</div>
-          <div style={{ padding: 10 }}>Part / Description</div>
-          <div style={{ padding: 10 }}>OEM</div>
-          <div style={{ padding: 10 }}>Condition</div>
-          <div style={{ padding: 10 }}>Available QTY</div>
-          <div style={{ padding: 10 }}>Cost</div>
-          <div style={{ padding: 10 }}>Status</div>
+          <div style={{ padding: 8 }}>Select</div>
+          <div style={{ padding: 8 }}>Part / Description</div>
+          <div style={{ padding: 8 }}>OEM</div>
+          <div style={{ padding: 8 }}>Condition</div>
+          <div style={{ padding: 8 }}>Available QTY</div>
+          <div style={{ padding: 8 }}>Cost</div>
+          <div style={{ padding: 8 }}>Status</div>
         </div>
 
         {filteredRows.map((r) => (
@@ -603,16 +603,16 @@ export default function InventoryPage() {
             key={r.id}
             style={{
               display: 'grid',
-              gridTemplateColumns: '0.3fr 1.3fr 0.8fr 0.8fr 0.9fr 0.8fr',
+              gridTemplateColumns: '0.25fr 1.1fr 0.7fr 0.7fr 0.7fr 0.7fr',
               gap: 0,
               borderTop: `1px solid var(--border)`,
               background: 'var(--panel)',
             }}
           >
-            <div style={{ padding: 10 }}>
+            <div style={{ padding: 8 }}>
               <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
             </div>
-            <div style={{ padding: 10 }}>
+            <div style={{ padding: 8 }}>
               <div style={{ fontWeight: 900 }}>{r.model || r.description || 'Untitled item'}</div>
               <div style={{ color: 'var(--muted)', fontSize: 12 }}>{r.description || 'No description'}</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
@@ -632,9 +632,9 @@ export default function InventoryPage() {
                 ) : null}
               </div>
             </div>
-            <div style={{ padding: 10 }}>{r.oem || '—'}</div>
-            <div style={{ padding: 10 }}>{r.condition || '—'}</div>
-            <div style={{ padding: 10 }}>
+            <div style={{ padding: 8 }}>{r.oem || '—'}</div>
+            <div style={{ padding: 8 }}>{r.condition || '—'}</div>
+            <div style={{ padding: 8 }}>
               <input
                 type="number"
                 value={r.qty_available ?? ''}
@@ -643,7 +643,7 @@ export default function InventoryPage() {
                 style={{ width: '100%', padding: '6px 8px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
               />
             </div>
-            <div style={{ padding: 10 }}>
+            <div style={{ padding: 8 }}>
               <input
                 type="number"
                 value={r.cost ?? ''}
@@ -653,7 +653,7 @@ export default function InventoryPage() {
               />
               <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>{r.currency || 'USD'}</div>
             </div>
-            <div style={{ padding: 10 }}>
+            <div style={{ padding: 8 }}>
               <select
                 value={r.status ?? 'available'}
                 onChange={(e) => updateInventory(r.id, { status: e.target.value })}
