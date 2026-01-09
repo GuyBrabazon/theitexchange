@@ -466,7 +466,7 @@ export default function InventoryPage() {
       <div>
         <h1 style={{ marginBottom: 6 }}>Inventory</h1>
         <div style={{ color: 'var(--muted)', marginBottom: 12 }}>
-          Organisation-owned stock; lots should pull from here (flip lots leave inventory unlinked).
+          
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button
