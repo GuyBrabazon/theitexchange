@@ -68,6 +68,8 @@ export default function BuyPage() {
   const [poCreating, setPoCreating] = useState(false)
   const [poCreated, setPoCreated] = useState(false)
   const [poDownloadLoading, setPoDownloadLoading] = useState(false)
+  const [poApplyTax, setPoApplyTax] = useState(false)
+  const [poTaxRate, setPoTaxRate] = useState('20') // percent
   const [poDropShip, setPoDropShip] = useState(false)
   const [poShipName, setPoShipName] = useState('')
   const [poShipStreet1, setPoShipStreet1] = useState('')
@@ -548,7 +550,17 @@ export default function BuyPage() {
                 {poSupplierResults.map((s) => (
                   <button
                     key={s.id}
-                    onClick={() => setPoSelectedSupplier(s)}
+                    onClick={() => {
+                      setPoSelectedSupplier(s)
+                      const supCountry = (s.country || '').toLowerCase()
+                      const buyerAddr = (defaultShipTo || '').toLowerCase()
+                      if (supCountry && buyerAddr) {
+                        const sameCountry = buyerAddr.includes(supCountry)
+                        setPoApplyTax(sameCountry)
+                      } else {
+                        setPoApplyTax(false)
+                      }
+                    }}
                     style={{
                       textAlign: 'left',
                       padding: '8px 10px',
@@ -684,16 +696,46 @@ export default function BuyPage() {
               />
             </div>
 
+            <div style={{ display: 'grid', gap: 8 }}>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Tax / VAT</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <input type="checkbox" checked={poApplyTax} onChange={(e) => setPoApplyTax(e.target.checked)} />
+                <span style={{ fontSize: 12 }}>Apply tax</span>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  value={poTaxRate}
+                  onChange={(e) => setPoTaxRate(e.target.value)}
+                  disabled={!poApplyTax}
+                  placeholder="Rate %"
+                  style={{
+                    width: 80,
+                    padding: '8px 10px',
+                    height: 36,
+                    borderRadius: 10,
+                    border: '1px solid var(--border)',
+                    background: 'var(--panel)',
+                  }}
+                />
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  Default logic: cross-border B2B = 0%; domestic B2C = apply. Override as needed.
+                </span>
+              </div>
+            </div>
+
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               <button
                 onClick={() => {
                  setPoModalOpen(false)
-                  setPoCreated(false)
-                  setPoManualLines([])
-                  setPoManualPart('')
-                  setPoManualDesc('')
-                  setPoManualQty('1')
-                  setPoManualPrice('')
+                 setPoCreated(false)
+                 setPoManualLines([])
+                 setPoManualPart('')
+                 setPoManualDesc('')
+                 setPoManualQty('1')
+                 setPoManualPrice('')
+                  setPoApplyTax(false)
+                  setPoTaxRate('20')
                   setPoDropShip(false)
                   setPoShipName('')
                   setPoShipStreet1('')
@@ -820,12 +862,13 @@ export default function BuyPage() {
                             po_number: generatedPoNumber,
                             po_ref: generatedPoRef,
                             currency: undefined,
-                            ship_to:
+                          ship_to:
                               poDropShip
                                 ? [poShipName, poShipStreet1, poShipStreet2, poShipCity, poShipState, poShipCountry, poShipPostcode]
                                     .filter((v) => v && v.trim())
                                     .join('\n') || undefined
                                 : defaultShipTo || undefined,
+                            tax_rate: poApplyTax ? (Number(poTaxRate) > 0 ? Number(poTaxRate) / 100 : 0) : 0,
                             lines,
                             settings: { po_terms: poTerms || undefined },
                           }),

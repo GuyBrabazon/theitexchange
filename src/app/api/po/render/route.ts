@@ -15,6 +15,7 @@ type RenderRequest = {
   currency?: string
   lines?: Array<{ part?: string | null; desc: string; qty: number; price?: number }>
   ship_to?: string | null
+  tax_rate?: number | null
   settings?: Partial<{
     po_logo_path: string | null
     po_brand_color: string | null
@@ -53,8 +54,12 @@ function renderHtml(data: {
   eori?: string | null
   buyerAddress?: string | null
   buyerPhone?: string | null
+  taxRate: number
+  taxNote: string
 }) {
-  const total = data.lines.reduce((s, l) => s + l.qty * l.price, 0)
+  const subtotal = data.lines.reduce((s, l) => s + l.qty * l.price, 0)
+  const tax = Math.max(0, data.taxRate) * subtotal
+  const total = subtotal + tax
   const color = data.color || '#1E3A5F'
   const background = data.background || '#ffffff'
   const lineRows = data.lines
@@ -86,6 +91,7 @@ function renderHtml(data: {
     .num { text-align: right; }
     .terms { margin-top: 14px; font-size: 12px; color: #444; white-space: pre-wrap; }
     .logo { max-height: 48px; }
+    .totals { display:flex; justify-content:flex-end; gap:12px; margin-top:10px; font-weight:800; }
   </style>
 </head>
 <body>
@@ -132,10 +138,10 @@ function renderHtml(data: {
         ${lineRows}
       </tbody>
     </table>
-    <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:10px; font-weight:800;">
-      <span>Total (${data.currency})</span>
-      <span>${total.toFixed(2)}</span>
-    </div>
+    <div class="totals"><span>Subtotal (${data.currency})</span><span>${subtotal.toFixed(2)}</span></div>
+    <div class="totals"><span>Tax (${(data.taxRate * 100).toFixed(2)}%)</span><span>${tax.toFixed(2)}</span></div>
+    <div class="totals"><span>Total (${data.currency})</span><span>${total.toFixed(2)}</span></div>
+    <div class="muted" style="margin-top:4px;">${data.taxNote}</div>
     <div class="terms">
       <div style="font-weight:700; margin-bottom:4px;">Terms</div>
       ${data.terms || 'Payment due within 30 days. Delivery within 7 business days.'}
@@ -175,6 +181,8 @@ export async function POST(req: NextRequest) {
     let invoiceEmail: string | null | undefined = null
     let registeredAddress: string | null | undefined = null
     let eori: string | null | undefined = null
+    let taxRate: number = typeof body.tax_rate === 'number' && body.tax_rate > 0 ? body.tax_rate : 0
+    let taxNote = taxRate > 0 ? `Tax applied at ${(taxRate * 100).toFixed(2)}%` : 'No tax applied'
 
   if (!isPreview) {
     if (!body.po_id) return NextResponse.json({ ok: false, message: 'po_id required' }, { status: 400 })
@@ -197,6 +205,10 @@ export async function POST(req: NextRequest) {
     invoiceEmail = (tsRow?.accounts_email as string) ?? null
     registeredAddress = (tsRow?.registered_address as string) ?? null
     eori = (tsRow?.eori as string) ?? null
+    if (typeof poRow.tax_rate === 'number' && poRow.tax_rate > 0) {
+      taxRate = poRow.tax_rate
+      taxNote = `Tax applied at ${(taxRate * 100).toFixed(2)}%`
+    }
 
     if (poRow.buyer_id) {
       const { data: buyerRow } = await supa.from('buyers').select('name,company').eq('id', poRow.buyer_id).maybeSingle()
@@ -257,6 +269,10 @@ export async function POST(req: NextRequest) {
     if (body.po_ref) poRef = body.po_ref
     if (body.currency) currency = body.currency
     if (body.ship_to) registeredAddress = body.ship_to
+    if (typeof body.tax_rate === 'number') {
+      taxRate = body.tax_rate > 0 ? body.tax_rate : 0
+      taxNote = taxRate > 0 ? `Tax applied at ${(taxRate * 100).toFixed(2)}%` : 'No tax applied'
+    }
     color = s.po_brand_color || color
     background = s.po_brand_color_secondary || background
     logo = s.po_logo_path ?? logo
@@ -288,6 +304,8 @@ export async function POST(req: NextRequest) {
       eori,
       buyerAddress,
       buyerPhone,
+      taxRate,
+      taxNote,
     })
 
     const apiKeyRaw = process.env.PDFSHIFT_API_KEY
