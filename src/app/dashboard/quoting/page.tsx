@@ -1,4 +1,5 @@
 'use client'
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -277,13 +278,13 @@ export default function QuotingPage() {
         .order('created_at', { ascending: false })
         .limit(200)
       if (error) throw error
-      const buyerTenantIds = Array.from(new Set((data ?? []).map((r) => String(r.buyer_tenant_id ?? '')).filter(Boolean)))
+      const buyerTenantIds = Array.from(new Set((data ?? []).map((r) => String((r as { buyer_tenant_id?: unknown }).buyer_tenant_id ?? '')).filter(Boolean)))
       const tenantNames =
         buyerTenantIds.length > 0
           ? new Map(
               (
                 (await supabase.from('tenants').select('id,name').in('id', buyerTenantIds)).data ?? []
-              ).map((t: any) => [String(t.id), t.name as string | null])
+              ).map((t) => [String((t as { id: unknown }).id), (t as { name?: unknown }).name as string | null])
             )
           : new Map()
       const mapped: RfqListItem[] =
@@ -296,9 +297,11 @@ export default function QuotingPage() {
           supplier_tenant_id: String(r.supplier_tenant_id ?? ''),
           created_at: r.created_at ? String(r.created_at) : new Date().toISOString(),
           buyer_tenant_name: tenantNames.get(String(r.buyer_tenant_id ?? '')) ?? null,
-          line_count: Array.isArray((r as any).rfq_lines) && (r as any).rfq_lines[0]
-            ? Number((r as any).rfq_lines[0].count ?? 0)
-            : 0,
+          line_count:
+            Array.isArray((r as { rfq_lines?: Array<{ count?: unknown }> }).rfq_lines) &&
+            (r as { rfq_lines?: Array<{ count?: unknown }> }).rfq_lines![0]
+              ? Number(((r as { rfq_lines?: Array<{ count?: unknown }> }).rfq_lines![0].count as number | null) ?? 0)
+              : 0,
         })) ?? []
       setRfqs(mapped)
     } catch (e) {

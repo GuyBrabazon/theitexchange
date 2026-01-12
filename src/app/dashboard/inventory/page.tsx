@@ -1176,7 +1176,7 @@ export default function InventoryPage() {
                 }}
               />
               <div style={{ color: 'var(--muted)', fontSize: 12 }}>
-                After choosing a file, you'll be asked to map columns before import.
+                After choosing a file, you&apos;ll be asked to map columns before import.
               </div>
             </div>
           </div>

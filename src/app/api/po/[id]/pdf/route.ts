@@ -124,8 +124,12 @@ function buildDoc(opts: {
   )
 }
 
-// Accept any context shape to align with Next route typing (params may be a Promise)
-export async function POST(_: NextRequest, context: any) {
+type RouteContext =
+  | { params: { id: string } }
+  | { params: Promise<{ id: string }> }
+  | undefined
+
+export async function POST(_: NextRequest, context: RouteContext) {
   try {
     const rawParams = context?.params
     const resolved = rawParams && typeof rawParams.then === 'function' ? await rawParams : rawParams
@@ -167,11 +171,14 @@ export async function POST(_: NextRequest, context: any) {
     if (po.lot_id) {
       const { data: liRows } = await supa.from('line_items').select('model,description,qty,asking_price,line_ref').eq('lot_id', po.lot_id).limit(2000)
       lines =
-        liRows?.map((r: any) => ({
-          sku: r.line_ref || r.model || 'Item',
-          desc: r.description || r.model || 'Item',
-          qty: Number(r.qty ?? 1) || 1,
-          price: Number(r.asking_price ?? 0) || 0,
+        liRows?.map((r) => ({
+          sku: (r as { line_ref?: string | null; model?: string | null }).line_ref || (r as { model?: string | null }).model || 'Item',
+          desc:
+            (r as { description?: string | null }).description ||
+            (r as { model?: string | null }).model ||
+            'Item',
+          qty: Number((r as { qty?: number | null }).qty ?? 1) || 1,
+          price: Number((r as { asking_price?: number | null }).asking_price ?? 0) || 0,
         })) ?? []
     }
     if (!lines.length) {

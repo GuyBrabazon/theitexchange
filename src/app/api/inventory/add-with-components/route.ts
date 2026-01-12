@@ -94,9 +94,9 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ok: true, id: parentId })
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error(e)
-    const msg = e?.message || 'Failed to add inventory with components'
+    const msg = e instanceof Error ? e.message : 'Failed to add inventory with components'
     return NextResponse.json({ ok: false, message: msg }, { status: 500 })
   }
 }

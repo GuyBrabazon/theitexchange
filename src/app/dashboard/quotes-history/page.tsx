@@ -16,7 +16,6 @@ type Quote = {
 }
 
 export default function QuotesHistoryPage() {
-  const [tenantId, setTenantId] = useState('')
   const [buyers, setBuyers] = useState<Buyer[]>([])
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [loading, setLoading] = useState(true)
@@ -43,8 +42,6 @@ export default function QuotesHistoryPage() {
         if (profileErr) throw profileErr
         const tenant = profile?.tenant_id
         if (!tenant) throw new Error('Tenant not found')
-        setTenantId(tenant)
-
         const [{ data: buyersData, error: buyersErr }, { data: quotesData, error: quotesErr }] = await Promise.all([
           supabase.from('buyers').select('id,name,email,company').eq('tenant_id', tenant).order('name', { ascending: true }),
           supabase
@@ -58,40 +55,44 @@ export default function QuotesHistoryPage() {
         if (quotesErr) throw quotesErr
 
         setBuyers(
-          (buyersData ?? []).map((b: any) => ({
-            id: String(b.id ?? ''),
-            name: b.name ?? null,
-            email: b.email ?? null,
-            company: b.company ?? null,
+          (buyersData ?? []).map((b) => ({
+            id: String((b as { id?: unknown }).id ?? ''),
+            name: (b as { name?: unknown }).name ?? null,
+            email: (b as { email?: unknown }).email ?? null,
+            company: (b as { company?: unknown }).company ?? null,
           }))
         )
 
         setQuotes(
-          (quotesData ?? []).map((q: any) => ({
-            id: String(q.id ?? ''),
-            subject: q.subject == null ? null : String(q.subject),
-            status: q.status == null ? 'sent' : String(q.status),
-            created_at: q.created_at ? String(q.created_at) : new Date().toISOString(),
-            sent_at: q.sent_at ? String(q.sent_at) : null,
-            buyer: q.buyers
-              ? {
-                  id: String(q.buyers.id ?? ''),
-                  name: q.buyers.name ?? null,
-                  email: q.buyers.email ?? null,
-                  company: q.buyers.company ?? null,
-                }
-              : null,
-            lines: Array.isArray(q.quote_lines)
-              ? q.quote_lines.map((l: any) => ({
-                  model: l.model ?? null,
-                  description: l.description ?? null,
-                  oem: l.oem ?? null,
-                  qty: l.qty == null ? null : Number(l.qty),
-                  price: l.price == null ? null : Number(l.price),
-                  currency: l.currency ?? null,
-                }))
-              : [],
-          }))
+          (quotesData ?? []).map((q) => {
+            const buyerRec = (q as { buyers?: Buyer }).buyers
+            const linesRec = (q as { quote_lines?: QuoteLine[] }).quote_lines
+            return {
+              id: String((q as { id?: unknown }).id ?? ''),
+              subject: (q as { subject?: unknown }).subject == null ? null : String((q as { subject?: unknown }).subject),
+              status: (q as { status?: unknown }).status == null ? 'sent' : String((q as { status?: unknown }).status),
+              created_at: (q as { created_at?: unknown }).created_at ? String((q as { created_at?: unknown }).created_at) : new Date().toISOString(),
+              sent_at: (q as { sent_at?: unknown }).sent_at ? String((q as { sent_at?: unknown }).sent_at) : null,
+              buyer: buyerRec
+                ? {
+                    id: String((buyerRec as { id?: unknown }).id ?? ''),
+                    name: (buyerRec as { name?: unknown }).name ?? null,
+                    email: (buyerRec as { email?: unknown }).email ?? null,
+                    company: (buyerRec as { company?: unknown }).company ?? null,
+                  }
+                : null,
+              lines: Array.isArray(linesRec)
+                ? linesRec.map((l) => ({
+                    model: l.model ?? null,
+                    description: l.description ?? null,
+                    oem: l.oem ?? null,
+                    qty: l.qty == null ? null : Number(l.qty),
+                    price: l.price == null ? null : Number(l.price),
+                    currency: l.currency ?? null,
+                  }))
+                : [],
+            }
+          })
         )
       } catch (e) {
         console.error(e)

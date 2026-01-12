@@ -25,8 +25,25 @@ type Rfq = {
   lines: RfqLine[]
 }
 
+type SupaRfq = {
+  id?: unknown
+  subject?: unknown
+  note?: unknown
+  status?: unknown
+  created_at?: unknown
+  supplier_tenant_id?: unknown
+  supplier_name?: unknown
+  supplier_email?: unknown
+  rfq_lines?: Array<{
+    id?: unknown
+    inventory_item_id?: unknown
+    qty_requested?: unknown
+    quoted_price?: unknown
+    quoted_currency?: unknown
+  }>
+}
+
 export default function MyRfqsPage() {
-  const [tenantId, setTenantId] = useState('')
   const [rfqs, setRfqs] = useState<Rfq[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -47,46 +64,58 @@ export default function MyRfqsPage() {
         if (profileErr) throw profileErr
         const tenant = profile?.tenant_id
         if (!tenant) throw new Error('Tenant not found')
-        setTenantId(tenant)
 
         const { data, error: rfqErr } = await supabase
           .from('rfqs')
           .select(
-            'id,subject,note,status,supplier_tenant_id,supplier_name,supplier_email,created_at,rfq_lines(id,qty_requested,quoted_price,quoted_currency)'
+            'id,subject,note,status,supplier_tenant_id,supplier_name,supplier_email,created_at,rfq_lines(id,inventory_item_id,qty_requested,quoted_price,quoted_currency)'
           )
           .eq('buyer_tenant_id', tenant)
           .order('created_at', { ascending: false })
           .limit(200)
         if (rfqErr) throw rfqErr
 
-        const supplierIds = Array.from(new Set((data ?? []).map((r: any) => String(r.supplier_tenant_id ?? '')).filter(Boolean)))
+        const supplierIds = Array.from(
+          new Set(
+            (data ?? [])
+              .map((r: SupaRfq) => (r?.supplier_tenant_id ? String(r.supplier_tenant_id) : ''))
+              .filter((v) => Boolean(v))
+          )
+        )
+
         const supplierNames =
           supplierIds.length > 0
             ? new Map(
                 (
                   (await supabase.from('tenants').select('id,name').in('id', supplierIds)).data ?? []
-                ).map((t: any) => [String(t.id), t.name as string | null])
+                ).map((t) => [String((t as { id: unknown }).id), (t as { name?: unknown }).name as string | null])
               )
-            : new Map()
+            : new Map<string, string | null>()
 
         setRfqs(
-          (data ?? []).map((r: any) => ({
-            id: String(r.id ?? ''),
-            subject: r.subject == null ? null : String(r.subject),
-            note: r.note == null ? null : String(r.note),
-            status: r.status == null ? 'new' : String(r.status),
-            created_at: r.created_at ? String(r.created_at) : new Date().toISOString(),
-            supplier_tenant_id: String(r.supplier_tenant_id ?? ''),
-            supplier_tenant_name: r.supplier_name ?? supplierNames.get(String(r.supplier_tenant_id ?? '')) ?? null,
-            supplier_name: r.supplier_name ?? supplierNames.get(String(r.supplier_tenant_id ?? '')) ?? null,
-            supplier_email: r.supplier_email == null ? null : String(r.supplier_email),
-            lines: Array.isArray(r.rfq_lines)
-              ? r.rfq_lines.map((l: any) => ({
-                  id: String(l.id ?? ''),
-                  inventory_item_id: l.inventory_item_id ? String(l.inventory_item_id) : null,
-                  qty_requested: l.qty_requested == null ? null : Number(l.qty_requested),
-                  quoted_price: l.quoted_price == null ? null : Number(l.quoted_price),
-                  quoted_currency: l.quoted_currency ?? null,
+          (data ?? []).map((r: SupaRfq) => ({
+            id: r?.id ? String(r.id) : '',
+            subject: r?.subject == null ? null : String(r.subject),
+            note: r?.note == null ? null : String(r.note),
+            status: r?.status == null ? 'new' : String(r.status),
+            created_at: r?.created_at ? String(r.created_at) : new Date().toISOString(),
+            supplier_tenant_id: r?.supplier_tenant_id ? String(r.supplier_tenant_id) : '',
+            supplier_tenant_name:
+              (r?.supplier_name as string | null) ??
+              supplierNames.get(r?.supplier_tenant_id ? String(r.supplier_tenant_id) : '') ??
+              null,
+            supplier_name:
+              (r?.supplier_name as string | null) ??
+              supplierNames.get(r?.supplier_tenant_id ? String(r.supplier_tenant_id) : '') ??
+              null,
+            supplier_email: r?.supplier_email == null ? null : String(r.supplier_email),
+            lines: Array.isArray(r?.rfq_lines)
+              ? r.rfq_lines.map((l) => ({
+                  id: l?.id ? String(l.id) : '',
+                  inventory_item_id: l?.inventory_item_id ? String(l.inventory_item_id) : null,
+                  qty_requested: l?.qty_requested == null ? null : Number(l.qty_requested),
+                  quoted_price: l?.quoted_price == null ? null : Number(l.quoted_price),
+                  quoted_currency: l?.quoted_currency == null ? null : String(l.quoted_currency),
                 }))
               : [],
           }))
@@ -121,16 +150,16 @@ export default function MyRfqsPage() {
                   </div>
                   {r.note ? <div>{r.note}</div> : null}
                 </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <a
-              href={`mailto:${encodeURIComponent(r.supplier_email ?? '')}?subject=${encodeURIComponent(`RFQ ${r.id} - ${r.subject || 'RFQ'}`)}&body=${encodeURIComponent(
-                `RFQ ID: ${r.id}\nSubject: ${r.subject || 'RFQ'}\nSupplier: ${r.supplier_name || r.supplier_tenant_name || r.supplier_tenant_id}\nTenant ID: ${r.supplier_tenant_id}\n\nQuestions:\n`
-              )}`}
-              style={{
-                padding: '8px 12px',
-                borderRadius: 10,
-                border: '1px solid var(--border)',
-                background: 'var(--panel)',
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <a
+                    href={`mailto:${encodeURIComponent(r.supplier_email ?? '')}?subject=${encodeURIComponent(`RFQ ${r.id} - ${r.subject || 'RFQ'}`)}&body=${encodeURIComponent(
+                      `RFQ ID: ${r.id}\nSubject: ${r.subject || 'RFQ'}\nSupplier: ${r.supplier_name || r.supplier_tenant_name || r.supplier_tenant_id}\nTenant ID: ${r.supplier_tenant_id}\n\nQuestions:\n`
+                    )}`}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: 10,
+                      border: '1px solid var(--border)',
+                      background: 'var(--panel)',
                       textDecoration: 'none',
                       color: 'var(--text)',
                     }}
@@ -176,10 +205,8 @@ export default function MyRfqsPage() {
                     <div style={{ padding: 8 }}>
                       <div style={{ fontWeight: 700 }}>{l.inventory_item_id || 'Line'}</div>
                     </div>
-                    <div style={{ padding: 8 }}>{l.qty_requested ?? '—'}</div>
-                    <div style={{ padding: 8 }}>
-                      {l.quoted_price != null ? `${l.quoted_price} ${l.quoted_currency ?? ''}` : '—'}
-                    </div>
+                    <div style={{ padding: 8 }}>{l.qty_requested ?? '-'}</div>
+                    <div style={{ padding: 8 }}>{l.quoted_price != null ? `${l.quoted_price} ${l.quoted_currency ?? ''}` : '-'}</div>
                   </div>
                 ))}
               </div>
@@ -199,22 +226,18 @@ export default function MyRfqsPage() {
           href="/dashboard/buy"
           style={{ display: 'inline-block', marginTop: 6, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel)' }}
         >
-          ← Back to Buy
+          Back to Buy
         </Link>
       </div>
 
-      {error ? (
-        <div style={{ color: 'var(--bad)', border: '1px solid var(--bad)', borderRadius: 10, padding: 12, background: 'rgba(178,58,58,0.08)' }}>{error}</div>
-      ) : null}
+      {error ? <div style={{ color: 'var(--bad)' }}>{error}</div> : null}
 
-      {loading ? (
-        <div style={{ color: 'var(--muted)' }}>Loading RFQs…</div>
-      ) : (
-        <div style={{ display: 'grid', gap: 12, gridTemplateColumns: '1fr 1fr', alignItems: 'start' }}>
-          {renderTable(awaiting, 'RFQs awaiting quote')}
-          {renderTable(quoted, 'RFQs quoted')}
-        </div>
-      )}
+      {loading ? <div style={{ color: 'var(--muted)' }}>Loading RFQs…</div> : null}
+
+      <div style={{ display: 'grid', gap: 12 }}>
+        {renderTable(awaiting, 'RFQs awaiting quote')}
+        {renderTable(quoted, 'RFQs quoted')}
+      </div>
     </main>
   )
 }
