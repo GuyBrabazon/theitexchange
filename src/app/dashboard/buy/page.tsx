@@ -31,6 +31,18 @@ export default function BuyPage() {
   const [selected, setSelected] = useState<Record<string, { qty: string; supplier: string }>>({})
   const [sending, setSending] = useState(false)
   const [authToken, setAuthToken] = useState<string | null>(null)
+  const [poModalOpen, setPoModalOpen] = useState(false)
+  const [poSupplierQuery, setPoSupplierQuery] = useState('')
+  const [poSupplierResults, setPoSupplierResults] = useState<Array<{ id: string; name: string; email: string | null }>>([])
+  const [poSelectedSupplier, setPoSelectedSupplier] = useState<{ id: string; name: string; email: string | null } | null>(null)
+  const [poItemQuery, setPoItemQuery] = useState('')
+  const [poItemResults, setPoItemResults] = useState<Array<{ id: string; model: string | null; description: string | null }>>([])
+  const [poSelectedItems, setPoSelectedItems] = useState<Record<string, { qty: string }>>({})
+  const [poManual, setPoManual] = useState(false)
+  const [poManualDesc, setPoManualDesc] = useState('')
+  const [poManualQty, setPoManualQty] = useState('1')
+  const [poTerms, setPoTerms] = useState('')
+  const [poCreating, setPoCreating] = useState(false)
 
   useEffect(() => {
     const init = async () => {
@@ -152,6 +164,20 @@ export default function BuyPage() {
         <h1 style={{ marginBottom: 6 }}>Buy</h1>
         <div style={{ color: 'var(--muted)', marginBottom: 12 }}>Search all suppliers for a part number and send RFQs.</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setPoModalOpen(true)}
+            style={{
+              padding: '8px 12px',
+              borderRadius: 10,
+              border: '1px solid var(--border)',
+              background: 'var(--panel)',
+              textDecoration: 'none',
+              fontWeight: 800,
+              color: 'var(--text)',
+            }}
+          >
+            New PO
+          </button>
           <a
             href="/dashboard/my-rfqs"
             style={{
@@ -201,11 +227,11 @@ export default function BuyPage() {
       ) : null}
 
       <div style={{ display: 'grid', gap: 12 }}>
-        {results.map((sup) => {
-          const selCount = (selectedBySupplier[sup.supplier_tenant_id] || []).length
-          return (
-            <div
-              key={sup.supplier_tenant_id}
+      {results.map((sup) => {
+        const selCount = (selectedBySupplier[sup.supplier_tenant_id] || []).length
+        return (
+          <div
+            key={sup.supplier_tenant_id}
               style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--panel)', padding: 12, display: 'grid', gap: 10 }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
@@ -298,6 +324,336 @@ export default function BuyPage() {
           )
         })}
       </div>
+
+      {poModalOpen ? (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'grid',
+            placeItems: 'center',
+            zIndex: 9999,
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              width: 'min(900px, 100%)',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              borderRadius: 12,
+              border: '1px solid var(--border)',
+              background: 'var(--surface-2)',
+              padding: 16,
+              display: 'grid',
+              gap: 12,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: 900, fontSize: 18 }}>Create PO</div>
+                <div style={{ color: 'var(--muted)', fontSize: 12 }}>Select supplier and lines to include.</div>
+              </div>
+              <button
+                onClick={() => setPoModalOpen(false)}
+                style={{ borderRadius: 999, border: '1px solid var(--border)', padding: '6px 10px', background: 'var(--panel)', cursor: 'pointer' }}
+              >
+                Close
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gap: 8 }}>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Supplier</label>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  placeholder="Search supplier"
+                  value={poSupplierQuery}
+                  onChange={(e) => setPoSupplierQuery(e.target.value)}
+                  style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', minWidth: 240 }}
+                />
+                <button
+                  onClick={async () => {
+                    try {
+                      const { data, error } = await supabase
+                        .from('sellers')
+                        .select('id,name,email')
+                        .ilike('name', `%${poSupplierQuery || ''}%`)
+                        .limit(20)
+                      if (error) throw error
+                      setPoSupplierResults(
+                        (data || []).map((r) => ({
+                          id: String(r.id),
+                          name: (r.name as string) || 'Supplier',
+                          email: (r.email as string | null) ?? null,
+                        }))
+                      )
+                    } catch (err) {
+                      console.error(err)
+                      alert(err instanceof Error ? err.message : 'Supplier search failed')
+                    }
+                  }}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    border: '1px solid var(--border)',
+                    background: 'var(--panel)',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Search
+                </button>
+              </div>
+              <div style={{ display: 'grid', gap: 6, maxHeight: 160, overflow: 'auto' }}>
+                {poSupplierResults.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setPoSelectedSupplier(s)}
+                    style={{
+                      textAlign: 'left',
+                      padding: '8px 10px',
+                      borderRadius: 10,
+                      border: s.id === poSelectedSupplier?.id ? '2px solid var(--accent)' : '1px solid var(--border)',
+                      background: 'var(--panel)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{ fontWeight: 800 }}>{s.name}</div>
+                    <div style={{ color: 'var(--muted)', fontSize: 12 }}>{s.email || 'No email'}</div>
+                  </button>
+                ))}
+                {!poSupplierResults.length ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>No supplier results yet.</div> : null}
+                {poSelectedSupplier ? (
+                  <div style={{ fontSize: 12, color: 'var(--good)' }}>Selected: {poSelectedSupplier.name}</div>
+                ) : null}
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gap: 8 }}>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Add equipment</label>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  placeholder="Search inventory"
+                  value={poItemQuery}
+                  onChange={(e) => setPoItemQuery(e.target.value)}
+                  style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', minWidth: 260 }}
+                />
+                <button
+                  onClick={async () => {
+                    try {
+                      const { data, error } = await supabase
+                        .from('inventory_items')
+                        .select('id,model,description')
+                        .or(`model.ilike.%${poItemQuery || ''}%,description.ilike.%${poItemQuery || ''}%`)
+                        .limit(30)
+                      if (error) throw error
+                      setPoItemResults(
+                        (data || []).map((r) => ({
+                          id: String(r.id),
+                          model: (r.model as string | null) ?? null,
+                          description: (r.description as string | null) ?? null,
+                        }))
+                      )
+                    } catch (err) {
+                      console.error(err)
+                      alert(err instanceof Error ? err.message : 'Inventory search failed')
+                    }
+                  }}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    border: '1px solid var(--border)',
+                    background: 'var(--panel)',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Search items
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gap: 6, maxHeight: 200, overflow: 'auto' }}>
+                {poItemResults.map((item) => (
+                  <div
+                    key={item.id}
+                    style={{
+                      display: 'grid',
+                      gap: 6,
+                      gridTemplateColumns: '1fr 120px',
+                      alignItems: 'center',
+                      padding: '8px 10px',
+                      borderRadius: 10,
+                      border: '1px solid var(--border)',
+                      background: 'var(--panel)',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 800 }}>{item.model || item.description || 'Item'}</div>
+                      <div style={{ color: 'var(--muted)', fontSize: 12 }}>{item.description || 'No description'}</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <input
+                        type="number"
+                        min={1}
+                        value={poSelectedItems[item.id]?.qty ?? '1'}
+                        onChange={(e) => setPoSelectedItems((prev) => ({ ...prev, [item.id]: { qty: e.target.value } }))}
+                        style={{ width: 70, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+                      />
+                      <button
+                        onClick={() =>
+                          setPoSelectedItems((prev) => {
+                            const next = { ...prev }
+                            if (next[item.id]) delete next[item.id]
+                            else next[item.id] = { qty: '1' }
+                            return next
+                          })
+                        }
+                        style={{
+                          padding: '6px 8px',
+                          borderRadius: 8,
+                          border: '1px solid var(--border)',
+                          background: poSelectedItems[item.id] ? 'var(--accent)' : 'var(--panel)',
+                          color: poSelectedItems[item.id] ? '#fff' : 'var(--text)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {poSelectedItems[item.id] ? 'Remove' : 'Add'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {!poItemResults.length ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>No inventory results yet.</div> : null}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                <input type="checkbox" checked={poManual} onChange={(e) => setPoManual(e.target.checked)} />
+                <span style={{ fontSize: 12 }}>Item not in inventory (enter manually)</span>
+              </div>
+              {poManual ? (
+                <div style={{ display: 'grid', gap: 6, gridTemplateColumns: '1.4fr 0.4fr' }}>
+                  <textarea
+                    value={poManualDesc}
+                    onChange={(e) => setPoManualDesc(e.target.value)}
+                    placeholder="Description"
+                    rows={3}
+                    style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                  />
+                  <input
+                    type="number"
+                    min={1}
+                    value={poManualQty}
+                    onChange={(e) => setPoManualQty(e.target.value)}
+                    placeholder="Qty"
+                    style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                  />
+                </div>
+              ) : null}
+            </div>
+
+            <div style={{ display: 'grid', gap: 6 }}>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Terms of purchase</label>
+              <textarea
+                value={poTerms}
+                onChange={(e) => setPoTerms(e.target.value)}
+                rows={3}
+                placeholder="Payment terms, delivery notes, etc."
+                style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setPoModalOpen(false)}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--panel)',
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                disabled={poCreating || !poSelectedSupplier}
+                onClick={async () => {
+                  if (!poSelectedSupplier) {
+                    alert('Select a supplier first.')
+                    return
+                  }
+                  const lines: Array<{ desc: string; qty: number }> = []
+                  Object.entries(poSelectedItems).forEach(([id, meta]) => {
+                    const found = poItemResults.find((i) => i.id === id)
+                    lines.push({
+                      desc: found?.description || found?.model || 'Item',
+                      qty: meta.qty ? Number(meta.qty) || 1 : 1,
+                    })
+                  })
+                  if (poManual && poManualDesc.trim()) {
+                    lines.push({ desc: poManualDesc.trim(), qty: Number(poManualQty) || 1 })
+                  }
+                  setPoCreating(true)
+                  try {
+                    // Placeholder for actual PO creation.
+                    alert(
+                      `PO created (draft).\nSupplier: ${poSelectedSupplier.name}\nLines: ${lines.length}\nTerms: ${poTerms || 'n/a'}\nNext step: send via email or download.`
+                    )
+                    setPoModalOpen(false)
+                  } catch (err) {
+                    console.error(err)
+                    alert(err instanceof Error ? err.message : 'Failed to create PO')
+                  } finally {
+                    setPoCreating(false)
+                  }
+                }}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: poSelectedSupplier ? 'var(--accent)' : 'var(--panel)',
+                  color: poSelectedSupplier ? '#fff' : 'var(--text)',
+                  fontWeight: 900,
+                  cursor: poSelectedSupplier ? 'pointer' : 'not-allowed',
+                }}
+              >
+                Create PO
+              </button>
+              <button
+                onClick={() => {
+                  alert('Send directly to supplier (opens Outlook) - coming soon.')
+                }}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--panel)',
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                }}
+              >
+                Send directly to supplier
+              </button>
+              <button
+                onClick={() => alert('Download PO - coming soon.')}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--panel)',
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                }}
+              >
+                Download PO
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   )
 }
