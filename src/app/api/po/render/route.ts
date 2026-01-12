@@ -199,12 +199,12 @@ export async function POST(req: NextRequest) {
 
     const apiKeyRaw = process.env.PDFSHIFT_API_KEY
     const apiKey = apiKeyRaw?.trim()
+    console.log('pdfshift_key_present', apiKey ? apiKey.length : 0)
     if (!apiKey) return NextResponse.json({ ok: false, message: 'PDFShift API key missing' }, { status: 500 })
 
     const pdfRes = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
       method: 'POST',
       headers: {
-        Authorization: 'Basic ' + Buffer.from(`${apiKey}:`).toString('base64'),
         'X-API-Key': apiKey,
         'Content-Type': 'application/json',
       },
