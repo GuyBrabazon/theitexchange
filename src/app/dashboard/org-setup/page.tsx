@@ -270,7 +270,7 @@ export default function OrgSetupPage() {
       const res = await fetch('/api/po/render', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ preview: true, settings }),
+        body: JSON.stringify({ preview: true, tenant_id: tenantId, settings }),
       })
       if (!res.ok) throw new Error('Preview failed')
       const blob = await res.blob()

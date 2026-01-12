@@ -6,6 +6,7 @@ export const runtime = 'nodejs'
 type RenderRequest = {
   po_id?: string
   preview?: boolean
+  tenant_id?: string
   settings?: Partial<{
     po_logo_path: string | null
     po_brand_color: string | null
@@ -144,15 +145,15 @@ export async function POST(req: NextRequest) {
     let logo: string | null | undefined = null
     let color: string | null | undefined = '#1E3A5F'
     let invoiceEmail: string | null | undefined = null
-    let registeredAddress: string | null | undefined = null
-    let eori: string | null | undefined = null
+  let registeredAddress: string | null | undefined = null
+  let eori: string | null | undefined = null
 
-    if (!isPreview) {
-      if (!body.po_id) return NextResponse.json({ ok: false, message: 'po_id required' }, { status: 400 })
-      const { data: poRow, error: poErr } = await supa.from('purchase_orders').select('*').eq('id', body.po_id).maybeSingle()
-      if (poErr) throw poErr
-      if (!poRow) return NextResponse.json({ ok: false, message: 'PO not found' }, { status: 404 })
-      const tenantId = poRow.tenant_id as string
+  if (!isPreview) {
+    if (!body.po_id) return NextResponse.json({ ok: false, message: 'po_id required' }, { status: 400 })
+    const { data: poRow, error: poErr } = await supa.from('purchase_orders').select('*').eq('id', body.po_id).maybeSingle()
+    if (poErr) throw poErr
+    if (!poRow) return NextResponse.json({ ok: false, message: 'PO not found' }, { status: 404 })
+    const tenantId = poRow.tenant_id as string
 
       const { data: tsRow } = await supa.from('tenant_settings').select('*').eq('tenant_id', tenantId).maybeSingle()
       const { data: tRow } = await supa.from('tenants').select('name').eq('id', tenantId).maybeSingle()
@@ -184,23 +185,38 @@ export async function POST(req: NextRequest) {
             qty: Number((r as { qty?: number | null }).qty ?? 1) || 1,
             price: Number((r as { asking_price?: number | null }).asking_price ?? 0) || 0,
           })) ?? []
-        if (mapped.length) lines = mapped
-      }
-    } else {
-      // preview uses supplied settings if provided
-      const s = body.settings || {}
-      color = s.po_brand_color || color
-      logo = s.po_logo_path || logo
-      terms = s.po_terms || terms
-      headerText = s.po_header || headerText
-      currency = s.default_currency || currency
-      tenantName = 'Preview Supplier'
-      buyerName = 'Preview Buyer'
-      poNumber = 'PREVIEW-1000'
-      invoiceEmail = s.accounts_email ?? 'accounts@example.com'
-      registeredAddress = s.registered_address ?? '123 Sample St\nCity\nCountry'
-      eori = s.eori ?? 'GB123456789000'
+      if (mapped.length) lines = mapped
     }
+  } else {
+    // preview: prefer live tenant/settings if provided, then override with supplied settings
+    if (body.tenant_id) {
+      const { data: tsRow } = await supa.from('tenant_settings').select('*').eq('tenant_id', body.tenant_id).maybeSingle()
+      const { data: tRow } = await supa.from('tenants').select('name').eq('id', body.tenant_id).maybeSingle()
+      tenantName = (tRow?.name as string) || tenantName
+      color = (tsRow?.po_brand_color as string) || color
+      logo = (tsRow?.po_logo_path as string) || logo
+      terms = (tsRow?.po_terms as string) || terms
+      headerText = (tsRow?.po_header as string) || headerText
+      currency = (tsRow?.default_currency as string) || currency
+      invoiceEmail = (tsRow?.accounts_email as string) || invoiceEmail
+      registeredAddress = (tsRow?.registered_address as string) || registeredAddress
+      eori = (tsRow?.eori as string) || eori
+    }
+
+    // override with supplied settings if provided
+    const s = body.settings || {}
+    color = s.po_brand_color || color
+    logo = s.po_logo_path || logo
+    terms = s.po_terms || terms
+    headerText = s.po_header || headerText
+    currency = s.default_currency || currency
+    tenantName = tenantName || 'Preview Supplier'
+    buyerName = buyerName || 'Preview Buyer'
+    poNumber = 'PREVIEW-1000'
+    invoiceEmail = s.accounts_email ?? invoiceEmail ?? 'accounts@example.com'
+    registeredAddress = s.registered_address ?? registeredAddress ?? '123 Sample St\nCity\nCountry'
+    eori = s.eori ?? eori ?? 'GB123456789000'
+  }
 
     const html = renderHtml({
       tenantName,
