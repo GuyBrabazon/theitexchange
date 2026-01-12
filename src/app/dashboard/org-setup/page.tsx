@@ -226,6 +226,23 @@ export default function OrgSetupPage() {
     }
   }
 
+  const previewPo = async () => {
+    try {
+      const res = await fetch('/api/po/render', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preview: true, settings }),
+      })
+      if (!res.ok) throw new Error('Preview failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+    } catch (e) {
+      console.error(e)
+      setError(e instanceof Error ? e.message : 'Failed to preview PO')
+    }
+  }
+
   if (loading) {
     return (
       <main style={{ padding: 24 }}>
@@ -661,12 +678,25 @@ export default function OrgSetupPage() {
                     padding: '10px 12px',
                     borderRadius: 10,
                     border: '1px solid var(--border)',
-                    background: 'var(--surface-2)',
+              background: 'var(--surface-2)',
+              fontWeight: 900,
+              cursor: 'pointer',
+            }}
+          >
+                  Download sample PDF
+                </button>
+                <button
+                  onClick={previewPo}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    border: '1px solid var(--border)',
+                    background: 'var(--panel)',
                     fontWeight: 900,
                     cursor: 'pointer',
                   }}
                 >
-                  Download sample PDF
+                  Live preview
                 </button>
                 <button
                   onClick={() => setPreviewOpen(false)}
