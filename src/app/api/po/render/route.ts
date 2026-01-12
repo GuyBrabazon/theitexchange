@@ -8,6 +8,8 @@ type RenderRequest = {
   preview?: boolean
   tenant_id?: string
   buyer_name?: string
+  buyer_address?: string | null
+  buyer_phone?: string | null
   po_number?: string
   po_ref?: string
   currency?: string
@@ -49,6 +51,8 @@ function renderHtml(data: {
   invoiceEmail?: string | null
   registeredAddress?: string | null
   eori?: string | null
+  buyerAddress?: string | null
+  buyerPhone?: string | null
 }) {
   const total = data.lines.reduce((s, l) => s + l.qty * l.price, 0)
   const color = data.color || '#1E3A5F'
@@ -109,6 +113,8 @@ function renderHtml(data: {
       <div style="flex:1;">
         <div style="font-weight:700;">Supplier</div>
         <div class="muted">${data.buyerName}</div>
+        ${data.buyerAddress ? `<div class="muted">${data.buyerAddress.replace(/\n/g, '<br/>')}</div>` : ''}
+        ${data.buyerPhone ? `<div class="muted">Phone: ${data.buyerPhone}</div>` : ''}
       </div>
       ${data.logo ? `<div style="flex:0 0 auto;"><img class="logo" src="${data.logo}" /></div>` : ''}
     </div>
@@ -147,6 +153,8 @@ export async function POST(req: NextRequest) {
 
     let tenantName = 'The IT Exchange'
     let buyerName = 'Sample Buyer'
+    let buyerAddress: string | null = null
+    let buyerPhone: string | null = null
     let lines: Line[] = defaultLines
     let currency = 'USD'
     const now = new Date()
@@ -194,6 +202,10 @@ export async function POST(req: NextRequest) {
       const { data: buyerRow } = await supa.from('buyers').select('name,company').eq('id', poRow.buyer_id).maybeSingle()
       if (buyerRow) buyerName = (buyerRow.name as string) || (buyerRow.company as string) || buyerName
     }
+    // best-effort: if purchase_orders has supplier fields, map them
+    if ((poRow as Record<string, unknown>).supplier_name) buyerName = String((poRow as Record<string, unknown>).supplier_name)
+    if ((poRow as Record<string, unknown>).supplier_address) buyerAddress = String((poRow as Record<string, unknown>).supplier_address)
+    if ((poRow as Record<string, unknown>).supplier_phone) buyerPhone = String((poRow as Record<string, unknown>).supplier_phone)
 
       if (poRow.lot_id) {
         const { data: liRows } = await supa.from('line_items').select('line_ref,model,description,qty,asking_price').eq('lot_id', poRow.lot_id).limit(2000)
@@ -239,6 +251,8 @@ export async function POST(req: NextRequest) {
         })) || lines
     }
     if (body.buyer_name) buyerName = body.buyer_name
+    if (body.buyer_address) buyerAddress = body.buyer_address
+    if (body.buyer_phone) buyerPhone = body.buyer_phone
     if (body.po_number) poNumber = body.po_number
     if (body.po_ref) poRef = body.po_ref
     if (body.currency) currency = body.currency
@@ -272,6 +286,8 @@ export async function POST(req: NextRequest) {
       invoiceEmail,
       registeredAddress,
       eori,
+      buyerAddress,
+      buyerPhone,
     })
 
     const apiKeyRaw = process.env.PDFSHIFT_API_KEY
