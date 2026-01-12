@@ -9,6 +9,7 @@ type RenderRequest = {
   tenant_id?: string
   buyer_name?: string
   po_number?: string
+  po_ref?: string
   currency?: string
   lines?: Array<{ part?: string | null; desc: string; qty: number; price?: number }>
   ship_to?: string | null
@@ -145,19 +146,27 @@ export async function POST(req: NextRequest) {
     const supa = supabaseServer()
 
     let tenantName = 'The IT Exchange'
-  let buyerName = 'Sample Buyer'
-  let lines: Line[] = defaultLines
-  let currency = 'USD'
-  let poNumber = 'SAMPLE-1000'
-  let poRef = 'REF-SAMPLE'
-  let terms: string | null | undefined = 'Payment due within 30 days. Delivery within 7 business days.'
-  let headerText: string | null | undefined = 'Purchase Order'
-  let logo: string | null | undefined = null
-  let color: string | null | undefined = '#1E3A5F'
-  let background: string | null | undefined = '#ffffff'
-  let invoiceEmail: string | null | undefined = null
-  let registeredAddress: string | null | undefined = null
-  let eori: string | null | undefined = null
+    let buyerName = 'Sample Buyer'
+    let lines: Line[] = defaultLines
+    let currency = 'USD'
+    const now = new Date()
+    const rand = Math.floor(Math.random() * 9000) + 1000
+    const generatedPoNumber =
+      (body.po_number as string | undefined) ||
+      `PO-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${rand}`
+    const generatedPoRef =
+      (body.po_ref as string | undefined) ||
+      `REF-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${now.getTime()}-${rand}`}`
+    let poNumber = generatedPoNumber
+    let poRef = generatedPoRef
+    let terms: string | null | undefined = 'Payment due within 30 days. Delivery within 7 business days.'
+    let headerText: string | null | undefined = 'Purchase Order'
+    let logo: string | null | undefined = null
+    let color: string | null | undefined = '#1E3A5F'
+    let background: string | null | undefined = '#ffffff'
+    let invoiceEmail: string | null | undefined = null
+    let registeredAddress: string | null | undefined = null
+    let eori: string | null | undefined = null
 
   if (!isPreview) {
     if (!body.po_id) return NextResponse.json({ ok: false, message: 'po_id required' }, { status: 400 })
@@ -231,6 +240,7 @@ export async function POST(req: NextRequest) {
     }
     if (body.buyer_name) buyerName = body.buyer_name
     if (body.po_number) poNumber = body.po_number
+    if (body.po_ref) poRef = body.po_ref
     if (body.currency) currency = body.currency
     if (body.ship_to) registeredAddress = body.ship_to
     color = s.po_brand_color || color
@@ -241,8 +251,6 @@ export async function POST(req: NextRequest) {
     currency = s.default_currency ?? currency
     tenantName = tenantName || 'Preview Supplier'
     buyerName = buyerName || 'Preview Buyer'
-    poNumber = 'PREVIEW-1000'
-    poRef = 'REF-PREVIEW'
     invoiceEmail = s.accounts_email ?? invoiceEmail ?? 'accounts@example.com'
     registeredAddress = s.registered_address ?? registeredAddress ?? '123 Sample St\nCity\nCountry'
     eori = s.eori ?? eori ?? 'GB123456789000'
