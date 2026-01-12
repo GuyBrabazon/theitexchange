@@ -31,6 +31,7 @@ function renderHtml(data: {
   tenantName: string
   buyerName: string
   poNumber: string
+  poRef: string
   dateLabel: string
   currency: string
   lines: Line[]
@@ -85,6 +86,7 @@ function renderHtml(data: {
       <div style="text-align:right">
         <div class="muted">PO#</div>
         <div style="font-weight:700">${data.poNumber}</div>
+        <div class="muted">Ref: ${data.poRef}</div>
         <div class="muted">${data.dateLabel}</div>
       </div>
     </div>
@@ -136,15 +138,16 @@ export async function POST(req: NextRequest) {
     const supa = supabaseServer()
 
     let tenantName = 'The IT Exchange'
-    let buyerName = 'Sample Buyer'
-    let lines: Line[] = defaultLines
-    let currency = 'USD'
-    let poNumber = 'SAMPLE-1000'
-    let terms: string | null | undefined = 'Payment due within 30 days. Delivery within 7 business days.'
-    let headerText: string | null | undefined = 'Purchase Order'
-    let logo: string | null | undefined = null
-    let color: string | null | undefined = '#1E3A5F'
-    let invoiceEmail: string | null | undefined = null
+  let buyerName = 'Sample Buyer'
+  let lines: Line[] = defaultLines
+  let currency = 'USD'
+  let poNumber = 'SAMPLE-1000'
+  let poRef = 'REF-SAMPLE'
+  let terms: string | null | undefined = 'Payment due within 30 days. Delivery within 7 business days.'
+  let headerText: string | null | undefined = 'Purchase Order'
+  let logo: string | null | undefined = null
+  let color: string | null | undefined = '#1E3A5F'
+  let invoiceEmail: string | null | undefined = null
   let registeredAddress: string | null | undefined = null
   let eori: string | null | undefined = null
 
@@ -154,24 +157,25 @@ export async function POST(req: NextRequest) {
     if (poErr) throw poErr
     if (!poRow) return NextResponse.json({ ok: false, message: 'PO not found' }, { status: 404 })
     const tenantId = poRow.tenant_id as string
+    poRef = (poRow.id as string) || poRef
 
-      const { data: tsRow } = await supa.from('tenant_settings').select('*').eq('tenant_id', tenantId).maybeSingle()
-      const { data: tRow } = await supa.from('tenants').select('name').eq('id', tenantId).maybeSingle()
-      tenantName = (tRow?.name as string) || tenantName
-      color = (tsRow?.po_brand_color as string) || color
-      logo = (tsRow?.po_logo_path as string) || null
-      terms = (tsRow?.po_terms as string) || terms
-      headerText = (tsRow?.po_header as string) || headerText
-      currency = (poRow.currency as string) || (tsRow?.default_currency as string) || currency
-      poNumber = (poRow.po_number as string) || poNumber
-      invoiceEmail = (tsRow?.accounts_email as string) || null
-      registeredAddress = (tsRow?.registered_address as string) || null
-      eori = (tsRow?.eori as string) || null
+    const { data: tsRow } = await supa.from('tenant_settings').select('*').eq('tenant_id', tenantId).maybeSingle()
+    const { data: tRow } = await supa.from('tenants').select('name').eq('id', tenantId).maybeSingle()
+    tenantName = (tRow?.name as string) || tenantName
+    color = (tsRow?.po_brand_color as string) ?? color
+    logo = (tsRow?.po_logo_path as string) ?? null
+    terms = (tsRow?.po_terms as string) ?? terms
+    headerText = (tsRow?.po_header as string) ?? headerText
+    currency = (poRow.currency as string) ?? (tsRow?.default_currency as string) ?? currency
+    poNumber = (poRow.po_number as string) || poNumber
+    invoiceEmail = (tsRow?.accounts_email as string) ?? null
+    registeredAddress = (tsRow?.registered_address as string) ?? null
+    eori = (tsRow?.eori as string) ?? null
 
-      if (poRow.buyer_id) {
-        const { data: buyerRow } = await supa.from('buyers').select('name,company').eq('id', poRow.buyer_id).maybeSingle()
-        if (buyerRow) buyerName = (buyerRow.name as string) || (buyerRow.company as string) || buyerName
-      }
+    if (poRow.buyer_id) {
+      const { data: buyerRow } = await supa.from('buyers').select('name,company').eq('id', poRow.buyer_id).maybeSingle()
+      if (buyerRow) buyerName = (buyerRow.name as string) || (buyerRow.company as string) || buyerName
+    }
 
       if (poRow.lot_id) {
         const { data: liRows } = await supa.from('line_items').select('line_ref,model,description,qty,asking_price').eq('lot_id', poRow.lot_id).limit(2000)
@@ -193,26 +197,27 @@ export async function POST(req: NextRequest) {
       const { data: tsRow } = await supa.from('tenant_settings').select('*').eq('tenant_id', body.tenant_id).maybeSingle()
       const { data: tRow } = await supa.from('tenants').select('name').eq('id', body.tenant_id).maybeSingle()
       tenantName = (tRow?.name as string) || tenantName
-      color = (tsRow?.po_brand_color as string) || color
-      logo = (tsRow?.po_logo_path as string) || logo
-      terms = (tsRow?.po_terms as string) || terms
-      headerText = (tsRow?.po_header as string) || headerText
-      currency = (tsRow?.default_currency as string) || currency
-      invoiceEmail = (tsRow?.accounts_email as string) || invoiceEmail
-      registeredAddress = (tsRow?.registered_address as string) || registeredAddress
-      eori = (tsRow?.eori as string) || eori
+      color = (tsRow?.po_brand_color as string) ?? color
+      logo = (tsRow?.po_logo_path as string) ?? logo
+      terms = (tsRow?.po_terms as string) ?? terms
+      headerText = (tsRow?.po_header as string) ?? headerText
+      currency = (tsRow?.default_currency as string) ?? currency
+      invoiceEmail = (tsRow?.accounts_email as string) ?? invoiceEmail
+      registeredAddress = (tsRow?.registered_address as string) ?? registeredAddress
+      eori = (tsRow?.eori as string) ?? eori
     }
 
     // override with supplied settings if provided
     const s = body.settings || {}
-    color = s.po_brand_color || color
-    logo = s.po_logo_path || logo
-    terms = s.po_terms || terms
-    headerText = s.po_header || headerText
-    currency = s.default_currency || currency
+    color = s.po_brand_color ?? color
+    logo = s.po_logo_path ?? logo
+    terms = s.po_terms ?? terms
+    headerText = s.po_header ?? headerText
+    currency = s.default_currency ?? currency
     tenantName = tenantName || 'Preview Supplier'
     buyerName = buyerName || 'Preview Buyer'
     poNumber = 'PREVIEW-1000'
+    poRef = 'REF-PREVIEW'
     invoiceEmail = s.accounts_email ?? invoiceEmail ?? 'accounts@example.com'
     registeredAddress = s.registered_address ?? registeredAddress ?? '123 Sample St\nCity\nCountry'
     eori = s.eori ?? eori ?? 'GB123456789000'
@@ -222,6 +227,7 @@ export async function POST(req: NextRequest) {
       tenantName,
       buyerName,
       poNumber,
+      poRef,
       dateLabel: new Date().toLocaleDateString(),
       currency,
       lines,
