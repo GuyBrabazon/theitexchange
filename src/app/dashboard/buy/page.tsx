@@ -655,7 +655,6 @@ export default function BuyPage() {
                   setPoManualDesc('')
                   setPoManualQty('1')
                   setPoManualPrice('')
-                  setPoShipTo('')
                   setPoDropShip(false)
                   setPoShipName('')
                   setPoShipStreet1('')
@@ -703,13 +702,7 @@ export default function BuyPage() {
                         poTerms || 'n/a'
                       }\nNext: send or download.`
                     )
-                    setPoShipTo(
-                      poDropShip
-                        ? [poShipName, poShipStreet1, poShipStreet2, poShipCity, poShipState, poShipCountry, poShipPostcode]
-                            .filter((v) => v && v.trim())
-                            .join('\n')
-                        : defaultShipTo
-                    )
+                    // no-op for ship-to snapshot; rendering path handles composed address
                   } catch (err) {
                       console.error(err)
                       alert(err instanceof Error ? err.message : 'Failed to create PO')
