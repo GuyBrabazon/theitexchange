@@ -803,6 +803,11 @@ export default function BuyPage() {
                               .filter((v) => v && v.trim())
                               .join('\n') || undefined
                           : undefined
+                        const today = new Date()
+                        const dateTag = today.toISOString().slice(0, 10).replace(/-/g, '')
+                        const rand = Math.floor(1000 + Math.random() * 9000)
+                        const generatedPoNumber = `PO-${dateTag}-${rand}`
+                        const generatedPoRef = crypto.randomUUID ? crypto.randomUUID() : `${dateTag}-${rand}`
                         const res = await fetch('/api/po/render', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
@@ -812,7 +817,8 @@ export default function BuyPage() {
                             buyer_name: poSelectedSupplier.name,
                             buyer_address: supplierAddress,
                             buyer_phone: poSelectedSupplier.phone || undefined,
-                            po_number: 'PO-DRAFT',
+                            po_number: generatedPoNumber,
+                            po_ref: generatedPoRef,
                             currency: undefined,
                             ship_to:
                               poDropShip
