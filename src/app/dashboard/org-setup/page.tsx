@@ -245,13 +245,14 @@ export default function OrgSetupPage() {
     setSuccess('')
     try {
       setUploadingLogo(true)
+      const bucket = 'public-assets'
       const path = `logos/${tenantId}/po-logo-${Date.now()}-${file.name}`
-      const { error: upErr } = await supabase.storage.from('public').upload(path, file, {
+      const { error: upErr } = await supabase.storage.from(bucket).upload(path, file, {
         upsert: true,
         contentType: file.type,
       })
       if (upErr) throw upErr
-      const { data: pub } = supabase.storage.from('public').getPublicUrl(path)
+      const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path)
       const url = pub?.publicUrl
       if (!url) throw new Error('Failed to get public URL for logo')
       setSettings((prev) => ({ ...prev, po_logo_path: url }))
