@@ -761,26 +761,6 @@ export default function OrgSetupPage() {
 
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 <button
-                  onClick={() => {
-                    try {
-                      window.open('/api/po/sample/pdf', '_blank')
-                    } catch (err) {
-                      console.error(err)
-                      alert('Unable to open sample PDF')
-                    }
-                  }}
-                  style={{
-                    padding: '10px 12px',
-                    borderRadius: 10,
-                    border: '1px solid var(--border)',
-              background: 'var(--surface-2)',
-              fontWeight: 900,
-              cursor: 'pointer',
-            }}
-          >
-                  Download sample PDF
-                </button>
-                <button
                   onClick={previewPo}
                   style={{
                     padding: '10px 12px',
@@ -791,7 +771,7 @@ export default function OrgSetupPage() {
                     cursor: 'pointer',
                   }}
                 >
-                  Live preview
+                  Preview
                 </button>
                 <button
                   onClick={() => setPreviewOpen(false)}

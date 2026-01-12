@@ -201,8 +201,8 @@ export async function POST(req: NextRequest) {
       const { data: tsRow } = await supa.from('tenant_settings').select('*').eq('tenant_id', body.tenant_id).maybeSingle()
       const { data: tRow } = await supa.from('tenants').select('name').eq('id', body.tenant_id).maybeSingle()
       tenantName = (tRow?.name as string) || tenantName
-      color = (tsRow?.po_brand_color as string) ?? color
-      background = (tsRow?.po_brand_color_secondary as string) ?? background
+      color = (tsRow?.po_brand_color as string) || color
+      background = (tsRow?.po_brand_color_secondary as string) || background
       logo = (tsRow?.po_logo_path as string) ?? logo
       terms = (tsRow?.po_terms as string) ?? terms
       headerText = (tsRow?.po_header as string) ?? headerText
@@ -214,8 +214,8 @@ export async function POST(req: NextRequest) {
 
     // override with supplied settings if provided
     const s = body.settings || {}
-    color = s.po_brand_color ?? color
-    background = s.po_brand_color_secondary ?? background
+    color = s.po_brand_color || color
+    background = s.po_brand_color_secondary || background
     logo = s.po_logo_path ?? logo
     terms = s.po_terms ?? terms
     headerText = s.po_header ?? headerText
