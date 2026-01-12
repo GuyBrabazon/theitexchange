@@ -352,7 +352,7 @@ export default function BuyPage() {
         >
           <div
             style={{
-              width: 'min(900px, 100%)',
+              width: 'min(1200px, 90vw)',
               maxHeight: '90vh',
               overflow: 'auto',
               borderRadius: 12,
