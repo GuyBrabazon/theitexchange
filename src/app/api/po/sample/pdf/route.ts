@@ -92,13 +92,15 @@ function buildHtml() {
 export async function GET() {
   try {
     const html = buildHtml()
-    const apiKey = process.env.PDFSHIFT_API_KEY
+    const apiKeyRaw = process.env.PDFSHIFT_API_KEY
+    const apiKey = apiKeyRaw?.trim()
     if (!apiKey) return NextResponse.json({ ok: false, message: 'PDFShift API key missing' }, { status: 500 })
 
     const res = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
       method: 'POST',
       headers: {
         Authorization: 'Basic ' + Buffer.from(`${apiKey}:`).toString('base64'),
+        'X-API-Key': apiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
