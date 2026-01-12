@@ -38,7 +38,7 @@ const barCard = (
   return (
     <div
       style={{
-        padding: 14,
+        padding: 12,
         borderRadius: 12,
         border: '1px solid var(--border)',
         background: 'var(--panel)',
@@ -55,17 +55,17 @@ const barCard = (
         </div>
         <div style={{ padding: '4px 8px', borderRadius: 8, background: 'var(--surface-2)', fontSize: 12, color }}>Snapshot</div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '42px 1fr', gap: 8, alignItems: 'end', minHeight: 160 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: 140, fontSize: 11, color: 'var(--muted)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr', gap: 6, alignItems: 'end', minHeight: 140 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: 120, fontSize: 11, color: 'var(--muted)' }}>
           <span>{topLabel}</span>
           <span>{bottomLabel}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 160 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 140 }}>
           {values.map((v, idx) => (
             <div key={idx} style={{ flex: 1, minWidth: 10 }}>
               <div
                 style={{
-                  height: `${(v / max) * 120 + 6}px`,
+                  height: `${(v / max) * 100 + 6}px`,
                   borderRadius: 8,
                   background: `linear-gradient(180deg, ${color}, rgba(30,58,95,0.08))`,
                   boxShadow: '0 6px 16px rgba(0,0,0,0.08)',
@@ -283,8 +283,8 @@ export default function Home() {
           maxWidth: 1180,
           margin: '32px auto 0',
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-          gap: 16,
+          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gap: 14,
           padding: '0 8px 24px',
         }}
       >
