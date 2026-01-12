@@ -16,6 +16,9 @@ type TenantSettings = {
   po_header: string | null
   po_number_start: number | null
   po_number_current: number | null
+  accounts_email?: string | null
+  registered_address?: string | null
+  eori?: string | null
 }
 
 type UserRow = {
@@ -51,6 +54,9 @@ export default function OrgSetupPage() {
     po_header: '',
     po_number_start: 1000,
     po_number_current: 1000,
+    accounts_email: '',
+    registered_address: '',
+    eori: '',
   })
   const [users, setUsers] = useState<UserRow[]>([])
   const [inviteEmail, setInviteEmail] = useState('')
@@ -113,6 +119,9 @@ export default function OrgSetupPage() {
             po_header: settingsRow.po_header ?? '',
             po_number_start: settingsRow.po_number_start ?? 1000,
             po_number_current: settingsRow.po_number_current ?? settingsRow.po_number_start ?? 1000,
+            accounts_email: settingsRow.accounts_email ?? '',
+            registered_address: settingsRow.registered_address ?? '',
+            eori: settingsRow.eori ?? '',
           })
         }
 
@@ -167,6 +176,9 @@ export default function OrgSetupPage() {
             po_header: settings.po_header || null,
             po_number_start: settings.po_number_start ?? null,
             po_number_current: settings.po_number_current ?? null,
+            accounts_email: settings.accounts_email || null,
+            registered_address: settings.registered_address || null,
+            eori: settings.eori || null,
           },
         }),
       })
@@ -311,6 +323,39 @@ export default function OrgSetupPage() {
             <div style={{ color: 'var(--muted)', fontSize: 12 }}>
               Enforce invites/signups to this domain. Leave blank to allow any work email.
             </div>
+          </div>
+
+          <div style={{ display: 'grid', gap: 6 }}>
+            <label style={{ fontSize: 12, color: 'var(--muted)' }}>Accounts email (send invoices to)</label>
+            <input
+              type="email"
+              placeholder="accounts@company.com"
+              value={settings.accounts_email ?? ''}
+              onChange={(e) => setSettings((prev) => ({ ...prev, accounts_email: e.target.value }))}
+              style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gap: 6 }}>
+            <label style={{ fontSize: 12, color: 'var(--muted)' }}>EORI</label>
+            <input
+              type="text"
+              placeholder="EORI number"
+              value={settings.eori ?? ''}
+              onChange={(e) => setSettings((prev) => ({ ...prev, eori: e.target.value }))}
+              style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gap: 6 }}>
+            <label style={{ fontSize: 12, color: 'var(--muted)' }}>Registered business address</label>
+            <textarea
+              value={settings.registered_address ?? ''}
+              onChange={(e) => setSettings((prev) => ({ ...prev, registered_address: e.target.value }))}
+              rows={3}
+              placeholder="Street, City, Country"
+              style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', resize: 'vertical' }}
+            />
           </div>
         </div>
 
