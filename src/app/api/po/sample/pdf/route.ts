@@ -1,23 +1,10 @@
 import { NextResponse } from 'next/server'
 import React from 'react'
-import { Document, Page, Text, View, StyleSheet, pdf } from '@react-pdf/renderer'
+import { Document, Page, Text, View, pdf } from '@react-pdf/renderer'
 
 export const runtime = 'nodejs'
 
-const styles = StyleSheet.create({
-  page: { padding: 32, fontSize: 11, fontFamily: 'Helvetica' },
-  header: { fontSize: 16, fontWeight: 'bold', marginBottom: 6 },
-  row: { flexDirection: 'row', justifyContent: 'space-between' },
-  label: { color: '#666', fontSize: 10 },
-  value: { fontSize: 11 },
-  tableHeader: { flexDirection: 'row', borderBottom: '1 solid #999', paddingBottom: 4, marginTop: 12 },
-  cell: { flex: 1, fontSize: 10 },
-  cellWide: { flex: 2, fontSize: 10 },
-  line: { flexDirection: 'row', paddingVertical: 4, borderBottom: '0.5 solid #e5e5e5' },
-  footer: { marginTop: 14, fontSize: 10, color: '#555', lineHeight: 1.4 },
-})
-
-function buildSampleDoc() {
+function buildSimpleDoc() {
   const lines = [
     { sku: 'R740', desc: 'Dell PowerEdge R740', qty: 2, price: 2500 },
     { sku: 'MEM-128', desc: '128GB DDR4 Kit', qty: 4, price: 320 },
@@ -28,65 +15,55 @@ function buildSampleDoc() {
     null,
     React.createElement(
       Page,
-      { size: 'A4', style: styles.page },
+      { size: 'A4', style: { padding: 32, fontSize: 11, fontFamily: 'Helvetica' } },
+      React.createElement(Text, { style: { fontSize: 16, fontWeight: 'bold', marginBottom: 8 } }, 'Purchase Order'),
+      React.createElement(Text, { style: { marginBottom: 12 } }, `PO#: SAMPLE-1000  •  Date: ${new Date().toLocaleDateString()}`),
       React.createElement(
         View,
-        { style: { ...styles.row, marginBottom: 12 } },
-        React.createElement(Text, { style: { ...styles.header, color: '#1E3A5F' } }, 'Purchase Order'),
-        React.createElement(Text, { style: { fontSize: 11 } }, `PO#: SAMPLE-1000`),
+        { style: { marginBottom: 12 } },
+        React.createElement(Text, { style: { fontWeight: 'bold' } }, 'Supplier'),
+        React.createElement(Text, null, 'The IT Exchange'),
       ),
       React.createElement(
         View,
-        { style: { ...styles.row, marginBottom: 10 } },
-        React.createElement(
-          View,
-          null,
-          React.createElement(Text, { style: styles.label }, 'Buyer'),
-          React.createElement(Text, { style: styles.value }, 'Sample Buyer'),
-        ),
-        React.createElement(
-          View,
-          null,
-          React.createElement(Text, { style: styles.label }, 'Supplier'),
-          React.createElement(Text, { style: styles.value }, 'The IT Exchange'),
-        ),
-        React.createElement(
-          View,
-          null,
-          React.createElement(Text, { style: styles.label }, 'Date'),
-          React.createElement(Text, { style: styles.value }, new Date().toLocaleDateString()),
-        ),
+        { style: { marginBottom: 12 } },
+        React.createElement(Text, { style: { fontWeight: 'bold' } }, 'Buyer'),
+        React.createElement(Text, null, 'Sample Buyer'),
       ),
       React.createElement(
         View,
-        { style: styles.tableHeader },
-        React.createElement(Text, { style: { ...styles.cell } }, 'SKU'),
-        React.createElement(Text, { style: { ...styles.cellWide } }, 'Description'),
-        React.createElement(Text, { style: { ...styles.cell, textAlign: 'right' } }, 'Qty'),
-        React.createElement(Text, { style: { ...styles.cell, textAlign: 'right' } }, 'Unit (USD)'),
-        React.createElement(Text, { style: { ...styles.cell, textAlign: 'right' } }, 'Line (USD)'),
-      ),
-      lines.map((l, idx) =>
+        { style: { borderTop: '1 solid #999', borderBottom: '1 solid #999', paddingVertical: 6, marginBottom: 6 } },
         React.createElement(
           View,
-          { key: idx, style: styles.line },
-          React.createElement(Text, { style: { ...styles.cell } }, l.sku),
-          React.createElement(Text, { style: { ...styles.cellWide } }, l.desc),
-          React.createElement(Text, { style: { ...styles.cell, textAlign: 'right' } }, String(l.qty)),
-          React.createElement(Text, { style: { ...styles.cell, textAlign: 'right' } }, l.price.toFixed(2)),
-          React.createElement(Text, { style: { ...styles.cell, textAlign: 'right' } }, (l.qty * l.price).toFixed(2)),
+          { style: { flexDirection: 'row', fontWeight: 'bold' } },
+          React.createElement(Text, { style: { flex: 1 } }, 'SKU'),
+          React.createElement(Text, { style: { flex: 2 } }, 'Description'),
+          React.createElement(Text, { style: { flex: 1, textAlign: 'right' } }, 'Qty'),
+          React.createElement(Text, { style: { flex: 1, textAlign: 'right' } }, 'Unit'),
+          React.createElement(Text, { style: { flex: 1, textAlign: 'right' } }, 'Line'),
+        ),
+        lines.map((l, idx) =>
+          React.createElement(
+            View,
+            { key: idx, style: { flexDirection: 'row', paddingVertical: 4, borderTop: '0.5 solid #e5e5e5' } },
+            React.createElement(Text, { style: { flex: 1 } }, l.sku),
+            React.createElement(Text, { style: { flex: 2 } }, l.desc),
+            React.createElement(Text, { style: { flex: 1, textAlign: 'right' } }, String(l.qty)),
+            React.createElement(Text, { style: { flex: 1, textAlign: 'right' } }, l.price.toFixed(2)),
+            React.createElement(Text, { style: { flex: 1, textAlign: 'right' } }, (l.qty * l.price).toFixed(2)),
+          ),
         ),
       ),
       React.createElement(
         View,
-        { style: { ...styles.row, marginTop: 10 } },
-        React.createElement(Text, { style: styles.label }, 'Total (USD)'),
-        React.createElement(Text, { style: { fontSize: 12, fontWeight: 'bold' } }, total.toFixed(2)),
+        { style: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 } },
+        React.createElement(Text, { style: { fontWeight: 'bold' } }, 'Total (USD)'),
+        React.createElement(Text, { style: { fontWeight: 'bold' } }, total.toFixed(2)),
       ),
       React.createElement(
         View,
-        { style: styles.footer },
-        React.createElement(Text, { style: { fontWeight: 'bold', marginBottom: 4 } }, 'Terms'),
+        { style: { marginTop: 12 } },
+        React.createElement(Text, { style: { fontWeight: 'bold' } }, 'Terms'),
         React.createElement(Text, null, 'Payment due within 30 days. Delivery within 7 business days.'),
       ),
     ),
@@ -95,7 +72,7 @@ function buildSampleDoc() {
 
 export async function GET() {
   try {
-    const doc = buildSampleDoc()
+    const doc = buildSimpleDoc()
     const buffer = await pdf(doc).toBuffer()
     return new NextResponse(buffer as unknown as BodyInit, {
       status: 200,
