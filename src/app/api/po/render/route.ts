@@ -7,6 +7,10 @@ type RenderRequest = {
   po_id?: string
   preview?: boolean
   tenant_id?: string
+  buyer_name?: string
+  po_number?: string
+  currency?: string
+  lines?: Array<{ part?: string | null; desc: string; qty: number; price?: number }>
   settings?: Partial<{
     po_logo_path: string | null
     po_brand_color: string | null
@@ -214,6 +218,19 @@ export async function POST(req: NextRequest) {
 
     // override with supplied settings if provided
     const s = body.settings || {}
+    // accept custom lines/buyer/number for preview
+    if (Array.isArray(body.lines) && body.lines.length) {
+      lines =
+        body.lines.map((ln) => ({
+          sku: ln.part || 'Item',
+          desc: ln.desc || 'Item',
+          qty: Number(ln.qty) || 1,
+          price: ln.price != null ? Number(ln.price) || 0 : 0,
+        })) || lines
+    }
+    if (body.buyer_name) buyerName = body.buyer_name
+    if (body.po_number) poNumber = body.po_number
+    if (body.currency) currency = body.currency
     color = s.po_brand_color || color
     background = s.po_brand_color_secondary || background
     logo = s.po_logo_path ?? logo

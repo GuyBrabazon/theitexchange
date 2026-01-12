@@ -23,7 +23,7 @@ type SupplierResult = {
 }
 
 export default function BuyPage() {
-  const [, setTenantId] = useState('')
+  const [tenantId, setTenantId] = useState('')
   const [term, setTerm] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -43,6 +43,7 @@ export default function BuyPage() {
   const [poTerms, setPoTerms] = useState('')
   const [poCreating, setPoCreating] = useState(false)
   const [poCreated, setPoCreated] = useState(false)
+  const [poDownloadLoading, setPoDownloadLoading] = useState(false)
 
   useEffect(() => {
     const init = async () => {
@@ -633,7 +634,55 @@ export default function BuyPage() {
                     Send directly to supplier
                   </button>
                   <button
-                    onClick={() => alert('Download PO - coming soon.')}
+                    disabled={poDownloadLoading}
+                    onClick={async () => {
+                      if (!poSelectedSupplier) {
+                        alert('Supplier missing')
+                        return
+                      }
+                      if (!poManualLines.length) {
+                        alert('No lines to download.')
+                        return
+                      }
+                      setPoDownloadLoading(true)
+                      try {
+                        const lines = poManualLines.map((ln) => ({
+                          part: ln.part,
+                          desc: ln.desc,
+                          qty: ln.qty ? Number(ln.qty) || 1 : 1,
+                          price: ln.price ? Number(ln.price) || 0 : 0,
+                        }))
+                        const res = await fetch('/api/po/render', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            preview: true,
+                            tenant_id: tenantId || undefined,
+                            buyer_name: poSelectedSupplier.name,
+                            po_number: 'PO-DRAFT',
+                            currency: undefined,
+                            lines,
+                            settings: { po_terms: poTerms || undefined },
+                          }),
+                        })
+                        if (!res.ok) {
+                          const txt = await res.text()
+                          throw new Error(txt || 'Download failed')
+                        }
+                        const blob = await res.blob()
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = 'purchase-order.pdf'
+                        a.click()
+                        URL.revokeObjectURL(url)
+                      } catch (err) {
+                        console.error(err)
+                        alert(err instanceof Error ? err.message : 'Download failed')
+                      } finally {
+                        setPoDownloadLoading(false)
+                      }
+                    }}
                     style={{
                       padding: '8px 10px',
                       borderRadius: 10,
@@ -643,7 +692,7 @@ export default function BuyPage() {
                       cursor: 'pointer',
                     }}
                   >
-                    Download PO
+                    {poDownloadLoading ? 'Downloading…' : 'Download PO'}
                   </button>
                 </>
               ) : null}
