@@ -55,6 +55,7 @@ export default function OrgSetupPage() {
   const [users, setUsers] = useState<UserRow[]>([])
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<UserRow['role']>('broker')
+  const [previewOpen, setPreviewOpen] = useState(false)
 
   const getToken = async () => {
     const {
@@ -398,7 +399,7 @@ export default function OrgSetupPage() {
             />
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <button
             onClick={saveSettings}
             disabled={saving}
@@ -412,6 +413,20 @@ export default function OrgSetupPage() {
             }}
           >
             {saving ? 'Saving…' : 'Save settings'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setPreviewOpen(true)}
+            style={{
+              padding: '10px 14px',
+              borderRadius: 12,
+              border: '1px solid var(--border)',
+              background: 'var(--surface-2)',
+              fontWeight: 900,
+              cursor: 'pointer',
+            }}
+          >
+            Preview PO
           </button>
         </div>
       </div>
@@ -481,6 +496,196 @@ export default function OrgSetupPage() {
           {filteredUsers.length === 0 ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>No users found.</div> : null}
         </div>
       </div>
+
+      {previewOpen ? (
+        <div
+          onClick={() => setPreviewOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.55)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+            zIndex: 70,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 'min(980px, 100%)',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              background: 'var(--panel)',
+              border: '1px solid var(--border)',
+              borderRadius: 16,
+              padding: 20,
+              display: 'grid',
+              gap: 14,
+              boxShadow: '0 12px 36px rgba(0,0,0,0.25)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <div>
+                <div style={{ fontWeight: 900, fontSize: 18 }}>PO preview</div>
+                <div style={{ color: 'var(--muted)', fontSize: 12 }}>Preview using current template settings</div>
+              </div>
+              <button
+                onClick={() => setPreviewOpen(false)}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface-2)',
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+
+            <div
+              style={{
+                border: '1px solid var(--border)',
+                borderRadius: 12,
+                background: 'var(--surface-2)',
+                padding: 16,
+                display: 'grid',
+                gap: 12,
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: 20, color: settings.po_brand_color || '#1E3A5F' }}>
+                    {settings.po_header || 'Purchase Order'}
+                  </div>
+                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>{tenantName || 'Tenant name'}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontWeight: 700 }}>PO#{(settings.po_number_current ?? settings.po_number_start ?? 1000).toString()}</div>
+                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>Date: {new Date().toLocaleDateString()}</div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))',
+                  gap: 10,
+                  border: '1px solid var(--border)',
+                  borderRadius: 10,
+                  padding: 12,
+                  background: 'var(--panel)',
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 800, marginBottom: 4 }}>Bill to</div>
+                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>{tenantName || 'Your organisation'}</div>
+                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>address line, city</div>
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, marginBottom: 4 }}>Supplier</div>
+                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>Supplier name</div>
+                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>supplier@email.com</div>
+                </div>
+              </div>
+
+              <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '2fr 1fr 1fr 1fr',
+                    background: 'var(--surface-3, var(--surface-2))',
+                    fontWeight: 800,
+                    fontSize: 12,
+                  }}
+                >
+                  <div style={{ padding: 10, borderRight: '1px solid var(--border)' }}>Description</div>
+                  <div style={{ padding: 10, borderRight: '1px solid var(--border)' }}>Qty</div>
+                  <div style={{ padding: 10, borderRight: '1px solid var(--border)' }}>Price</div>
+                  <div style={{ padding: 10 }}>Line total</div>
+                </div>
+                {[
+                  { desc: 'Server chassis', qty: 2, price: 2500 },
+                  { desc: 'Memory kit', qty: 4, price: 300 },
+                ].map((line, idx) => (
+                  <div
+                    key={line.desc}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '2fr 1fr 1fr 1fr',
+                      background: idx % 2 === 0 ? 'var(--panel)' : 'var(--surface-2)',
+                      fontSize: 13,
+                    }}
+                  >
+                    <div style={{ padding: 10, borderRight: '1px solid var(--border)' }}>{line.desc}</div>
+                    <div style={{ padding: 10, borderRight: '1px solid var(--border)' }}>{line.qty}</div>
+                    <div style={{ padding: 10, borderRight: '1px solid var(--border)' }}>${line.price.toLocaleString()}</div>
+                    <div style={{ padding: 10 }}>${(line.qty * line.price).toLocaleString()}</div>
+                  </div>
+                ))}
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    gap: 24,
+                    padding: 12,
+                    borderTop: '1px solid var(--border)',
+                    fontWeight: 800,
+                  }}
+                >
+                  <span>Subtotal</span>
+                  <span>$6,200</span>
+                </div>
+              </div>
+
+              <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'var(--panel)' }}>
+                <div style={{ fontWeight: 800, marginBottom: 6 }}>Terms</div>
+                <div style={{ color: 'var(--muted)', fontSize: 12, whiteSpace: 'pre-wrap' }}>
+                  {settings.po_terms || 'Payment due within 30 days. Delivery within 7 business days.'}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => {
+                    try {
+                      window.open('/api/po/sample/pdf', '_blank')
+                    } catch (err) {
+                      console.error(err)
+                      alert('Unable to open sample PDF')
+                    }
+                  }}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface-2)',
+                    fontWeight: 900,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Download sample PDF
+                </button>
+                <button
+                  onClick={() => setPreviewOpen(false)}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    border: '1px solid var(--border)',
+                    background: 'var(--panel)',
+                    fontWeight: 900,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   )
 }
