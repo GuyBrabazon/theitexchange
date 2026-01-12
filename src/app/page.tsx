@@ -96,20 +96,11 @@ export default function Home() {
         fontFamily: 'var(--font-geist-sans, system-ui, sans-serif)',
       }}
     >
-      <style jsx global>{`
+      <style>{`
         @keyframes fadeGrow {
-          0% {
-            opacity: 0;
-            transform: translateY(12px) scaleY(0.7);
-          }
-          60% {
-            opacity: 0.8;
-            transform: translateY(2px) scaleY(1.05);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0) scaleY(1);
-          }
+          0% { opacity: 0; transform: translateY(12px) scaleY(0.7); }
+          60% { opacity: 0.8; transform: translateY(2px) scaleY(1.05); }
+          100% { opacity: 1; transform: translateY(0) scaleY(1); }
         }
       `}</style>
       <header
