@@ -94,11 +94,10 @@ function buildHtml() {
 export async function GET() {
   try {
     const html = buildHtml()
-    const executablePath = await chromium.executablePath()
     const browser = await playwright.launch({
       args: chromium.args,
-      executablePath,
-      headless: true,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
     })
     const page = await browser.newPage({ viewport: { width: 1280, height: 1800 } })
     await page.setContent(html, { waitUntil: 'networkidle' })
