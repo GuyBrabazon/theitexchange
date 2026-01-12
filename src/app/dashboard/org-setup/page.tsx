@@ -245,7 +245,7 @@ export default function OrgSetupPage() {
     setSuccess('')
     try {
       setUploadingLogo(true)
-      const bucket = 'public'
+      const bucket = 'logos'
       const path = `logos/${tenantId}/po-logo-${Date.now()}-${file.name}`
       const { error: upErr } = await supabase.storage.from(bucket).upload(path, file, {
         upsert: true,
