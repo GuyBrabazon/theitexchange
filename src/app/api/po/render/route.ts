@@ -34,6 +34,9 @@ function renderHtml(data: {
   headerText?: string | null
   logo?: string | null
   color?: string | null
+  invoiceEmail?: string | null
+  registeredAddress?: string | null
+  eori?: string | null
 }) {
   const total = data.lines.reduce((s, l) => s + l.qty * l.price, 0)
   const color = data.color || '#1E3A5F'
@@ -89,6 +92,9 @@ function renderHtml(data: {
       <div style="flex:1;">
         <div style="font-weight:700;">Supplier</div>
         <div class="muted">${data.tenantName}</div>
+        ${data.registeredAddress ? `<div class="muted">${data.registeredAddress.replace(/\n/g, '<br/>')}</div>` : ''}
+        ${data.eori ? `<div class="muted">EORI: ${data.eori}</div>` : ''}
+        ${data.invoiceEmail ? `<div class="muted">Accounts: ${data.invoiceEmail}</div>` : ''}
       </div>
       ${data.logo ? `<div style="flex:0 0 auto;"><img class="logo" src="${data.logo}" /></div>` : ''}
     </div>
@@ -134,6 +140,9 @@ export async function POST(req: NextRequest) {
     let headerText: string | null | undefined = 'Purchase Order'
     let logo: string | null | undefined = null
     let color: string | null | undefined = '#1E3A5F'
+    let invoiceEmail: string | null | undefined = null
+    let registeredAddress: string | null | undefined = null
+    let eori: string | null | undefined = null
 
     if (!isPreview) {
       if (!body.po_id) return NextResponse.json({ ok: false, message: 'po_id required' }, { status: 400 })
@@ -151,6 +160,9 @@ export async function POST(req: NextRequest) {
       headerText = (tsRow?.po_header as string) || headerText
       currency = (poRow.currency as string) || (tsRow?.default_currency as string) || currency
       poNumber = (poRow.po_number as string) || poNumber
+      invoiceEmail = (tsRow?.accounts_email as string) || null
+      registeredAddress = (tsRow?.registered_address as string) || null
+      eori = (tsRow?.eori as string) || null
 
       if (poRow.buyer_id) {
         const { data: buyerRow } = await supa.from('buyers').select('name,company').eq('id', poRow.buyer_id).maybeSingle()
@@ -182,6 +194,9 @@ export async function POST(req: NextRequest) {
       tenantName = 'Preview Supplier'
       buyerName = 'Preview Buyer'
       poNumber = 'PREVIEW-1000'
+      invoiceEmail = 'accounts@example.com'
+      registeredAddress = '123 Sample St\nCity\nCountry'
+      eori = 'GB123456789000'
     }
 
     const html = renderHtml({
@@ -195,6 +210,9 @@ export async function POST(req: NextRequest) {
       headerText,
       logo,
       color,
+      invoiceEmail,
+      registeredAddress,
+      eori,
     })
 
     const apiKeyRaw = process.env.PDFSHIFT_API_KEY
