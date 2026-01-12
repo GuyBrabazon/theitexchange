@@ -1,6 +1,4 @@
 import { NextResponse, NextRequest } from 'next/server'
-import { chromium as playwright } from 'playwright-core'
-import chromium from '@sparticuz/chromium'
 import { supabaseServer } from '@/lib/supabaseServer'
 
 export const runtime = 'nodejs'
@@ -199,15 +197,27 @@ export async function POST(req: NextRequest) {
       color,
     })
 
-    const browser = await playwright.launch({
-      args: chromium.args,
-      executablePath: await chromium.executablePath(),
-      headless: true,
+    const apiKey = process.env.PDFSHIFT_API_KEY
+    if (!apiKey) return NextResponse.json({ ok: false, message: 'PDFShift API key missing' }, { status: 500 })
+
+    const pdfRes = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Basic ' + Buffer.from(`${apiKey}:`).toString('base64'),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        source: html,
+        landscape: false,
+        use_print: true,
+      }),
     })
-    const page = await browser.newPage({ viewport: { width: 1280, height: 1800 } })
-    await page.setContent(html, { waitUntil: 'networkidle' })
-    const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '12mm', bottom: '12mm', left: '12mm', right: '12mm' } })
-    await browser.close()
+    if (!pdfRes.ok) {
+      const txt = await pdfRes.text()
+      throw new Error(`PDFShift error: ${pdfRes.status} ${txt}`)
+    }
+    const arrayBuffer = await pdfRes.arrayBuffer()
+    const pdfBuffer = Buffer.from(arrayBuffer)
 
     return new NextResponse(pdfBuffer as unknown as BodyInit, {
       status: 200,
