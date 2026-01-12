@@ -18,8 +18,8 @@ const metricCard = (label: string, value: string, detail: string, accent: string
   </div>
 )
 
-const barCard = (title: string, label: string, values: number[], color: string) => {
-  const max = Math.max(...values, 1)
+const barCard = (title: string, label: string, values: number[], color: string, maxCap?: number, maxLabel?: string) => {
+  const max = Math.max(maxCap ?? 0, ...values, 1)
   return (
     <div
       style={{
@@ -53,6 +53,10 @@ const barCard = (title: string, label: string, values: number[], color: string) 
             />
           </div>
         ))}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--muted)' }}>
+        <span>{maxLabel ? (maxLabel.startsWith('$') ? '$0' : '0') : '0'}</span>
+        <span>{maxLabel ?? max.toLocaleString()}</span>
       </div>
     </div>
   )
@@ -259,14 +263,18 @@ export default function Home() {
           'Revenue over time',
           'Monthly auction + quote conversions',
           [42, 48, 52, 61, 78, 105, 118, 123, 110, 96, 82, 75],
-          '#1E3A5F'
+          '#1E3A5F',
+          1_000_000,
+          '$1,000,000'
         )}
-        {barCard('Profit over time', 'Blended margin after costs', [12, 14, 16, 18, 24, 32, 34, 36, 30, 26, 22, 20], '#2F7F7A')}
+        {barCard('Profit over time', 'Blended margin after costs', [12, 14, 16, 18, 24, 32, 34, 36, 30, 26, 22, 20], '#2F7F7A', 1_000_000, '$1,000,000')}
         {barCard(
           'Lines sold',
           'Line-item awards (parts + systems)',
           [180, 190, 215, 240, 280, 330, 350, 360, 340, 320, 295, 285],
-          '#B23A3A'
+          '#B23A3A',
+          100_000,
+          '100,000'
         )}
       </section>
     </main>
