@@ -44,12 +44,18 @@ export default function BuyPage() {
   const [poCreating, setPoCreating] = useState(false)
   const [poCreated, setPoCreated] = useState(false)
   const [poDownloadLoading, setPoDownloadLoading] = useState(false)
+  const [poDropShip, setPoDropShip] = useState(false)
+  const [poShipTo, setPoShipTo] = useState('')
+  const [defaultShipTo, setDefaultShipTo] = useState('')
 
   useEffect(() => {
     const init = async () => {
       try {
         const profile = await ensureProfile()
         setTenantId(profile.tenant_id)
+        // fetch default ship-to from tenant settings (registered_address)
+        const { data: tsRow } = await supabase.from('tenant_settings').select('registered_address').eq('tenant_id', profile.tenant_id).maybeSingle()
+        setDefaultShipTo((tsRow?.registered_address as string) || '')
         const {
           data: { session },
         } = await supabase.auth.getSession()
@@ -354,7 +360,7 @@ export default function BuyPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontWeight: 900, fontSize: 18 }}>Create PO</div>
-                <div style={{ color: 'var(--muted)', fontSize: 12 }}>Select supplier and lines to include.</div>
+                <div style={{ color: 'var(--muted)', fontSize: 12 }}>Select supplier, ship-to, and lines to include.</div>
               </div>
               <button
                 onClick={() => {
@@ -370,6 +376,27 @@ export default function BuyPage() {
               >
                 Close
               </button>
+            </div>
+
+            <div style={{ display: 'grid', gap: 8 }}>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Ship to</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input type="checkbox" checked={poDropShip} onChange={(e) => setPoDropShip(e.target.checked)} />
+                <span style={{ fontSize: 12 }}>Drop ship</span>
+              </div>
+              {poDropShip ? (
+                <textarea
+                  value={poShipTo}
+                  onChange={(e) => setPoShipTo(e.target.value)}
+                  placeholder="Enter drop-ship address"
+                  rows={2}
+                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                />
+              ) : (
+                <div style={{ color: 'var(--muted)', fontSize: 12, whiteSpace: 'pre-wrap', border: '1px solid var(--border)', borderRadius: 10, padding: 8 }}>
+                  {defaultShipTo || 'Using your organisation billing/registered address.'}
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'grid', gap: 8 }}>
@@ -550,13 +577,15 @@ export default function BuyPage() {
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               <button
                 onClick={() => {
-                  setPoModalOpen(false)
-                  setPoCreated(false)
-                  setPoManualLines([])
-                  setPoManualPart('')
-                  setPoManualDesc('')
-                  setPoManualQty('1')
-                  setPoManualPrice('')
+                 setPoModalOpen(false)
+                 setPoCreated(false)
+                 setPoManualLines([])
+                 setPoManualPart('')
+                 setPoManualDesc('')
+                 setPoManualQty('1')
+                 setPoManualPrice('')
+                  setPoShipTo('')
+                  setPoDropShip(false)
                 }}
                 style={{
                   padding: '8px 10px',
@@ -590,12 +619,13 @@ export default function BuyPage() {
                     setPoCreating(true)
                     try {
                       // Placeholder for actual PO creation; we keep the modal open to show next actions.
-                      setPoCreated(true)
-                      alert(
-                        `PO created (draft).\nSupplier: ${poSelectedSupplier.name}\nLines: ${lines.length}\nTerms: ${
-                          poTerms || 'n/a'
-                        }\nNext: send or download.`
-                      )
+                     setPoCreated(true)
+                     alert(
+                       `PO created (draft).\nSupplier: ${poSelectedSupplier.name}\nLines: ${lines.length}\nTerms: ${
+                         poTerms || 'n/a'
+                       }\nNext: send or download.`
+                     )
+                      setPoShipTo(poDropShip ? poShipTo : defaultShipTo)
                     } catch (err) {
                       console.error(err)
                       alert(err instanceof Error ? err.message : 'Failed to create PO')
@@ -661,6 +691,7 @@ export default function BuyPage() {
                             buyer_name: poSelectedSupplier.name,
                             po_number: 'PO-DRAFT',
                             currency: undefined,
+                            ship_to: poDropShip ? poShipTo || undefined : poShipTo || defaultShipTo || undefined,
                             lines,
                             settings: { po_terms: poTerms || undefined },
                           }),

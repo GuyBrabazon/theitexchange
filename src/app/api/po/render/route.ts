@@ -11,6 +11,7 @@ type RenderRequest = {
   po_number?: string
   currency?: string
   lines?: Array<{ part?: string | null; desc: string; qty: number; price?: number }>
+  ship_to?: string | null
   settings?: Partial<{
     po_logo_path: string | null
     po_brand_color: string | null
@@ -231,6 +232,7 @@ export async function POST(req: NextRequest) {
     if (body.buyer_name) buyerName = body.buyer_name
     if (body.po_number) poNumber = body.po_number
     if (body.currency) currency = body.currency
+    if (body.ship_to) registeredAddress = body.ship_to
     color = s.po_brand_color || color
     background = s.po_brand_color_secondary || background
     logo = s.po_logo_path ?? logo
