@@ -55,12 +55,17 @@ export default function QuotesHistoryPage() {
         if (quotesErr) throw quotesErr
 
         setBuyers(
-          (buyersData ?? []).map((b) => ({
-            id: String((b as { id?: unknown }).id ?? ''),
-            name: (b as { name?: unknown }).name ?? null,
-            email: (b as { email?: unknown }).email ?? null,
-            company: (b as { company?: unknown }).company ?? null,
-          }))
+          (buyersData ?? []).map((b) => {
+            const nameVal = (b as { name?: unknown }).name
+            const emailVal = (b as { email?: unknown }).email
+            const companyVal = (b as { company?: unknown }).company
+            return {
+              id: String((b as { id?: unknown }).id ?? ''),
+              name: typeof nameVal === 'string' ? nameVal : null,
+              email: typeof emailVal === 'string' ? emailVal : null,
+              company: typeof companyVal === 'string' ? companyVal : null,
+            }
+          })
         )
 
         setQuotes(
