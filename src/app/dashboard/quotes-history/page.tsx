@@ -72,6 +72,9 @@ export default function QuotesHistoryPage() {
           (quotesData ?? []).map((q) => {
             const buyerRec = (q as { buyers?: Buyer }).buyers
             const linesRec = (q as { quote_lines?: QuoteLine[] }).quote_lines
+            const buyerName = (buyerRec as { name?: unknown })?.name
+            const buyerEmail = (buyerRec as { email?: unknown })?.email
+            const buyerCompany = (buyerRec as { company?: unknown })?.company
             return {
               id: String((q as { id?: unknown }).id ?? ''),
               subject: (q as { subject?: unknown }).subject == null ? null : String((q as { subject?: unknown }).subject),
@@ -81,9 +84,9 @@ export default function QuotesHistoryPage() {
               buyer: buyerRec
                 ? {
                     id: String((buyerRec as { id?: unknown }).id ?? ''),
-                    name: (buyerRec as { name?: unknown }).name ?? null,
-                    email: (buyerRec as { email?: unknown }).email ?? null,
-                    company: (buyerRec as { company?: unknown }).company ?? null,
+                    name: typeof buyerName === 'string' ? buyerName : null,
+                    email: typeof buyerEmail === 'string' ? buyerEmail : null,
+                    company: typeof buyerCompany === 'string' ? buyerCompany : null,
                   }
                 : null,
               lines: Array.isArray(linesRec)
