@@ -29,7 +29,10 @@ const barCard = (
   yPrefix?: string
 ) => {
   const max = Math.max(maxCap ?? 0, ...values, 1)
-  const months = xLabels && xLabels.length === values.length ? xLabels : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].slice(0, values.length)
+  const months =
+    xLabels && xLabels.length === values.length
+      ? xLabels
+      : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].slice(0, values.length)
   return (
     <div
       style={{
@@ -39,7 +42,7 @@ const barCard = (
         background: 'var(--panel)',
         boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
         display: 'grid',
-        gap: 8,
+        gap: 10,
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -49,27 +52,33 @@ const barCard = (
         </div>
         <div style={{ padding: '4px 8px', borderRadius: 8, background: 'var(--surface-2)', fontSize: 12, color }}>Snapshot</div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 160, paddingTop: 6, position: 'relative' }}>
-        <div style={{ position: 'absolute', left: 0, top: 0, fontSize: 11, color: 'var(--muted)' }}>
-          {yPrefix ?? ''}{maxLabel ?? max.toLocaleString()}
+      <div style={{ display: 'grid', gridTemplateColumns: '42px 1fr', gap: 8, alignItems: 'end', minHeight: 160 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: 140, fontSize: 11, color: 'var(--muted)' }}>
+          <span>
+            {yPrefix ?? ''}
+            {maxLabel ?? max.toLocaleString()}
+          </span>
+          <span>
+            {yPrefix ?? ''}
+            0
+          </span>
         </div>
-        <div style={{ position: 'absolute', left: 0, bottom: -2, fontSize: 11, color: 'var(--muted)' }}>
-          {yPrefix ?? ''}0
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 160 }}>
+          {values.map((v, idx) => (
+            <div key={idx} style={{ flex: 1, minWidth: 10 }}>
+              <div
+                style={{
+                  height: `${(v / max) * 120 + 6}px`,
+                  borderRadius: 8,
+                  background: `linear-gradient(180deg, ${color}, rgba(30,58,95,0.08))`,
+                  boxShadow: '0 6px 16px rgba(0,0,0,0.08)',
+                }}
+                title={`${months[idx] ?? ''}: ${(yPrefix ?? '')}${v.toLocaleString()}`}
+              />
+              <div style={{ textAlign: 'center', marginTop: 6, fontSize: 11, color: 'var(--muted)' }}>{months[idx] ?? ''}</div>
+            </div>
+          ))}
         </div>
-        {values.map((v, idx) => (
-          <div key={idx} style={{ flex: 1, minWidth: 10 }}>
-            <div
-              style={{
-                height: `${(v / max) * 120 + 6}px`,
-                borderRadius: 8,
-                background: `linear-gradient(180deg, ${color}, rgba(30,58,95,0.08))`,
-                boxShadow: '0 6px 16px rgba(0,0,0,0.08)',
-              }}
-              title={v.toLocaleString()}
-            />
-            <div style={{ textAlign: 'center', marginTop: 6, fontSize: 11, color: 'var(--muted)' }}>{months[idx] ?? ''}</div>
-          </div>
-        ))}
       </div>
     </div>
   )
@@ -275,7 +284,7 @@ export default function Home() {
         {barCard(
           'Revenue over time',
           'Monthly auction + quote conversions',
-          [42, 48, 52, 61, 78, 105, 118, 123, 110, 96, 82, 75],
+          [180_000, 240_000, 320_000, 410_000, 560_000, 720_000, 840_000, 910_000, 860_000, 780_000, 640_000, 520_000],
           '#1E3A5F',
           1_000_000,
           '$1,000,000',
@@ -285,7 +294,7 @@ export default function Home() {
         {barCard(
           'Profit over time',
           'Blended margin after costs',
-          [12, 14, 16, 18, 24, 32, 34, 36, 30, 26, 22, 20],
+          [55_000, 70_000, 92_000, 118_000, 150_000, 190_000, 215_000, 240_000, 210_000, 180_000, 140_000, 110_000],
           '#2F7F7A',
           1_000_000,
           '$1,000,000',
@@ -295,7 +304,7 @@ export default function Home() {
         {barCard(
           'Lines sold',
           'Line-item awards (parts + systems)',
-          [180, 190, 215, 240, 280, 330, 350, 360, 340, 320, 295, 285],
+          [18_500, 20_200, 22_400, 25_800, 32_500, 40_800, 44_300, 48_600, 45_200, 39_400, 31_800, 26_700],
           '#B23A3A',
           100_000,
           '100,000',
