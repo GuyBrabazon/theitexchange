@@ -540,20 +540,20 @@ export default function BuyPage() {
 
             <div style={{ display: 'grid', gap: 8 }}>
               <label style={{ fontSize: 12, color: 'var(--muted)' }}>Add lines (manual)</label>
-              <div style={{ display: 'grid', gap: 6, gridTemplateColumns: '0.8fr 1.2fr 0.4fr 0.6fr auto' }}>
+              <div style={{ display: 'grid', gap: 6, gridTemplateColumns: '0.8fr 1.2fr 0.4fr 0.6fr auto', alignItems: 'center' }}>
                 <input
                   type="text"
                   placeholder="Part number / SKU"
                   value={poManualPart}
                   onChange={(e) => setPoManualPart(e.target.value)}
-                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                  style={{ padding: '8px 10px', height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
                 />
-                <textarea
+                <input
+                  type="text"
                   value={poManualDesc}
                   onChange={(e) => setPoManualDesc(e.target.value)}
                   placeholder="Description"
-                  rows={2}
-                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                  style={{ padding: '8px 10px', height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
                 />
                 <input
                   type="number"
@@ -561,7 +561,7 @@ export default function BuyPage() {
                   value={poManualQty}
                   onChange={(e) => setPoManualQty(e.target.value)}
                   placeholder="Qty"
-                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                  style={{ padding: '8px 10px', height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
                 />
                 <input
                   type="number"
@@ -570,7 +570,7 @@ export default function BuyPage() {
                   value={poManualPrice}
                   onChange={(e) => setPoManualPrice(e.target.value)}
                   placeholder="Unit price"
-                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                  style={{ padding: '8px 10px', height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
                 />
                 <button
                   onClick={() => {
