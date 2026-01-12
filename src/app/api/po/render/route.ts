@@ -202,7 +202,7 @@ export async function POST(req: NextRequest) {
     const browser = await playwright.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
+      headless: true,
     })
     const page = await browser.newPage({ viewport: { width: 1280, height: 1800 } })
     await page.setContent(html, { waitUntil: 'networkidle' })
