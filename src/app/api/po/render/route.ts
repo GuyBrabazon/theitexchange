@@ -13,6 +13,9 @@ type RenderRequest = {
     po_terms: string | null
     po_header: string | null
     default_currency: string | null
+    accounts_email: string | null
+    registered_address: string | null
+    eori: string | null
   }>
 }
 
@@ -194,9 +197,9 @@ export async function POST(req: NextRequest) {
       tenantName = 'Preview Supplier'
       buyerName = 'Preview Buyer'
       poNumber = 'PREVIEW-1000'
-      invoiceEmail = 'accounts@example.com'
-      registeredAddress = '123 Sample St\nCity\nCountry'
-      eori = 'GB123456789000'
+      invoiceEmail = s.accounts_email ?? 'accounts@example.com'
+      registeredAddress = s.registered_address ?? '123 Sample St\nCity\nCountry'
+      eori = s.eori ?? 'GB123456789000'
     }
 
     const html = renderHtml({
