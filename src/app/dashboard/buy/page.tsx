@@ -33,8 +33,32 @@ export default function BuyPage() {
   const [authToken, setAuthToken] = useState<string | null>(null)
   const [poModalOpen, setPoModalOpen] = useState(false)
   const [poSupplierQuery, setPoSupplierQuery] = useState('')
-  const [poSupplierResults, setPoSupplierResults] = useState<Array<{ id: string; name: string; email: string | null }>>([])
-  const [poSelectedSupplier, setPoSelectedSupplier] = useState<{ id: string; name: string; email: string | null } | null>(null)
+  const [poSupplierResults, setPoSupplierResults] = useState<
+    Array<{
+      id: string
+      name: string
+      email: string | null
+      phone: string | null
+      address_line1?: string | null
+      address_line2?: string | null
+      city?: string | null
+      state?: string | null
+      country?: string | null
+      postcode?: string | null
+    }>
+  >([])
+  const [poSelectedSupplier, setPoSelectedSupplier] = useState<{
+    id: string
+    name: string
+    email: string | null
+    phone: string | null
+    address_line1?: string | null
+    address_line2?: string | null
+    city?: string | null
+    state?: string | null
+    country?: string | null
+    postcode?: string | null
+  } | null>(null)
   const [poManualPart, setPoManualPart] = useState('')
   const [poManualDesc, setPoManualDesc] = useState('')
   const [poManualQty, setPoManualQty] = useState('1')
@@ -485,7 +509,7 @@ export default function BuyPage() {
                     try {
                       const { data, error } = await supabase
                         .from('sellers')
-                        .select('id,name,email')
+                        .select('id,name,email,phone,address_line1,address_line2,city,state,country,postcode')
                         .ilike('name', `%${poSupplierQuery || ''}%`)
                         .limit(20)
                       if (error) throw error
@@ -494,6 +518,13 @@ export default function BuyPage() {
                           id: String(r.id),
                           name: (r.name as string) || 'Supplier',
                           email: (r.email as string | null) ?? null,
+                          phone: (r.phone as string | null) ?? null,
+                          address_line1: (r.address_line1 as string | null) ?? null,
+                          address_line2: (r.address_line2 as string | null) ?? null,
+                          city: (r.city as string | null) ?? null,
+                          state: (r.state as string | null) ?? null,
+                          country: (r.country as string | null) ?? null,
+                          postcode: (r.postcode as string | null) ?? null,
                         }))
                       )
                     } catch (err) {
@@ -529,6 +560,14 @@ export default function BuyPage() {
                   >
                     <div style={{ fontWeight: 800 }}>{s.name}</div>
                     <div style={{ color: 'var(--muted)', fontSize: 12 }}>{s.email || 'No email'}</div>
+                    {s.phone ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>Phone: {s.phone}</div> : null}
+                    {s.address_line1 || s.city || s.country ? (
+                      <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+                        {[s.address_line1, s.address_line2, s.city, s.state, s.country, s.postcode]
+                          .filter((v) => v && v.trim())
+                          .join(', ')}
+                      </div>
+                    ) : null}
                   </button>
                 ))}
                 {!poSupplierResults.length ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>No supplier results yet.</div> : null}
@@ -759,6 +798,11 @@ export default function BuyPage() {
                           qty: ln.qty ? Number(ln.qty) || 1 : 1,
                           price: ln.price ? Number(ln.price) || 0 : 0,
                         }))
+                        const supplierAddress = poSelectedSupplier
+                          ? [poSelectedSupplier.address_line1, poSelectedSupplier.address_line2, poSelectedSupplier.city, poSelectedSupplier.state, poSelectedSupplier.country, poSelectedSupplier.postcode]
+                              .filter((v) => v && v.trim())
+                              .join('\n') || undefined
+                          : undefined
                         const res = await fetch('/api/po/render', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
@@ -766,6 +810,8 @@ export default function BuyPage() {
                             preview: true,
                             tenant_id: tenantId || undefined,
                             buyer_name: poSelectedSupplier.name,
+                            buyer_address: supplierAddress,
+                            buyer_phone: poSelectedSupplier.phone || undefined,
                             po_number: 'PO-DRAFT',
                             currency: undefined,
                             ship_to:
