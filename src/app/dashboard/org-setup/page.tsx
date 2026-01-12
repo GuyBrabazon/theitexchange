@@ -38,6 +38,7 @@ export default function OrgSetupPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string>('')
   const [success, setSuccess] = useState<string>('')
+  const [uploadingLogo, setUploadingLogo] = useState(false)
 
   const [tenantId, setTenantId] = useState<string>('')
   const [tenantName, setTenantName] = useState<string>('')
@@ -238,6 +239,31 @@ export default function OrgSetupPage() {
     }
   }
 
+  const handleLogoUpload = async (file: File | null) => {
+    if (!file || !tenantId) return
+    setError('')
+    setSuccess('')
+    try {
+      setUploadingLogo(true)
+      const path = `logos/${tenantId}/po-logo-${Date.now()}-${file.name}`
+      const { error: upErr } = await supabase.storage.from('public').upload(path, file, {
+        upsert: true,
+        contentType: file.type,
+      })
+      if (upErr) throw upErr
+      const { data: pub } = supabase.storage.from('public').getPublicUrl(path)
+      const url = pub?.publicUrl
+      if (!url) throw new Error('Failed to get public URL for logo')
+      setSettings((prev) => ({ ...prev, po_logo_path: url }))
+      setSuccess('Logo uploaded and applied to PO template')
+    } catch (e) {
+      console.error(e)
+      setError(e instanceof Error ? e.message : 'Logo upload failed')
+    } finally {
+      setUploadingLogo(false)
+    }
+  }
+
   const previewPo = async () => {
     try {
       const res = await fetch('/api/po/render', {
@@ -399,6 +425,29 @@ export default function OrgSetupPage() {
                 placeholder="e.g. https://.../logo.png"
                 style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
               />
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <label
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: 10,
+                    border: '1px solid var(--border)',
+                    background: 'var(--panel)',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => handleLogoUpload(e.target.files?.[0] ?? null)}
+                  />
+                  {uploadingLogo ? 'Uploading…' : 'Upload logo'}
+                </label>
+                <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+                  Uploads to public storage and applies URL automatically.
+                </div>
+              </div>
             </div>
             <div style={{ display: 'grid', gap: 6 }}>
               <label style={{ fontSize: 12, color: 'var(--muted)' }}>Primary brand color</label>
