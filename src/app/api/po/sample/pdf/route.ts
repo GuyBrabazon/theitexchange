@@ -97,11 +97,11 @@ export async function GET() {
   try {
     const doc = buildSampleDoc()
     const buffer = await pdf(doc).toBuffer()
-    return new NextResponse(buffer, {
+    return new NextResponse(buffer as unknown as BodyInit, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': 'inline; filename=\"sample-po.pdf\"',
+        'Content-Disposition': 'inline; filename="sample-po.pdf"',
       },
     })
   } catch (e) {
