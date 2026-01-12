@@ -18,19 +18,8 @@ const metricCard = (label: string, value: string, detail: string, accent: string
   </div>
 )
 
-const lineCard = (title: string, label: string, values: number[], color: string) => {
+const barCard = (title: string, label: string, values: number[], color: string) => {
   const max = Math.max(...values, 1)
-  const width = 260
-  const height = 120
-  const step = width / Math.max(values.length - 1, 1)
-  const points = values
-    .map((v, i) => {
-      const x = i * step
-      const y = height - (v / max) * (height - 12)
-      return `${x},${y}`
-    })
-    .join(' ')
-  const midTrend = values[Math.floor(values.length / 2)] ?? 0
   return (
     <div
       style={{
@@ -48,20 +37,23 @@ const lineCard = (title: string, label: string, values: number[], color: string)
           <div style={{ fontWeight: 900 }}>{title}</div>
           <div style={{ color: 'var(--muted)', fontSize: 12 }}>{label}</div>
         </div>
-        <div style={{ padding: '4px 8px', borderRadius: 8, background: 'var(--surface-2)', fontSize: 12, color }}>
-          Mid-month lift {midTrend.toLocaleString()}
-        </div>
+        <div style={{ padding: '4px 8px', borderRadius: 8, background: 'var(--surface-2)', fontSize: 12, color }}>Snapshot</div>
       </div>
-      <svg width={width} height={height} style={{ maxWidth: '100%' }}>
-        <defs>
-          <linearGradient id={`grad-${title}`} x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor={color} stopOpacity="0.35" />
-            <stop offset="100%" stopColor={color} stopOpacity="0.05" />
-          </linearGradient>
-        </defs>
-        <polyline points={points} fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" />
-        <polygon points={`${points} ${width},${height} 0,${height}`} fill={`url(#grad-${title})`} opacity={0.5} />
-      </svg>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 140, paddingTop: 6 }}>
+        {values.map((v, idx) => (
+          <div key={idx} style={{ flex: 1, minWidth: 10 }}>
+            <div
+              style={{
+                height: `${(v / max) * 120 + 6}px`,
+                borderRadius: 8,
+                background: `linear-gradient(180deg, ${color}, rgba(30,58,95,0.08))`,
+                boxShadow: '0 6px 16px rgba(0,0,0,0.08)',
+              }}
+              title={v.toLocaleString()}
+            />
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -263,14 +255,14 @@ export default function Home() {
           padding: '0 8px 24px',
         }}
       >
-        {lineCard(
+        {barCard(
           'Revenue over time',
           'Monthly auction + quote conversions',
           [42, 48, 52, 61, 78, 105, 118, 123, 110, 96, 82, 75],
           '#1E3A5F'
         )}
-        {lineCard('Profit over time', 'Blended margin after costs', [12, 14, 16, 18, 24, 32, 34, 36, 30, 26, 22, 20], '#2F7F7A')}
-        {lineCard(
+        {barCard('Profit over time', 'Blended margin after costs', [12, 14, 16, 18, 24, 32, 34, 36, 30, 26, 22, 20], '#2F7F7A')}
+        {barCard(
           'Lines sold',
           'Line-item awards (parts + systems)',
           [180, 190, 215, 240, 280, 330, 350, 360, 340, 320, 295, 285],
