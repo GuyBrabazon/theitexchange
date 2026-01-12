@@ -238,42 +238,39 @@ export default function Home() {
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <div style={{ fontWeight: 900 }}>Live ops snapshot</div>
-              <div style={{ color: 'var(--muted)', fontSize: 12 }}>Mock data to show the experience</div>
+              <div style={{ fontWeight: 900 }}>Live RFQs</div>
+              <div style={{ color: 'var(--muted)', fontSize: 12 }}>Recent cross-tenant requests with quick context</div>
             </div>
-            <div style={{ padding: '6px 10px', borderRadius: 10, background: 'var(--surface-2)', fontSize: 12 }}>Auto-award on</div>
+            <div style={{ padding: '6px 10px', borderRadius: 10, background: 'var(--surface-2)', fontSize: 12 }}>3 waiting</div>
           </div>
-          <div style={{ height: 180, borderRadius: 12, background: 'linear-gradient(180deg, rgba(30,58,95,0.18), rgba(47,127,122,0.05))', position: 'relative' }}>
-            {[18, 36, 54, 72].map((h) => (
-              <div key={h} style={{ position: 'absolute', left: 0, right: 0, top: `${h}%`, borderTop: '1px dashed var(--border)' }} />
+          <div style={{ display: 'grid', gap: 8 }}>
+            {[
+              { customer: 'Delta Compute', part: 'Cisco N9K-C93180YC', qty: 12, status: 'Awaiting quote', age: '14m' },
+              { customer: 'NorthGrid', part: 'Dell R740xd (2x 6248R, 256GB)', qty: 6, status: 'Quoted $7,950', age: '32m' },
+              { customer: 'Skyline IT', part: 'Samsung PM9A3 3.84TB U.2', qty: 40, status: 'Awaiting quote', age: '55m' },
+            ].map((r, idx) => (
+              <div
+                key={idx}
+                style={{
+                  border: '1px solid var(--border)',
+                  borderRadius: 10,
+                  padding: 10,
+                  background: 'var(--surface-2)',
+                  display: 'grid',
+                  gap: 4,
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <div style={{ fontWeight: 800 }}>{r.customer}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{r.age} ago</div>
+                </div>
+                <div style={{ color: 'var(--muted)', fontSize: 13 }}>{r.part}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                  <span>Qty requested: <strong>{r.qty}</strong></span>
+                  <span style={{ color: '#1E3A5F', fontWeight: 700 }}>{r.status}</span>
+                </div>
+              </div>
             ))}
-            <div
-              style={{
-                position: 'absolute',
-                left: 10,
-                right: 10,
-                bottom: 18,
-                height: 80,
-                background: 'linear-gradient(135deg, rgba(47,127,122,0.35), rgba(30,58,95,0.55))',
-                borderRadius: 12,
-                boxShadow: '0 15px 35px rgba(0,0,0,0.15)',
-              }}
-            />
-            <div style={{ position: 'absolute', bottom: 22, left: 18, color: '#fff', fontWeight: 800 }}>Awarded lot #482</div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
-            <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 10, background: 'var(--surface-2)' }}>
-              <div style={{ color: 'var(--muted)', fontSize: 12 }}>Invites sent</div>
-              <div style={{ fontWeight: 900, fontSize: 18 }}>38</div>
-            </div>
-            <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 10, background: 'var(--surface-2)' }}>
-              <div style={{ color: 'var(--muted)', fontSize: 12 }}>Offers collected</div>
-              <div style={{ fontWeight: 900, fontSize: 18 }}>124</div>
-            </div>
-            <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 10, background: 'var(--surface-2)' }}>
-              <div style={{ color: 'var(--muted)', fontSize: 12 }}>POs uploaded</div>
-              <div style={{ fontWeight: 900, fontSize: 18 }}>19</div>
-            </div>
           </div>
         </div>
       </section>
