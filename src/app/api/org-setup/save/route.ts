@@ -31,6 +31,9 @@ export async function POST(req: Request) {
         po_header?: string | null
         po_number_start?: number | null
         po_number_current?: number | null
+        accounts_email?: string | null
+        registered_address?: string | null
+        eori?: string | null
       }
     }
 
@@ -66,6 +69,9 @@ export async function POST(req: Request) {
             po_header: body.settings.po_header ?? null,
             po_number_start: body.settings.po_number_start ?? null,
             po_number_current: body.settings.po_number_current ?? null,
+            accounts_email: body.settings.accounts_email ?? null,
+            registered_address: body.settings.registered_address ?? null,
+            eori: body.settings.eori ?? null,
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'tenant_id' }
