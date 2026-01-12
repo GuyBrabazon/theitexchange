@@ -35,12 +35,9 @@ export default function BuyPage() {
   const [poSupplierQuery, setPoSupplierQuery] = useState('')
   const [poSupplierResults, setPoSupplierResults] = useState<Array<{ id: string; name: string; email: string | null }>>([])
   const [poSelectedSupplier, setPoSelectedSupplier] = useState<{ id: string; name: string; email: string | null } | null>(null)
-  const [poItemQuery, setPoItemQuery] = useState('')
-  const [poItemResults, setPoItemResults] = useState<Array<{ id: string; model: string | null; description: string | null }>>([])
-  const [poSelectedItems, setPoSelectedItems] = useState<Record<string, { qty: string }>>({})
-  const [poManual, setPoManual] = useState(false)
   const [poManualDesc, setPoManualDesc] = useState('')
   const [poManualQty, setPoManualQty] = useState('1')
+  const [poManualLines, setPoManualLines] = useState<Array<{ desc: string; qty: string }>>([])
   const [poTerms, setPoTerms] = useState('')
   const [poCreating, setPoCreating] = useState(false)
 
@@ -432,35 +429,29 @@ export default function BuyPage() {
             </div>
 
             <div style={{ display: 'grid', gap: 8 }}>
-              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Add equipment</label>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Add lines (manual)</label>
+              <div style={{ display: 'grid', gap: 6, gridTemplateColumns: '1.4fr 0.4fr auto' }}>
+                <textarea
+                  value={poManualDesc}
+                  onChange={(e) => setPoManualDesc(e.target.value)}
+                  placeholder="Description"
+                  rows={3}
+                  style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                />
                 <input
-                  type="text"
-                  placeholder="Search inventory"
-                  value={poItemQuery}
-                  onChange={(e) => setPoItemQuery(e.target.value)}
-                  style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', minWidth: 260 }}
+                  type="number"
+                  min={1}
+                  value={poManualQty}
+                  onChange={(e) => setPoManualQty(e.target.value)}
+                  placeholder="Qty"
+                  style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
                 />
                 <button
-                  onClick={async () => {
-                    try {
-                      const { data, error } = await supabase
-                        .from('inventory_items')
-                        .select('id,model,description')
-                        .or(`model.ilike.%${poItemQuery || ''}%,description.ilike.%${poItemQuery || ''}%`)
-                        .limit(30)
-                      if (error) throw error
-                      setPoItemResults(
-                        (data || []).map((r) => ({
-                          id: String(r.id),
-                          model: (r.model as string | null) ?? null,
-                          description: (r.description as string | null) ?? null,
-                        }))
-                      )
-                    } catch (err) {
-                      console.error(err)
-                      alert(err instanceof Error ? err.message : 'Inventory search failed')
-                    }
+                  onClick={() => {
+                    if (!poManualDesc.trim()) return
+                    setPoManualLines((prev) => [...prev, { desc: poManualDesc.trim(), qty: poManualQty || '1' }])
+                    setPoManualDesc('')
+                    setPoManualQty('1')
                   }}
                   style={{
                     padding: '10px 12px',
@@ -469,20 +460,20 @@ export default function BuyPage() {
                     background: 'var(--panel)',
                     fontWeight: 800,
                     cursor: 'pointer',
+                    height: '100%',
                   }}
                 >
-                  Search items
+                  Add line
                 </button>
               </div>
-
               <div style={{ display: 'grid', gap: 6, maxHeight: 200, overflow: 'auto' }}>
-                {poItemResults.map((item) => (
+                {poManualLines.map((ln, idx) => (
                   <div
-                    key={item.id}
+                    key={`${ln.desc}-${idx}`}
                     style={{
                       display: 'grid',
-                      gap: 6,
-                      gridTemplateColumns: '1fr 120px',
+                      gridTemplateColumns: '1fr 120px auto',
+                      gap: 8,
                       alignItems: 'center',
                       padding: '8px 10px',
                       borderRadius: 10,
@@ -490,67 +481,24 @@ export default function BuyPage() {
                       background: 'var(--panel)',
                     }}
                   >
-                    <div>
-                      <div style={{ fontWeight: 800 }}>{item.model || item.description || 'Item'}</div>
-                      <div style={{ color: 'var(--muted)', fontSize: 12 }}>{item.description || 'No description'}</div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                      <input
-                        type="number"
-                        min={1}
-                        value={poSelectedItems[item.id]?.qty ?? '1'}
-                        onChange={(e) => setPoSelectedItems((prev) => ({ ...prev, [item.id]: { qty: e.target.value } }))}
-                        style={{ width: 70, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
-                      />
-                      <button
-                        onClick={() =>
-                          setPoSelectedItems((prev) => {
-                            const next = { ...prev }
-                            if (next[item.id]) delete next[item.id]
-                            else next[item.id] = { qty: '1' }
-                            return next
-                          })
-                        }
-                        style={{
-                          padding: '6px 8px',
-                          borderRadius: 8,
-                          border: '1px solid var(--border)',
-                          background: poSelectedItems[item.id] ? 'var(--accent)' : 'var(--panel)',
-                          color: poSelectedItems[item.id] ? '#fff' : 'var(--text)',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {poSelectedItems[item.id] ? 'Remove' : 'Add'}
-                      </button>
-                    </div>
+                    <div style={{ color: 'var(--text)' }}>{ln.desc}</div>
+                    <div style={{ textAlign: 'right', fontWeight: 800 }}>{ln.qty}</div>
+                    <button
+                      onClick={() => setPoManualLines((prev) => prev.filter((_, i) => i !== idx))}
+                      style={{
+                        padding: '6px 8px',
+                        borderRadius: 8,
+                        border: '1px solid var(--border)',
+                        background: 'var(--panel)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Remove
+                    </button>
                   </div>
                 ))}
-                {!poItemResults.length ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>No inventory results yet.</div> : null}
+                {!poManualLines.length ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>No lines yet. Add at least one line.</div> : null}
               </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                <input type="checkbox" checked={poManual} onChange={(e) => setPoManual(e.target.checked)} />
-                <span style={{ fontSize: 12 }}>Item not in inventory (enter manually)</span>
-              </div>
-              {poManual ? (
-                <div style={{ display: 'grid', gap: 6, gridTemplateColumns: '1.4fr 0.4fr' }}>
-                  <textarea
-                    value={poManualDesc}
-                    onChange={(e) => setPoManualDesc(e.target.value)}
-                    placeholder="Description"
-                    rows={3}
-                    style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
-                  />
-                  <input
-                    type="number"
-                    min={1}
-                    value={poManualQty}
-                    onChange={(e) => setPoManualQty(e.target.value)}
-                    placeholder="Qty"
-                    style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
-                  />
-                </div>
-              ) : null}
             </div>
 
             <div style={{ display: 'grid', gap: 6 }}>
@@ -579,23 +527,20 @@ export default function BuyPage() {
                 Cancel
               </button>
               <button
-                disabled={poCreating || !poSelectedSupplier}
+                disabled={poCreating || !poSelectedSupplier || poManualLines.length === 0}
                 onClick={async () => {
                   if (!poSelectedSupplier) {
                     alert('Select a supplier first.')
                     return
                   }
-                  const lines: Array<{ desc: string; qty: number }> = []
-                  Object.entries(poSelectedItems).forEach(([id, meta]) => {
-                    const found = poItemResults.find((i) => i.id === id)
-                    lines.push({
-                      desc: found?.description || found?.model || 'Item',
-                      qty: meta.qty ? Number(meta.qty) || 1 : 1,
-                    })
-                  })
-                  if (poManual && poManualDesc.trim()) {
-                    lines.push({ desc: poManualDesc.trim(), qty: Number(poManualQty) || 1 })
+                  if (!poManualLines.length) {
+                    alert('Add at least one line.')
+                    return
                   }
+                  const lines: Array<{ desc: string; qty: number }> = poManualLines.map((ln) => ({
+                    desc: ln.desc,
+                    qty: ln.qty ? Number(ln.qty) || 1 : 1,
+                  }))
                   setPoCreating(true)
                   try {
                     // Placeholder for actual PO creation.
@@ -603,6 +548,9 @@ export default function BuyPage() {
                       `PO created (draft).\nSupplier: ${poSelectedSupplier.name}\nLines: ${lines.length}\nTerms: ${poTerms || 'n/a'}\nNext step: send via email or download.`
                     )
                     setPoModalOpen(false)
+                    setPoManualLines([])
+                    setPoManualDesc('')
+                    setPoManualQty('1')
                   } catch (err) {
                     console.error(err)
                     alert(err instanceof Error ? err.message : 'Failed to create PO')
