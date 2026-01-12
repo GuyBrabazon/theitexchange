@@ -39,12 +39,14 @@ function renderHtml(data: {
   headerText?: string | null
   logo?: string | null
   color?: string | null
+  background?: string | null
   invoiceEmail?: string | null
   registeredAddress?: string | null
   eori?: string | null
 }) {
   const total = data.lines.reduce((s, l) => s + l.qty * l.price, 0)
   const color = data.color || '#1E3A5F'
+  const background = data.background || '#ffffff'
   const lineRows = data.lines
     .map(
       (l) => `
@@ -63,7 +65,7 @@ function renderHtml(data: {
 <head>
   <meta charset="utf-8" />
   <style>
-    body { font-family: 'Inter', Arial, sans-serif; margin: 0; padding: 24px; color: #1f2933; }
+    body { font-family: 'Inter', Arial, sans-serif; margin: 0; padding: 24px; color: #1f2933; background: ${background}; }
     .card { border: 1px solid #d6dce3; border-radius: 12px; padding: 20px; }
     .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
     .header { font-size: 22px; font-weight: 800; color: ${color}; margin: 0; }
@@ -92,15 +94,15 @@ function renderHtml(data: {
     </div>
     <div style="display:flex; gap:16px; margin-top:12px;">
       <div style="flex:1;">
-        <div style="font-weight:700;">Buyer</div>
-        <div class="muted">${data.buyerName}</div>
-      </div>
-      <div style="flex:1;">
-        <div style="font-weight:700;">Supplier</div>
+        <div style="font-weight:700;">Deliver to</div>
         <div class="muted">${data.tenantName}</div>
         ${data.registeredAddress ? `<div class="muted">${data.registeredAddress.replace(/\n/g, '<br/>')}</div>` : ''}
         ${data.eori ? `<div class="muted">EORI: ${data.eori}</div>` : ''}
         ${data.invoiceEmail ? `<div class="muted">Accounts: ${data.invoiceEmail}</div>` : ''}
+      </div>
+      <div style="flex:1;">
+        <div style="font-weight:700;">Supplier</div>
+        <div class="muted">${data.buyerName}</div>
       </div>
       ${data.logo ? `<div style="flex:0 0 auto;"><img class="logo" src="${data.logo}" /></div>` : ''}
     </div>
@@ -147,6 +149,7 @@ export async function POST(req: NextRequest) {
   let headerText: string | null | undefined = 'Purchase Order'
   let logo: string | null | undefined = null
   let color: string | null | undefined = '#1E3A5F'
+  let background: string | null | undefined = '#ffffff'
   let invoiceEmail: string | null | undefined = null
   let registeredAddress: string | null | undefined = null
   let eori: string | null | undefined = null
@@ -163,6 +166,7 @@ export async function POST(req: NextRequest) {
     const { data: tRow } = await supa.from('tenants').select('name').eq('id', tenantId).maybeSingle()
     tenantName = (tRow?.name as string) || tenantName
     color = (tsRow?.po_brand_color as string) ?? color
+    background = (tsRow?.po_brand_color_secondary as string) ?? background
     logo = (tsRow?.po_logo_path as string) ?? null
     terms = (tsRow?.po_terms as string) ?? terms
     headerText = (tsRow?.po_header as string) ?? headerText
@@ -198,6 +202,7 @@ export async function POST(req: NextRequest) {
       const { data: tRow } = await supa.from('tenants').select('name').eq('id', body.tenant_id).maybeSingle()
       tenantName = (tRow?.name as string) || tenantName
       color = (tsRow?.po_brand_color as string) ?? color
+      background = (tsRow?.po_brand_color_secondary as string) ?? background
       logo = (tsRow?.po_logo_path as string) ?? logo
       terms = (tsRow?.po_terms as string) ?? terms
       headerText = (tsRow?.po_header as string) ?? headerText
@@ -210,6 +215,7 @@ export async function POST(req: NextRequest) {
     // override with supplied settings if provided
     const s = body.settings || {}
     color = s.po_brand_color ?? color
+    background = s.po_brand_color_secondary ?? background
     logo = s.po_logo_path ?? logo
     terms = s.po_terms ?? terms
     headerText = s.po_header ?? headerText
@@ -235,6 +241,7 @@ export async function POST(req: NextRequest) {
       headerText,
       logo,
       color,
+      background,
       invoiceEmail,
       registeredAddress,
       eori,

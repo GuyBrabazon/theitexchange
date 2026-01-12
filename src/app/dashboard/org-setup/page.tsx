@@ -451,7 +451,7 @@ export default function OrgSetupPage() {
               </div>
             </div>
             <div style={{ display: 'grid', gap: 6 }}>
-              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Primary brand color</label>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Font color</label>
               <input
                 type="color"
                 value={settings.po_brand_color || '#1e3a5f'}
@@ -460,7 +460,7 @@ export default function OrgSetupPage() {
               />
             </div>
             <div style={{ display: 'grid', gap: 6 }}>
-              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Secondary brand color</label>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Background color</label>
               <input
                 type="color"
                 value={settings.po_brand_color_secondary || '#2f7f7a'}
