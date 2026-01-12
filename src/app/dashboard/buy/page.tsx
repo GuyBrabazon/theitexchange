@@ -35,9 +35,11 @@ export default function BuyPage() {
   const [poSupplierQuery, setPoSupplierQuery] = useState('')
   const [poSupplierResults, setPoSupplierResults] = useState<Array<{ id: string; name: string; email: string | null }>>([])
   const [poSelectedSupplier, setPoSelectedSupplier] = useState<{ id: string; name: string; email: string | null } | null>(null)
+  const [poManualPart, setPoManualPart] = useState('')
   const [poManualDesc, setPoManualDesc] = useState('')
   const [poManualQty, setPoManualQty] = useState('1')
-  const [poManualLines, setPoManualLines] = useState<Array<{ desc: string; qty: string }>>([])
+  const [poManualPrice, setPoManualPrice] = useState('')
+  const [poManualLines, setPoManualLines] = useState<Array<{ part: string; desc: string; qty: string; price: string }>>([])
   const [poTerms, setPoTerms] = useState('')
   const [poCreating, setPoCreating] = useState(false)
 
@@ -430,7 +432,14 @@ export default function BuyPage() {
 
             <div style={{ display: 'grid', gap: 8 }}>
               <label style={{ fontSize: 12, color: 'var(--muted)' }}>Add lines (manual)</label>
-              <div style={{ display: 'grid', gap: 6, gridTemplateColumns: '1.4fr 0.4fr auto' }}>
+              <div style={{ display: 'grid', gap: 6, gridTemplateColumns: '0.8fr 1.2fr 0.4fr 0.6fr auto' }}>
+                <input
+                  type="text"
+                  placeholder="Part number / SKU"
+                  value={poManualPart}
+                  onChange={(e) => setPoManualPart(e.target.value)}
+                  style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                />
                 <textarea
                   value={poManualDesc}
                   onChange={(e) => setPoManualDesc(e.target.value)}
@@ -446,12 +455,26 @@ export default function BuyPage() {
                   placeholder="Qty"
                   style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
                 />
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={poManualPrice}
+                  onChange={(e) => setPoManualPrice(e.target.value)}
+                  placeholder="Unit price"
+                  style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                />
                 <button
                   onClick={() => {
                     if (!poManualDesc.trim()) return
-                    setPoManualLines((prev) => [...prev, { desc: poManualDesc.trim(), qty: poManualQty || '1' }])
+                    setPoManualLines((prev) => [
+                      ...prev,
+                      { part: poManualPart.trim(), desc: poManualDesc.trim(), qty: poManualQty || '1', price: poManualPrice || '' },
+                    ])
+                    setPoManualPart('')
                     setPoManualDesc('')
                     setPoManualQty('1')
+                    setPoManualPrice('')
                   }}
                   style={{
                     padding: '10px 12px',
@@ -472,7 +495,7 @@ export default function BuyPage() {
                     key={`${ln.desc}-${idx}`}
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '1fr 120px auto',
+                      gridTemplateColumns: '0.8fr 1.2fr 0.4fr 0.6fr auto',
                       gap: 8,
                       alignItems: 'center',
                       padding: '8px 10px',
@@ -481,8 +504,10 @@ export default function BuyPage() {
                       background: 'var(--panel)',
                     }}
                   >
+                    <div style={{ color: 'var(--text)', fontWeight: 700 }}>{ln.part || '—'}</div>
                     <div style={{ color: 'var(--text)' }}>{ln.desc}</div>
                     <div style={{ textAlign: 'right', fontWeight: 800 }}>{ln.qty}</div>
+                    <div style={{ textAlign: 'right', fontWeight: 800 }}>{ln.price ? Number(ln.price || 0).toFixed(2) : '0.00'}</div>
                     <button
                       onClick={() => setPoManualLines((prev) => prev.filter((_, i) => i !== idx))}
                       style={{
@@ -537,25 +562,29 @@ export default function BuyPage() {
                     alert('Add at least one line.')
                     return
                   }
-                  const lines: Array<{ desc: string; qty: number }> = poManualLines.map((ln) => ({
-                    desc: ln.desc,
-                    qty: ln.qty ? Number(ln.qty) || 1 : 1,
-                  }))
-                  setPoCreating(true)
-                  try {
-                    // Placeholder for actual PO creation.
-                    alert(
+                const lines: Array<{ part: string; desc: string; qty: number; price: number }> = poManualLines.map((ln) => ({
+                  part: ln.part,
+                  desc: ln.desc,
+                  qty: ln.qty ? Number(ln.qty) || 1 : 1,
+                  price: ln.price ? Number(ln.price) || 0 : 0,
+                }))
+                setPoCreating(true)
+                try {
+                  // Placeholder for actual PO creation.
+                  alert(
                       `PO created (draft).\nSupplier: ${poSelectedSupplier.name}\nLines: ${lines.length}\nTerms: ${poTerms || 'n/a'}\nNext step: send via email or download.`
-                    )
-                    setPoModalOpen(false)
-                    setPoManualLines([])
-                    setPoManualDesc('')
-                    setPoManualQty('1')
-                  } catch (err) {
-                    console.error(err)
-                    alert(err instanceof Error ? err.message : 'Failed to create PO')
-                  } finally {
-                    setPoCreating(false)
+                  )
+                  setPoModalOpen(false)
+                  setPoManualLines([])
+                  setPoManualPart('')
+                  setPoManualDesc('')
+                  setPoManualQty('1')
+                  setPoManualPrice('')
+                } catch (err) {
+                  console.error(err)
+                  alert(err instanceof Error ? err.message : 'Failed to create PO')
+                } finally {
+                  setPoCreating(false)
                   }
                 }}
                 style={{
