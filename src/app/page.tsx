@@ -278,6 +278,92 @@ export default function Home() {
       <section
         style={{
           maxWidth: 1180,
+          margin: '24px auto 0',
+          display: 'grid',
+          gridTemplateColumns: '2fr 1fr',
+          gap: 14,
+          padding: '0 8px',
+        }}
+      >
+        <div
+          style={{
+            border: '1px solid var(--border)',
+            borderRadius: 16,
+            background: 'var(--panel)',
+            padding: 14,
+            boxShadow: '0 12px 30px rgba(0,0,0,0.08)',
+            display: 'grid',
+            gap: 10,
+          }}
+        >
+          <div style={{ fontWeight: 900 }}>Pipeline snapshots</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+            {[
+              { title: 'Needs invites', value: '7 lots', detail: 'Draft lots waiting for buyer list', color: '#1E3A5F' },
+              { title: 'Offers to review', value: '18 offers', detail: 'Take-all + line offers pending', color: '#2F7F7A' },
+              { title: 'Awaiting PO', value: '6 lots', detail: 'Awarded, waiting on buyer PO', color: '#C88719' },
+              { title: 'Sale in progress', value: '4 lots', detail: 'PO received, shipping/fulfilment', color: '#2E7D32' },
+            ].map((c) => (
+              <div
+                key={c.title}
+                style={{
+                  border: '1px solid var(--border)',
+                  borderRadius: 12,
+                  padding: 12,
+                  background: 'var(--surface-2)',
+                  display: 'grid',
+                  gap: 4,
+                  boxShadow: '0 8px 20px rgba(0,0,0,0.06)',
+                }}
+              >
+                <div style={{ fontWeight: 800 }}>{c.title}</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: c.color }}>{c.value}</div>
+                <div style={{ color: 'var(--muted)', fontSize: 12 }}>{c.detail}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div
+          style={{
+            border: '1px solid var(--border)',
+            borderRadius: 16,
+            background: 'var(--panel)',
+            padding: 14,
+            boxShadow: '0 12px 30px rgba(0,0,0,0.08)',
+            display: 'grid',
+            gap: 10,
+          }}
+        >
+          <div style={{ fontWeight: 900 }}>Recent activity</div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {[
+              'Awarded lot #512 to Apex Systems (take-all)',
+              'PO uploaded by Delta Compute for lot #499',
+              'New invite sent to Skyline IT for lot #521',
+              'RFQ response quoted to NorthGrid (Dell R740xd)',
+            ].map((item, idx) => (
+              <div
+                key={idx}
+                style={{
+                  border: '1px solid var(--border)',
+                  borderRadius: 10,
+                  padding: 10,
+                  background: 'var(--surface-2)',
+                  fontSize: 13,
+                  color: 'var(--text)',
+                }}
+              >
+                {item}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section
+        style={{
+          maxWidth: 1180,
           margin: '32px auto 0',
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
