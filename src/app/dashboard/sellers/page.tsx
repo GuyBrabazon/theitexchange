@@ -11,6 +11,12 @@ type SellerRow = {
   company: string | null
   email: string | null
   phone: string | null
+  address_line1?: string | null
+  address_line2?: string | null
+  city?: string | null
+  state?: string | null
+  country?: string | null
+  postcode?: string | null
   notes: string | null
   created_at: string | null
   updated_at: string | null
@@ -22,6 +28,12 @@ type EditDraft = {
   company: string
   email: string
   phone: string
+  address_line1: string
+  address_line2: string
+  city: string
+  state: string
+  country: string
+  postcode: string
   notes: string
 }
 
@@ -125,6 +137,12 @@ export default function SuppliersPage() {
     company: '',
     email: '',
     phone: '',
+    address_line1: '',
+    address_line2: '',
+    city: '',
+    state: '',
+    country: '',
+    postcode: '',
     notes: '',
   })
 
@@ -136,7 +154,9 @@ export default function SuppliersPage() {
     try {
       const { data, error } = await supabase
         .from('sellers')
-        .select('id,tenant_id,name,company,email,phone,notes,created_at,updated_at')
+        .select(
+          'id,tenant_id,name,company,email,phone,address_line1,address_line2,city,state,country,postcode,notes,created_at,updated_at'
+        )
         .eq('tenant_id', tid)
         .order('created_at', { ascending: false })
 
@@ -178,7 +198,19 @@ export default function SuppliersPage() {
   }, [rows, q])
 
   const openCreate = () => {
-    setDraft({ name: '', company: '', email: '', phone: '', notes: '' })
+    setDraft({
+      name: '',
+      company: '',
+      email: '',
+      phone: '',
+      address_line1: '',
+      address_line2: '',
+      city: '',
+      state: '',
+      country: '',
+      postcode: '',
+      notes: '',
+    })
     setModalOpen(true)
   }
 
@@ -189,6 +221,12 @@ export default function SuppliersPage() {
       company: r.company ?? '',
       email: r.email ?? '',
       phone: r.phone ?? '',
+      address_line1: r.address_line1 ?? '',
+      address_line2: r.address_line2 ?? '',
+      city: r.city ?? '',
+      state: r.state ?? '',
+      country: r.country ?? '',
+      postcode: r.postcode ?? '',
       notes: r.notes ?? '',
     })
     setModalOpen(true)
@@ -215,6 +253,12 @@ export default function SuppliersPage() {
         company: safeStr(draft.company) || null,
         email: safeStr(draft.email) || null,
         phone: safeStr(draft.phone) || null,
+        address_line1: safeStr(draft.address_line1) || null,
+        address_line2: safeStr(draft.address_line2) || null,
+        city: safeStr(draft.city) || null,
+        state: safeStr(draft.state) || null,
+        country: safeStr(draft.country) || null,
+        postcode: safeStr(draft.postcode) || null,
         notes: safeStr(draft.notes) || null,
       }
 
@@ -477,16 +521,109 @@ export default function SuppliersPage() {
                 border: '1px solid var(--border)',
                 borderRadius: 12,
                 background: 'var(--panel)',
+              color: 'var(--text)',
+            }}
+          />
+        </div>
+
+        <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Street address 1</div>
+            <input
+              value={draft.address_line1}
+              onChange={(e) => setDraft((p) => ({ ...p, address_line1: e.target.value }))}
+              style={{
+                width: '100%',
+                padding: 10,
+                border: '1px solid var(--border)',
+                borderRadius: 12,
+                background: 'var(--panel)',
                 color: 'var(--text)',
               }}
             />
           </div>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Street address 2</div>
+            <input
+              value={draft.address_line2}
+              onChange={(e) => setDraft((p) => ({ ...p, address_line2: e.target.value }))}
+              style={{
+                width: '100%',
+                padding: 10,
+                border: '1px solid var(--border)',
+                borderRadius: 12,
+                background: 'var(--panel)',
+                color: 'var(--text)',
+              }}
+            />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Town/City</div>
+            <input
+              value={draft.city}
+              onChange={(e) => setDraft((p) => ({ ...p, city: e.target.value }))}
+              style={{
+                width: '100%',
+                padding: 10,
+                border: '1px solid var(--border)',
+                borderRadius: 12,
+                background: 'var(--panel)',
+                color: 'var(--text)',
+              }}
+            />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>County/State</div>
+            <input
+              value={draft.state}
+              onChange={(e) => setDraft((p) => ({ ...p, state: e.target.value }))}
+              style={{
+                width: '100%',
+                padding: 10,
+                border: '1px solid var(--border)',
+                borderRadius: 12,
+                background: 'var(--panel)',
+                color: 'var(--text)',
+              }}
+            />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Country</div>
+            <input
+              value={draft.country}
+              onChange={(e) => setDraft((p) => ({ ...p, country: e.target.value }))}
+              style={{
+                width: '100%',
+                padding: 10,
+                border: '1px solid var(--border)',
+                borderRadius: 12,
+                background: 'var(--panel)',
+                color: 'var(--text)',
+              }}
+            />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Zip/Post code</div>
+            <input
+              value={draft.postcode}
+              onChange={(e) => setDraft((p) => ({ ...p, postcode: e.target.value }))}
+              style={{
+                width: '100%',
+                padding: 10,
+                border: '1px solid var(--border)',
+                borderRadius: 12,
+                background: 'var(--panel)',
+                color: 'var(--text)',
+              }}
+            />
+          </div>
+        </div>
 
-          <div style={{ gridColumn: '1 / -1' }}>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Notes</div>
-            <textarea
-              value={draft.notes}
-              onChange={(e) => setDraft((p) => ({ ...p, notes: e.target.value }))}
+        <div style={{ gridColumn: '1 / -1' }}>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Notes</div>
+          <textarea
+            value={draft.notes}
+            onChange={(e) => setDraft((p) => ({ ...p, notes: e.target.value }))}
               placeholder="Internal notes (payment behavior, pickup terms, preferred comms, etc.)"
               rows={4}
               style={{

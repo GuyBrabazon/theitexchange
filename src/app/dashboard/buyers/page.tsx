@@ -12,6 +12,12 @@ type BuyerRow = {
   email: string | null
   company: string | null
   phone: string | null
+  address_line1?: string | null
+  address_line2?: string | null
+  city?: string | null
+  state?: string | null
+  country?: string | null
+  postcode?: string | null
   tags: string[] | null
   credit_ok: boolean | null
   reliability_score: number | null
@@ -147,6 +153,12 @@ export default function CustomersPage() {
   const [fCreditOk, setFCreditOk] = useState<boolean>(true)
   const [fReliability, setFReliability] = useState<string>('') // keep as string for input
   const [fTerms, setFTerms] = useState('')
+  const [fAddr1, setFAddr1] = useState('')
+  const [fAddr2, setFAddr2] = useState('')
+  const [fCity, setFCity] = useState('')
+  const [fState, setFState] = useState('')
+  const [fCountry, setFCountry] = useState('')
+  const [fPostcode, setFPostcode] = useState('')
 
   const openCreate = () => {
     setEditBuyer(null)
@@ -158,6 +170,12 @@ export default function CustomersPage() {
     setFCreditOk(true)
     setFReliability('')
     setFTerms('')
+    setFAddr1('')
+    setFAddr2('')
+    setFCity('')
+    setFState('')
+    setFCountry('')
+    setFPostcode('')
     setEditOpen(true)
   }
 
@@ -171,6 +189,12 @@ export default function CustomersPage() {
     setFCreditOk(Boolean(b.credit_ok ?? false))
     setFReliability(b.reliability_score === null || b.reliability_score === undefined ? '' : String(b.reliability_score))
     setFTerms(b.payment_terms ?? '')
+    setFAddr1(b.address_line1 ?? '')
+    setFAddr2(b.address_line2 ?? '')
+    setFCity(b.city ?? '')
+    setFState(b.state ?? '')
+    setFCountry(b.country ?? '')
+    setFPostcode(b.postcode ?? '')
     setEditOpen(true)
   }
 
@@ -186,7 +210,9 @@ export default function CustomersPage() {
     try {
       const { data, error } = await supabase
         .from('buyers')
-        .select('id,tenant_id,name,email,company,phone,tags,credit_ok,reliability_score,payment_terms,created_at')
+        .select(
+          'id,tenant_id,name,email,company,phone,address_line1,address_line2,city,state,country,postcode,tags,credit_ok,reliability_score,payment_terms,created_at'
+        )
         .eq('tenant_id', tid)
         .order('created_at', { ascending: false })
         .limit(5000)
@@ -268,6 +294,12 @@ export default function CustomersPage() {
             email: norm(fEmail) ? norm(fEmail) : null,
             company: norm(fCompany) ? norm(fCompany) : null,
             phone: phone || null,
+            address_line1: norm(fAddr1) || null,
+            address_line2: norm(fAddr2) || null,
+            city: norm(fCity) || null,
+            state: norm(fState) || null,
+            country: norm(fCountry) || null,
+            postcode: norm(fPostcode) || null,
             tags: tagsArr.length ? tagsArr : [],
             credit_ok: fCreditOk,
             reliability_score: reliability,
@@ -285,6 +317,12 @@ export default function CustomersPage() {
           email_norm: norm(fEmail) ? norm(fEmail).toLowerCase() : null,
           company: norm(fCompany) ? norm(fCompany) : null,
           phone: phone || null,
+          address_line1: norm(fAddr1) || null,
+          address_line2: norm(fAddr2) || null,
+          city: norm(fCity) || null,
+          state: norm(fState) || null,
+          country: norm(fCountry) || null,
+          postcode: norm(fPostcode) || null,
           tags: tagsArr.length ? tagsArr : [],
           credit_ok: fCreditOk,
           reliability_score: reliability,
@@ -496,11 +534,11 @@ export default function CustomersPage() {
 
       {editOpen ? (
         <ModalShell title={editBuyer ? `Edit customer � ${editBuyer.name}` : 'Add customer'} onClose={closeEdit}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Name</div>
-              <input
-                value={fName}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Name</div>
+          <input
+            value={fName}
                 onChange={(e) => setFName(e.target.value)}
                 style={{
                   width: '100%',
@@ -546,18 +584,105 @@ export default function CustomersPage() {
 
             <div>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Company</div>
-              <input
-                value={fCompany}
-                onChange={(e) => setFCompany(e.target.value)}
-                style={{
-                  width: '100%',
+          <input
+            value={fCompany}
+            onChange={(e) => setFCompany(e.target.value)}
+            style={{
+              width: '100%',
                   padding: 10,
                   borderRadius: 10,
                   border: '1px solid var(--border)',
                   background: 'var(--panel)',
                 }}
-              />
-            </div>
+          />
+        </div>
+
+        <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Street address 1</div>
+            <input
+              value={fAddr1}
+              onChange={(e) => setFAddr1(e.target.value)}
+              style={{
+                width: '100%',
+                padding: 10,
+                borderRadius: 10,
+                border: '1px solid var(--border)',
+                background: 'var(--panel)',
+              }}
+            />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Street address 2</div>
+            <input
+              value={fAddr2}
+              onChange={(e) => setFAddr2(e.target.value)}
+              style={{
+                width: '100%',
+                padding: 10,
+                borderRadius: 10,
+                border: '1px solid var(--border)',
+                background: 'var(--panel)',
+              }}
+            />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Town/City</div>
+            <input
+              value={fCity}
+              onChange={(e) => setFCity(e.target.value)}
+              style={{
+                width: '100%',
+                padding: 10,
+                borderRadius: 10,
+                border: '1px solid var(--border)',
+                background: 'var(--panel)',
+              }}
+            />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>County/State</div>
+            <input
+              value={fState}
+              onChange={(e) => setFState(e.target.value)}
+              style={{
+                width: '100%',
+                padding: 10,
+                borderRadius: 10,
+                border: '1px solid var(--border)',
+                background: 'var(--panel)',
+              }}
+            />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Country</div>
+            <input
+              value={fCountry}
+              onChange={(e) => setFCountry(e.target.value)}
+              style={{
+                width: '100%',
+                padding: 10,
+                borderRadius: 10,
+                border: '1px solid var(--border)',
+                background: 'var(--panel)',
+              }}
+            />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Zip/Post code</div>
+            <input
+              value={fPostcode}
+              onChange={(e) => setFPostcode(e.target.value)}
+              style={{
+                width: '100%',
+                padding: 10,
+                borderRadius: 10,
+                border: '1px solid var(--border)',
+                background: 'var(--panel)',
+              }}
+            />
+          </div>
+        </div>
 
             <div>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Payment terms</div>
