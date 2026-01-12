@@ -70,7 +70,8 @@ export default function QuotesHistoryPage() {
 
         setQuotes(
           (quotesData ?? []).map((q) => {
-            const buyerRec = (q as { buyers?: Buyer }).buyers
+            const buyersField = (q as { buyers?: unknown }).buyers
+            const buyerRec = Array.isArray(buyersField) ? buyersField[0] : buyersField
             const linesRec = (q as { quote_lines?: QuoteLine[] }).quote_lines
             const buyerName = (buyerRec as { name?: unknown })?.name
             const buyerEmail = (buyerRec as { email?: unknown })?.email
