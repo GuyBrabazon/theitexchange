@@ -18,8 +18,18 @@ const metricCard = (label: string, value: string, detail: string, accent: string
   </div>
 )
 
-const barCard = (title: string, label: string, values: number[], color: string, maxCap?: number, maxLabel?: string) => {
+const barCard = (
+  title: string,
+  label: string,
+  values: number[],
+  color: string,
+  maxCap?: number,
+  maxLabel?: string,
+  xLabels?: string[],
+  yPrefix?: string
+) => {
   const max = Math.max(maxCap ?? 0, ...values, 1)
+  const months = xLabels && xLabels.length === values.length ? xLabels : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].slice(0, values.length)
   return (
     <div
       style={{
@@ -39,7 +49,13 @@ const barCard = (title: string, label: string, values: number[], color: string, 
         </div>
         <div style={{ padding: '4px 8px', borderRadius: 8, background: 'var(--surface-2)', fontSize: 12, color }}>Snapshot</div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 140, paddingTop: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 160, paddingTop: 6, position: 'relative' }}>
+        <div style={{ position: 'absolute', left: 0, top: 0, fontSize: 11, color: 'var(--muted)' }}>
+          {yPrefix ?? ''}{maxLabel ?? max.toLocaleString()}
+        </div>
+        <div style={{ position: 'absolute', left: 0, bottom: -2, fontSize: 11, color: 'var(--muted)' }}>
+          {yPrefix ?? ''}0
+        </div>
         {values.map((v, idx) => (
           <div key={idx} style={{ flex: 1, minWidth: 10 }}>
             <div
@@ -51,12 +67,9 @@ const barCard = (title: string, label: string, values: number[], color: string, 
               }}
               title={v.toLocaleString()}
             />
+            <div style={{ textAlign: 'center', marginTop: 6, fontSize: 11, color: 'var(--muted)' }}>{months[idx] ?? ''}</div>
           </div>
         ))}
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--muted)' }}>
-        <span>{maxLabel ? (maxLabel.startsWith('$') ? '$0' : '0') : '0'}</span>
-        <span>{maxLabel ?? max.toLocaleString()}</span>
       </div>
     </div>
   )
@@ -265,16 +278,29 @@ export default function Home() {
           [42, 48, 52, 61, 78, 105, 118, 123, 110, 96, 82, 75],
           '#1E3A5F',
           1_000_000,
-          '$1,000,000'
+          '$1,000,000',
+          undefined,
+          '$'
         )}
-        {barCard('Profit over time', 'Blended margin after costs', [12, 14, 16, 18, 24, 32, 34, 36, 30, 26, 22, 20], '#2F7F7A', 1_000_000, '$1,000,000')}
+        {barCard(
+          'Profit over time',
+          'Blended margin after costs',
+          [12, 14, 16, 18, 24, 32, 34, 36, 30, 26, 22, 20],
+          '#2F7F7A',
+          1_000_000,
+          '$1,000,000',
+          undefined,
+          '$'
+        )}
         {barCard(
           'Lines sold',
           'Line-item awards (parts + systems)',
           [180, 190, 215, 240, 280, 330, 350, 360, 340, 320, 295, 285],
           '#B23A3A',
           100_000,
-          '100,000'
+          '100,000',
+          undefined,
+          ''
         )}
       </section>
     </main>
