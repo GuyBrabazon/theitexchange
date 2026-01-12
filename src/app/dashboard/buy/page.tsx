@@ -45,7 +45,13 @@ export default function BuyPage() {
   const [poCreated, setPoCreated] = useState(false)
   const [poDownloadLoading, setPoDownloadLoading] = useState(false)
   const [poDropShip, setPoDropShip] = useState(false)
-  const [poShipTo, setPoShipTo] = useState('')
+  const [poShipName, setPoShipName] = useState('')
+  const [poShipStreet1, setPoShipStreet1] = useState('')
+  const [poShipStreet2, setPoShipStreet2] = useState('')
+  const [poShipCity, setPoShipCity] = useState('')
+  const [poShipState, setPoShipState] = useState('')
+  const [poShipCountry, setPoShipCountry] = useState('')
+  const [poShipPostcode, setPoShipPostcode] = useState('')
   const [defaultShipTo, setDefaultShipTo] = useState('')
 
   useEffect(() => {
@@ -385,13 +391,78 @@ export default function BuyPage() {
                 <span style={{ fontSize: 12 }}>Drop ship</span>
               </div>
               {poDropShip ? (
-                <textarea
-                  value={poShipTo}
-                  onChange={(e) => setPoShipTo(e.target.value)}
-                  placeholder="Enter drop-ship address"
-                  rows={2}
-                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
-                />
+                <div style={{ display: 'grid', gap: 6, gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))' }}>
+                  <div style={{ display: 'grid', gap: 4 }}>
+                    <label style={{ fontSize: 12, color: 'var(--muted)' }}>Name / Company</label>
+                    <input
+                      type="text"
+                      value={poShipName}
+                      onChange={(e) => setPoShipName(e.target.value)}
+                      placeholder="Company or recipient"
+                      style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gap: 4 }}>
+                    <label style={{ fontSize: 12, color: 'var(--muted)' }}>Street address 1</label>
+                    <input
+                      type="text"
+                      value={poShipStreet1}
+                      onChange={(e) => setPoShipStreet1(e.target.value)}
+                      placeholder="Line 1"
+                      style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gap: 4 }}>
+                    <label style={{ fontSize: 12, color: 'var(--muted)' }}>Street address 2</label>
+                    <input
+                      type="text"
+                      value={poShipStreet2}
+                      onChange={(e) => setPoShipStreet2(e.target.value)}
+                      placeholder="Line 2 (optional)"
+                      style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gap: 4 }}>
+                    <label style={{ fontSize: 12, color: 'var(--muted)' }}>Town / City</label>
+                    <input
+                      type="text"
+                      value={poShipCity}
+                      onChange={(e) => setPoShipCity(e.target.value)}
+                      placeholder="City"
+                      style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gap: 4 }}>
+                    <label style={{ fontSize: 12, color: 'var(--muted)' }}>County / State</label>
+                    <input
+                      type="text"
+                      value={poShipState}
+                      onChange={(e) => setPoShipState(e.target.value)}
+                      placeholder="State / Province"
+                      style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gap: 4 }}>
+                    <label style={{ fontSize: 12, color: 'var(--muted)' }}>Country</label>
+                    <input
+                      type="text"
+                      value={poShipCountry}
+                      onChange={(e) => setPoShipCountry(e.target.value)}
+                      placeholder="Country"
+                      style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gap: 4 }}>
+                    <label style={{ fontSize: 12, color: 'var(--muted)' }}>ZIP / Post code</label>
+                    <input
+                      type="text"
+                      value={poShipPostcode}
+                      onChange={(e) => setPoShipPostcode(e.target.value)}
+                      placeholder="ZIP / Post code"
+                      style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                    />
+                  </div>
+                </div>
               ) : (
                 <div style={{ color: 'var(--muted)', fontSize: 12, whiteSpace: 'pre-wrap', border: '1px solid var(--border)', borderRadius: 10, padding: 8 }}>
                   {defaultShipTo || 'Using your organisation billing/registered address.'}
@@ -578,14 +649,21 @@ export default function BuyPage() {
               <button
                 onClick={() => {
                  setPoModalOpen(false)
-                 setPoCreated(false)
-                 setPoManualLines([])
-                 setPoManualPart('')
-                 setPoManualDesc('')
-                 setPoManualQty('1')
-                 setPoManualPrice('')
+                  setPoCreated(false)
+                  setPoManualLines([])
+                  setPoManualPart('')
+                  setPoManualDesc('')
+                  setPoManualQty('1')
+                  setPoManualPrice('')
                   setPoShipTo('')
                   setPoDropShip(false)
+                  setPoShipName('')
+                  setPoShipStreet1('')
+                  setPoShipStreet2('')
+                  setPoShipCity('')
+                  setPoShipState('')
+                  setPoShipCountry('')
+                  setPoShipPostcode('')
                 }}
                 style={{
                   padding: '8px 10px',
@@ -619,14 +697,20 @@ export default function BuyPage() {
                     setPoCreating(true)
                     try {
                       // Placeholder for actual PO creation; we keep the modal open to show next actions.
-                     setPoCreated(true)
-                     alert(
-                       `PO created (draft).\nSupplier: ${poSelectedSupplier.name}\nLines: ${lines.length}\nTerms: ${
-                         poTerms || 'n/a'
-                       }\nNext: send or download.`
-                     )
-                      setPoShipTo(poDropShip ? poShipTo : defaultShipTo)
-                    } catch (err) {
+                    setPoCreated(true)
+                    alert(
+                      `PO created (draft).\nSupplier: ${poSelectedSupplier.name}\nLines: ${lines.length}\nTerms: ${
+                        poTerms || 'n/a'
+                      }\nNext: send or download.`
+                    )
+                    setPoShipTo(
+                      poDropShip
+                        ? [poShipName, poShipStreet1, poShipStreet2, poShipCity, poShipState, poShipCountry, poShipPostcode]
+                            .filter((v) => v && v.trim())
+                            .join('\n')
+                        : defaultShipTo
+                    )
+                  } catch (err) {
                       console.error(err)
                       alert(err instanceof Error ? err.message : 'Failed to create PO')
                     } finally {
@@ -691,7 +775,11 @@ export default function BuyPage() {
                             buyer_name: poSelectedSupplier.name,
                             po_number: 'PO-DRAFT',
                             currency: undefined,
-                            ship_to: poDropShip ? poShipTo || undefined : poShipTo || defaultShipTo || undefined,
+                            ship_to: poDropShip
+                              ? [poShipName, poShipStreet1, poShipStreet2, poShipCity, poShipState, poShipCountry, poShipPostcode]
+                                  .filter((v) => v && v.trim())
+                                  .join('\n') || undefined
+                              : poShipTo || defaultShipTo || undefined,
                             lines,
                             settings: { po_terms: poTerms || undefined },
                           }),
