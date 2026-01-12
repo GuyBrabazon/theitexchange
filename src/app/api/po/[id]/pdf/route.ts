@@ -124,15 +124,12 @@ function buildDoc(opts: {
   )
 }
 
-type RouteContext =
-  | { params: { id: string } }
-  | { params: Promise<{ id: string }> }
-  | undefined
+type RouteContext = { params: { id: string } | Promise<{ id: string }> } | undefined
 
 export async function POST(_: NextRequest, context: RouteContext) {
   try {
     const rawParams = context?.params
-    const resolved = rawParams && typeof rawParams.then === 'function' ? await rawParams : rawParams
+    const resolved = rawParams ? await Promise.resolve(rawParams) : undefined
     const id = resolved?.id as string
     const supa = supabaseServer()
     // Load PO
