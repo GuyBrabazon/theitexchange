@@ -33,6 +33,8 @@ const barCard = (
     xLabels && xLabels.length === values.length
       ? xLabels
       : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].slice(0, values.length)
+  const topLabel = maxLabel ?? `${yPrefix ?? ''}${max.toLocaleString()}`
+  const bottomLabel = `${yPrefix ?? ''}0`
   return (
     <div
       style={{
@@ -43,6 +45,7 @@ const barCard = (
         boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
         display: 'grid',
         gap: 10,
+        overflow: 'hidden',
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -54,14 +57,8 @@ const barCard = (
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '42px 1fr', gap: 8, alignItems: 'end', minHeight: 160 }}>
         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: 140, fontSize: 11, color: 'var(--muted)' }}>
-          <span>
-            {yPrefix ?? ''}
-            {maxLabel ?? max.toLocaleString()}
-          </span>
-          <span>
-            {yPrefix ?? ''}
-            0
-          </span>
+          <span>{topLabel}</span>
+          <span>{bottomLabel}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 160 }}>
           {values.map((v, idx) => (
@@ -72,6 +69,9 @@ const barCard = (
                   borderRadius: 8,
                   background: `linear-gradient(180deg, ${color}, rgba(30,58,95,0.08))`,
                   boxShadow: '0 6px 16px rgba(0,0,0,0.08)',
+                  opacity: 0,
+                  animation: 'fadeGrow 0.8s ease forwards',
+                  animationDelay: `${idx * 0.08}s`,
                 }}
                 title={`${months[idx] ?? ''}: ${(yPrefix ?? '')}${v.toLocaleString()}`}
               />
@@ -96,6 +96,22 @@ export default function Home() {
         fontFamily: 'var(--font-geist-sans, system-ui, sans-serif)',
       }}
     >
+      <style jsx global>{`
+        @keyframes fadeGrow {
+          0% {
+            opacity: 0;
+            transform: translateY(12px) scaleY(0.7);
+          }
+          60% {
+            opacity: 0.8;
+            transform: translateY(2px) scaleY(1.05);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scaleY(1);
+          }
+        }
+      `}</style>
       <header
         style={{
           maxWidth: 1180,
