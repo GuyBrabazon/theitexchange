@@ -42,6 +42,7 @@ export default function BuyPage() {
   const [poManualLines, setPoManualLines] = useState<Array<{ part: string; desc: string; qty: string; price: string }>>([])
   const [poTerms, setPoTerms] = useState('')
   const [poCreating, setPoCreating] = useState(false)
+  const [poCreated, setPoCreated] = useState(false)
 
   useEffect(() => {
     const init = async () => {
@@ -355,7 +356,15 @@ export default function BuyPage() {
                 <div style={{ color: 'var(--muted)', fontSize: 12 }}>Select supplier and lines to include.</div>
               </div>
               <button
-                onClick={() => setPoModalOpen(false)}
+                onClick={() => {
+                  setPoModalOpen(false)
+                  setPoCreated(false)
+                  setPoManualLines([])
+                  setPoManualPart('')
+                  setPoManualDesc('')
+                  setPoManualQty('1')
+                  setPoManualPrice('')
+                }}
                 style={{ borderRadius: 999, border: '1px solid var(--border)', padding: '6px 10px', background: 'var(--panel)', cursor: 'pointer' }}
               >
                 Close
@@ -370,7 +379,7 @@ export default function BuyPage() {
                   placeholder="Search supplier"
                   value={poSupplierQuery}
                   onChange={(e) => setPoSupplierQuery(e.target.value)}
-                  style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', minWidth: 240 }}
+                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', minWidth: 240 }}
                 />
                 <button
                   onClick={async () => {
@@ -394,7 +403,7 @@ export default function BuyPage() {
                     }
                   }}
                   style={{
-                    padding: '10px 12px',
+                    padding: '8px 10px',
                     borderRadius: 10,
                     border: '1px solid var(--border)',
                     background: 'var(--panel)',
@@ -438,14 +447,14 @@ export default function BuyPage() {
                   placeholder="Part number / SKU"
                   value={poManualPart}
                   onChange={(e) => setPoManualPart(e.target.value)}
-                  style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
                 />
                 <textarea
                   value={poManualDesc}
                   onChange={(e) => setPoManualDesc(e.target.value)}
                   placeholder="Description"
-                  rows={3}
-                  style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                  rows={2}
+                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
                 />
                 <input
                   type="number"
@@ -453,7 +462,7 @@ export default function BuyPage() {
                   value={poManualQty}
                   onChange={(e) => setPoManualQty(e.target.value)}
                   placeholder="Qty"
-                  style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
                 />
                 <input
                   type="number"
@@ -462,7 +471,7 @@ export default function BuyPage() {
                   value={poManualPrice}
                   onChange={(e) => setPoManualPrice(e.target.value)}
                   placeholder="Unit price"
-                  style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
                 />
                 <button
                   onClick={() => {
@@ -476,8 +485,8 @@ export default function BuyPage() {
                     setPoManualQty('1')
                     setPoManualPrice('')
                   }}
-                  style={{
-                    padding: '10px 12px',
+                    style={{
+                    padding: '8px 10px',
                     borderRadius: 10,
                     border: '1px solid var(--border)',
                     background: 'var(--panel)',
@@ -533,15 +542,23 @@ export default function BuyPage() {
                 onChange={(e) => setPoTerms(e.target.value)}
                 rows={3}
                 placeholder="Payment terms, delivery notes, etc."
-                style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
               />
             </div>
 
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               <button
-                onClick={() => setPoModalOpen(false)}
+                onClick={() => {
+                  setPoModalOpen(false)
+                  setPoCreated(false)
+                  setPoManualLines([])
+                  setPoManualPart('')
+                  setPoManualDesc('')
+                  setPoManualQty('1')
+                  setPoManualPrice('')
+                }}
                 style={{
-                  padding: '10px 12px',
+                  padding: '8px 10px',
                   borderRadius: 10,
                   border: '1px solid var(--border)',
                   background: 'var(--panel)',
@@ -551,82 +568,85 @@ export default function BuyPage() {
               >
                 Cancel
               </button>
-              <button
-                disabled={poCreating || !poSelectedSupplier || poManualLines.length === 0}
-                onClick={async () => {
-                  if (!poSelectedSupplier) {
-                    alert('Select a supplier first.')
-                    return
-                  }
-                  if (!poManualLines.length) {
-                    alert('Add at least one line.')
-                    return
-                  }
-                const lines: Array<{ part: string; desc: string; qty: number; price: number }> = poManualLines.map((ln) => ({
-                  part: ln.part,
-                  desc: ln.desc,
-                  qty: ln.qty ? Number(ln.qty) || 1 : 1,
-                  price: ln.price ? Number(ln.price) || 0 : 0,
-                }))
-                setPoCreating(true)
-                try {
-                  // Placeholder for actual PO creation.
-                  alert(
-                      `PO created (draft).\nSupplier: ${poSelectedSupplier.name}\nLines: ${lines.length}\nTerms: ${poTerms || 'n/a'}\nNext step: send via email or download.`
-                  )
-                  setPoModalOpen(false)
-                  setPoManualLines([])
-                  setPoManualPart('')
-                  setPoManualDesc('')
-                  setPoManualQty('1')
-                  setPoManualPrice('')
-                } catch (err) {
-                  console.error(err)
-                  alert(err instanceof Error ? err.message : 'Failed to create PO')
-                } finally {
-                  setPoCreating(false)
-                  }
-                }}
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: 10,
-                  border: '1px solid var(--border)',
-                  background: poSelectedSupplier ? 'var(--accent)' : 'var(--panel)',
-                  color: poSelectedSupplier ? '#fff' : 'var(--text)',
-                  fontWeight: 900,
-                  cursor: poSelectedSupplier ? 'pointer' : 'not-allowed',
-                }}
-              >
-                Create PO
-              </button>
-              <button
-                onClick={() => {
-                  alert('Send directly to supplier (opens Outlook) - coming soon.')
-                }}
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: 10,
-                  border: '1px solid var(--border)',
-                  background: 'var(--panel)',
-                  fontWeight: 900,
-                  cursor: 'pointer',
-                }}
-              >
-                Send directly to supplier
-              </button>
-              <button
-                onClick={() => alert('Download PO - coming soon.')}
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: 10,
-                  border: '1px solid var(--border)',
-                  background: 'var(--panel)',
-                  fontWeight: 900,
-                  cursor: 'pointer',
-                }}
-              >
-                Download PO
-              </button>
+              {!poCreated ? (
+                <button
+                  disabled={poCreating || !poSelectedSupplier || poManualLines.length === 0}
+                  onClick={async () => {
+                    if (!poSelectedSupplier) {
+                      alert('Select a supplier first.')
+                      return
+                    }
+                    if (!poManualLines.length) {
+                      alert('Add at least one line.')
+                      return
+                    }
+                    const lines: Array<{ part: string; desc: string; qty: number; price: number }> = poManualLines.map((ln) => ({
+                      part: ln.part,
+                      desc: ln.desc,
+                      qty: ln.qty ? Number(ln.qty) || 1 : 1,
+                      price: ln.price ? Number(ln.price) || 0 : 0,
+                    }))
+                    setPoCreating(true)
+                    try {
+                      // Placeholder for actual PO creation; we keep the modal open to show next actions.
+                      setPoCreated(true)
+                      alert(
+                        `PO created (draft).\nSupplier: ${poSelectedSupplier.name}\nLines: ${lines.length}\nTerms: ${
+                          poTerms || 'n/a'
+                        }\nNext: send or download.`
+                      )
+                    } catch (err) {
+                      console.error(err)
+                      alert(err instanceof Error ? err.message : 'Failed to create PO')
+                    } finally {
+                      setPoCreating(false)
+                    }
+                  }}
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: 10,
+                    border: '1px solid var(--border)',
+                    background: poSelectedSupplier ? 'var(--accent)' : 'var(--panel)',
+                    color: poSelectedSupplier ? '#fff' : 'var(--text)',
+                    fontWeight: 900,
+                    cursor: poSelectedSupplier ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  Create PO
+                </button>
+              ) : null}
+              {poCreated ? (
+                <>
+                  <button
+                    onClick={() => {
+                      alert('Send directly to supplier (opens Outlook) - coming soon.')
+                    }}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: 10,
+                      border: '1px solid var(--border)',
+                      background: 'var(--panel)',
+                      fontWeight: 900,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Send directly to supplier
+                  </button>
+                  <button
+                    onClick={() => alert('Download PO - coming soon.')}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: 10,
+                      border: '1px solid var(--border)',
+                      background: 'var(--panel)',
+                      fontWeight: 900,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Download PO
+                  </button>
+                </>
+              ) : null}
             </div>
           </div>
         </div>
