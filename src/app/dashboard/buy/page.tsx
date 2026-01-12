@@ -768,11 +768,12 @@ export default function BuyPage() {
                             buyer_name: poSelectedSupplier.name,
                             po_number: 'PO-DRAFT',
                             currency: undefined,
-                            ship_to: poDropShip
-                              ? [poShipName, poShipStreet1, poShipStreet2, poShipCity, poShipState, poShipCountry, poShipPostcode]
-                                  .filter((v) => v && v.trim())
-                                  .join('\n') || undefined
-                              : poShipTo || defaultShipTo || undefined,
+                            ship_to:
+                              poDropShip
+                                ? [poShipName, poShipStreet1, poShipStreet2, poShipCity, poShipState, poShipCountry, poShipPostcode]
+                                    .filter((v) => v && v.trim())
+                                    .join('\n') || undefined
+                                : defaultShipTo || undefined,
                             lines,
                             settings: { po_terms: poTerms || undefined },
                           }),
