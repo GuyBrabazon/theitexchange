@@ -34,13 +34,24 @@ export default function ManageUsersPage() {
         } = await supabase.auth.getUser()
         if (!user) throw new Error('Not authenticated')
 
-        const { data: prof, error: profErr } = await supabase.from('profiles').select('tenant_id,role').eq('id', user.id).maybeSingle()
-        if (profErr) throw profErr
-        if (!prof?.tenant_id) throw new Error('Tenant not found')
+        // Pull tenant/role from users (primary), fallback to profiles
+        let tenant: string | null = null
+        let role: string | null = null
+        const { data: userRow } = await supabase.from('users').select('tenant_id,role').eq('id', user.id).maybeSingle()
+        if (userRow) {
+          tenant = (userRow as { tenant_id: string | null }).tenant_id
+          role = (userRow as { role: string | null }).role
+        } else {
+          const { data: profRow } = await supabase.from('profiles').select('tenant_id,role').eq('id', user.id).maybeSingle()
+          tenant = (profRow as { tenant_id?: string | null } | null)?.tenant_id ?? null
+          role = (profRow as { role?: string | null } | null)?.role ?? null
+        }
 
-        const admin = prof.role === 'admin'
+        if (!tenant) throw new Error('Tenant not found for this user')
+
+        const admin = role === 'admin'
         setIsAdmin(admin)
-        setTenantId(prof.tenant_id)
+        setTenantId(tenant)
         if (!admin) {
           setError('You do not have permission to view this page.')
           return
@@ -49,7 +60,7 @@ export default function ManageUsersPage() {
         const { data, error } = await supabase
           .from('users')
           .select('id,role,name,company,phone,created_at')
-          .eq('tenant_id', prof.tenant_id)
+          .eq('tenant_id', tenant)
           .order('created_at', { ascending: false })
           .limit(500)
         if (error) throw error
