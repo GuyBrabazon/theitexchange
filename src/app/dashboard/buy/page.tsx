@@ -890,24 +890,34 @@ export default function BuyPage() {
                           throw new Error(txt || 'Failed to generate PO')
                         }
                         const blob = await res.blob()
-                        const url = URL.createObjectURL(blob)
-                        const a = document.createElement('a')
-                        a.href = url
-                        a.download = `${poNumber}.pdf`
-                        a.click()
-                        URL.revokeObjectURL(url)
+                        const arr = await blob.arrayBuffer()
+                        const base64 = btoa(String.fromCharCode(...new Uint8Array(arr)))
 
                         const subj = `${poNumber} from ${companyName || 'Your company'}`
                         const body =
                           `Hi ${poSelectedSupplier.name},\n\n` +
-                          `Please find attached purchase order ${poNumber}.\n` +
-                          `If the attachment does not auto-attach, it has been downloaded locally as ${poNumber}.pdf.\n\n` +
+                          `Please find attached purchase order ${poNumber}.\n\n` +
                           `Regards,\n${companyName || ''}`
-                        const mailto = `mailto:${encodeURIComponent(poSelectedSupplier.email)}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`
-                        window.location.href = mailto
+
+                        const sendRes = await fetch('/api/po/send', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            to: poSelectedSupplier.email,
+                            subject: subj,
+                            body,
+                            attachment_name: `${poNumber}.pdf`,
+                            attachment_base64: base64,
+                          }),
+                        })
+                        if (!sendRes.ok) {
+                          const txt = await sendRes.text()
+                          throw new Error(txt || 'Send failed')
+                        }
+                        alert('Email sent via Outlook.')
                       } catch (err) {
                         console.error(err)
-                        alert(err instanceof Error ? err.message : 'Failed to prepare email')
+                        alert(err instanceof Error ? err.message : 'Failed to send email')
                       } finally {
                         setPoDownloadLoading(false)
                       }
