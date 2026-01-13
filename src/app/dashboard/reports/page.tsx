@@ -90,6 +90,7 @@ export default function ReportsPage() {
   const [invData, setInvData] = useState<InvResp | null>(null)
   const [excData, setExcData] = useState<ExcResp | null>(null)
   const [activeReport, setActiveReport] = useState<'revenue' | 'po' | 'inventory' | 'exceptions' | null>(null)
+  const [scopeLabel, setScopeLabel] = useState('Org data')
   const btnStyle: CSSProperties = {
     padding: '12px 14px',
     borderRadius: 12,
@@ -112,10 +113,16 @@ export default function ReportsPage() {
       try {
         setLoading(true)
         setError('')
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
+        const { data: sessionData } = await supabase.auth.getSession()
+        const session = sessionData.session
         const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined
+        if (session?.user) {
+          const { data: prof } = await supabase.from('profiles').select('role').eq('id', session.user.id).maybeSingle()
+          const role = prof?.role
+          setScopeLabel(role === 'admin' || role === 'finance' ? 'Org data' : 'My data')
+        } else {
+          setScopeLabel('Org data')
+        }
 
         const [revRes, poRes, invRes, excRes] = await Promise.all([
           fetch(`/api/reports/revenue-gmv?${params}`, { headers }),
@@ -191,6 +198,22 @@ export default function ReportsPage() {
         <div>
           <h1 style={{ margin: 0 }}>Reports</h1>
           <div style={{ color: 'var(--muted)', fontSize: 13 }}>Finance & ops overview (tenant scoped)</div>
+          <div
+            style={{
+              marginTop: 4,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '4px 8px',
+              borderRadius: 999,
+              border: '1px solid var(--border)',
+              background: 'var(--panel)',
+              fontSize: 12,
+              color: 'var(--muted)',
+            }}
+          >
+            Scope: <span style={{ fontWeight: 800, color: 'var(--text)' }}>{scopeLabel}</span>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <label style={{ fontSize: 12, color: 'var(--muted)' }}>Timeframe</label>

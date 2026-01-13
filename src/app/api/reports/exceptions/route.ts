@@ -28,16 +28,18 @@ export async function GET(request: Request) {
     const from = fromParam || startIso(90)
     const to = toParam || new Date().toISOString()
 
-    const { data: profile, error: profileErr } = await supa.from('users').select('tenant_id').eq('id', user.id).maybeSingle()
+    const { data: profile, error: profileErr } = await supa.from('profiles').select('tenant_id,role').eq('id', user.id).maybeSingle()
     if (profileErr) throw profileErr
     const tenantId = profile?.tenant_id
     if (!tenantId) return NextResponse.json({ ok: false, message: 'Tenant not found' }, { status: 400 })
+    const scopeAll = profile?.role === 'admin' || profile?.role === 'finance'
 
     // Awards without PO
     const { data: awards, error: awErr } = await supa
       .from('awarded_lines')
       .select('id,lot_id,buyer_id,created_at')
       .eq('tenant_id', tenantId)
+      .eq(scopeAll ? 'tenant_id' : 'created_by', scopeAll ? tenantId : user.id)
       .gte('created_at', from)
       .lte('created_at', to)
       .limit(10000)
@@ -48,6 +50,7 @@ export async function GET(request: Request) {
       .from('purchase_orders')
       .select('lot_id')
       .eq('tenant_id', tenantId)
+      .eq(scopeAll ? 'tenant_id' : 'created_by', scopeAll ? tenantId : user.id)
       .in('lot_id', lotIds.length ? lotIds : [''])
     if (poErr) throw poErr
     const poLotSet = new Set((poLots ?? []).map((p) => String(p.lot_id)))
@@ -58,6 +61,7 @@ export async function GET(request: Request) {
       .from('purchase_orders')
       .select('id,created_at')
       .eq('tenant_id', tenantId)
+      .eq(scopeAll ? 'tenant_id' : 'created_by', scopeAll ? tenantId : user.id)
       .gte('created_at', from)
       .lte('created_at', to)
       .limit(1000)

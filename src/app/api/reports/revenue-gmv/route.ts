@@ -44,15 +44,17 @@ export async function GET(request: Request) {
     const from = fromParam || startIso(30)
     const to = toParam || new Date().toISOString()
 
-    const { data: profile, error: profileErr } = await supa.from('users').select('tenant_id').eq('id', user.id).maybeSingle()
+    const { data: profile, error: profileErr } = await supa.from('profiles').select('tenant_id,role').eq('id', user.id).maybeSingle()
     if (profileErr) throw profileErr
     const tenantId = profile?.tenant_id
     if (!tenantId) return NextResponse.json({ ok: false, message: 'Tenant not found' }, { status: 400 })
+    const scopeAll = profile?.role === 'admin' || profile?.role === 'finance'
 
     const { data: awards, error: awErr } = await supa
       .from('awarded_lines')
       .select('extended,currency,created_at,lot_id')
       .eq('tenant_id', tenantId)
+      .eq(scopeAll ? 'tenant_id' : 'created_by', scopeAll ? tenantId : user.id)
       .gte('created_at', from)
       .lte('created_at', to)
       .limit(20000)
@@ -67,6 +69,7 @@ export async function GET(request: Request) {
       .from('offers')
       .select('total_offer,currency,created_at,lot_id')
       .eq('tenant_id', tenantId)
+      .eq(scopeAll ? 'tenant_id' : 'created_by', scopeAll ? tenantId : user.id)
       .gte('created_at', from)
       .lte('created_at', to)
       .limit(20000)

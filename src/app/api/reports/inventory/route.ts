@@ -28,15 +28,17 @@ export async function GET(request: Request) {
     const from = fromParam || startIso(365) // for ageing
     const to = toParam || new Date().toISOString()
 
-    const { data: profile, error: profileErr } = await supa.from('users').select('tenant_id').eq('id', user.id).maybeSingle()
+    const { data: profile, error: profileErr } = await supa.from('profiles').select('tenant_id,role').eq('id', user.id).maybeSingle()
     if (profileErr) throw profileErr
     const tenantId = profile?.tenant_id
     if (!tenantId) return NextResponse.json({ ok: false, message: 'Tenant not found' }, { status: 400 })
+    const scopeAll = profile?.role === 'admin' || profile?.role === 'finance'
 
     const { data: items, error: invErr } = await supa
       .from('inventory_items')
       .select('id,model,description,oem,cost,qty_available,created_at')
       .eq('tenant_id', tenantId)
+      .eq(scopeAll ? 'tenant_id' : 'created_by', scopeAll ? tenantId : user.id)
       .gte('created_at', from)
       .lte('created_at', to)
       .limit(20000)
