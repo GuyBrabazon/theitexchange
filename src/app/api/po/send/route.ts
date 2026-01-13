@@ -122,10 +122,18 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify(graphPayload),
       })
 
+    const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms))
+
     let graphRes = await sendOnce(accessToken)
     if (graphRes.status === 401 && refreshToken) {
       const refreshed = await refreshOutlookToken(supa, user.id, refreshToken)
       graphRes = await sendOnce(refreshed.accessToken)
+    }
+
+    // Retry on transient 503/BadGateway/ServiceUnavailable once with short backoff
+    if (graphRes.status === 503 || graphRes.status === 502) {
+      await sleep(800)
+      graphRes = await sendOnce(accessToken)
     }
 
     if (!graphRes.ok) {
