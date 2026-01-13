@@ -898,9 +898,10 @@ export default function BuyPage() {
                         a.click()
                         URL.revokeObjectURL(url)
 
+                        const firstName = (poSelectedSupplier.name || '').split(' ')[0] || poSelectedSupplier.name || 'there'
                         const subj = `${poNumber} from ${companyName || 'Your company'}`
                         const body =
-                          `Hi ${poSelectedSupplier.name},\n\n` +
+                          `Hi ${firstName},\n\n` +
                           `Please attach the downloaded PO (${poNumber}.pdf) and send.\n\n` +
                           `Regards,\n${companyName || ''}`
                         const mailto = `mailto:${encodeURIComponent(poSelectedSupplier.email)}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`
