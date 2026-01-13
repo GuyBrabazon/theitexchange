@@ -70,6 +70,9 @@ export default function BuyPage() {
   const [poDownloadLoading, setPoDownloadLoading] = useState(false)
   const [poApplyTax, setPoApplyTax] = useState(false)
   const [poTaxRate, setPoTaxRate] = useState('20') // percent
+  const [poStartNumber, setPoStartNumber] = useState<number | null>(null)
+  const [poCurrentNumber, setPoCurrentNumber] = useState<number | null>(null)
+  const [poAssignedNumber, setPoAssignedNumber] = useState<string | null>(null)
   const [poDropShip, setPoDropShip] = useState(false)
   const [poShipName, setPoShipName] = useState('')
   const [poShipStreet1, setPoShipStreet1] = useState('')
@@ -86,8 +89,14 @@ export default function BuyPage() {
         const profile = await ensureProfile()
         setTenantId(profile.tenant_id)
         // fetch default ship-to from tenant settings (registered_address)
-        const { data: tsRow } = await supabase.from('tenant_settings').select('registered_address').eq('tenant_id', profile.tenant_id).maybeSingle()
+        const { data: tsRow } = await supabase
+          .from('tenant_settings')
+          .select('registered_address,po_start_number,po_current_number')
+          .eq('tenant_id', profile.tenant_id)
+          .maybeSingle()
         setDefaultShipTo((tsRow?.registered_address as string) || '')
+        setPoStartNumber((tsRow?.po_start_number as number | null) ?? null)
+        setPoCurrentNumber((tsRow?.po_current_number as number | null) ?? null)
         const {
           data: { session },
         } = await supabase.auth.getSession()
@@ -744,6 +753,7 @@ export default function BuyPage() {
                   setPoShipState('')
                   setPoShipCountry('')
                   setPoShipPostcode('')
+                  setPoAssignedNumber(null)
                 }}
                 style={{
                   padding: '8px 10px',
@@ -768,6 +778,8 @@ export default function BuyPage() {
                       alert('Add at least one line.')
                       return
                     }
+                    const nextSeq = (poCurrentNumber ?? poStartNumber ?? 1000) + 1
+                    const nextPoLabel = `PO-${nextSeq}`
                     const lines: Array<{ part: string; desc: string; qty: number; price: number }> = poManualLines.map((ln) => ({
                       part: ln.part,
                       desc: ln.desc,
@@ -776,15 +788,24 @@ export default function BuyPage() {
                     }))
                     setPoCreating(true)
                     try {
-                      // Placeholder for actual PO creation; we keep the modal open to show next actions.
-                    setPoCreated(true)
-                    alert(
-                      `PO created (draft).\nSupplier: ${poSelectedSupplier.name}\nLines: ${lines.length}\nTerms: ${
-                        poTerms || 'n/a'
-                      }\nNext: send or download.`
-                    )
-                    // no-op for ship-to snapshot; rendering path handles composed address
-                  } catch (err) {
+                      if (tenantId) {
+                        const { data: updated, error: upErr } = await supabase
+                          .from('tenant_settings')
+                          .update({ po_current_number: nextSeq })
+                          .eq('tenant_id', tenantId)
+                          .select('po_current_number')
+                          .maybeSingle()
+                        if (upErr) throw upErr
+                        if (updated?.po_current_number != null) setPoCurrentNumber(updated.po_current_number as number)
+                      }
+                      setPoAssignedNumber(nextPoLabel)
+                      setPoCreated(true)
+                      alert(
+                        `PO created (draft).\nNumber: ${nextPoLabel}\nSupplier: ${poSelectedSupplier.name}\nLines: ${lines.length}\nTerms: ${
+                          poTerms || 'n/a'
+                        }\nNext: send or download.`
+                      )
+                    } catch (err) {
                       console.error(err)
                       alert(err instanceof Error ? err.message : 'Failed to create PO')
                     } finally {
@@ -845,11 +866,11 @@ export default function BuyPage() {
                               .filter((v) => v && v.trim())
                               .join('\n') || undefined
                           : undefined
-                        const today = new Date()
-                        const dateTag = today.toISOString().slice(0, 10).replace(/-/g, '')
-                        const rand = Math.floor(1000 + Math.random() * 9000)
-                        const generatedPoNumber = `PO-${dateTag}-${rand}`
-                        const generatedPoRef = crypto.randomUUID ? crypto.randomUUID() : `${dateTag}-${rand}`
+                        const nextSeq = poAssignedNumber
+                          ? Number(poAssignedNumber.replace(/\D+/g, '')) || null
+                          : (poCurrentNumber ?? poStartNumber ?? 1000) + 1
+                        const generatedPoNumber = poAssignedNumber || (nextSeq ? `PO-${nextSeq}` : 'PO-DRAFT')
+                        const generatedPoRef = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.floor(Math.random() * 9999)}`
                         const res = await fetch('/api/po/render', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
@@ -862,7 +883,7 @@ export default function BuyPage() {
                             po_number: generatedPoNumber,
                             po_ref: generatedPoRef,
                             currency: undefined,
-                          ship_to:
+                            ship_to:
                               poDropShip
                                 ? [poShipName, poShipStreet1, poShipStreet2, poShipCity, poShipState, poShipCountry, poShipPostcode]
                                     .filter((v) => v && v.trim())
@@ -870,7 +891,11 @@ export default function BuyPage() {
                                 : defaultShipTo || undefined,
                             tax_rate: poApplyTax ? (Number(poTaxRate) > 0 ? Number(poTaxRate) / 100 : 0) : 0,
                             lines,
-                            settings: { po_terms: poTerms || undefined },
+                            settings: {
+                              po_terms: poTerms || undefined,
+                              po_start_number: poStartNumber ?? undefined,
+                              po_current_number: nextSeq ?? undefined,
+                            },
                           }),
                         })
                         if (!res.ok) {
