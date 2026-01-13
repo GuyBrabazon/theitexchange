@@ -906,7 +906,7 @@ export default function BuyPage() {
                         const url = URL.createObjectURL(blob)
                         const a = document.createElement('a')
                         a.href = url
-                        a.download = 'purchase-order.pdf'
+                        a.download = `${generatedPoNumber || 'purchase-order'}.pdf`
                         a.click()
                         URL.revokeObjectURL(url)
                       } catch (err) {
