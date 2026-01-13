@@ -24,18 +24,15 @@ export async function POST(req: Request) {
     const role = body.role && allowedRoles.includes(body.role) ? body.role : 'broker'
     if (!email) return NextResponse.json({ ok: false, message: 'Email is required' }, { status: 400 })
 
-    // Ensure caller is admin and get tenant_id
-    const supaUser = createClient(url, anon, { auth: { persistSession: false } })
+    // Service client for admin actions + user lookup
+    const supa = supabaseServer()
     const {
       data: { user },
       error: userErr,
-    } = await supaUser.auth.getUser(token)
+    } = await supa.auth.getUser(token)
     if (userErr) throw userErr
     if (!user) return NextResponse.json({ ok: false, message: 'Not authenticated' }, { status: 401 })
 
-    // Service client for admin actions + upsert
-    const supa = supabaseServer()
-    // Fetch profile using service role to avoid bearer requirements
     const { data: profile, error: profileErr } = await supa.from('users').select('tenant_id,role').eq('id', user.id).maybeSingle()
     if (profileErr) throw profileErr
     if (!profile?.tenant_id) return NextResponse.json({ ok: false, message: 'Tenant not found' }, { status: 400 })
