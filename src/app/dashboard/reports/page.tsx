@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 
 type Timeframe = 'last30' | 'last90'
@@ -90,6 +90,16 @@ export default function ReportsPage() {
   const [invData, setInvData] = useState<InvResp | null>(null)
   const [excData, setExcData] = useState<ExcResp | null>(null)
   const [activeReport, setActiveReport] = useState<'revenue' | 'po' | 'inventory' | 'exceptions' | null>(null)
+  const btnStyle: CSSProperties = {
+    padding: '12px 14px',
+    borderRadius: 12,
+    border: '1px solid var(--border)',
+    background: 'var(--panel)',
+    color: 'var(--text)',
+    fontWeight: 900,
+    textAlign: 'center',
+    cursor: 'pointer',
+  }
 
   const params = useMemo(() => {
     const from = startIso(timeframe)
@@ -199,16 +209,16 @@ export default function ReportsPage() {
       {loading ? <div style={{ color: 'var(--muted)' }}>Loading reports…</div> : null}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 12 }}>
-        <button className="report-btn" onClick={() => setActiveReport('revenue')}>
+        <button style={btnStyle} onClick={() => setActiveReport('revenue')}>
           Revenue & GMV
         </button>
-        <button className="report-btn" onClick={() => setActiveReport('po')}>
+        <button style={btnStyle} onClick={() => setActiveReport('po')}>
           PO Pipeline
         </button>
-        <button className="report-btn" onClick={() => setActiveReport('inventory')}>
+        <button style={btnStyle} onClick={() => setActiveReport('inventory')}>
           Inventory valuation
         </button>
-        <button className="report-btn" onClick={() => setActiveReport('exceptions')}>
+        <button style={btnStyle} onClick={() => setActiveReport('exceptions')}>
           Exceptions
         </button>
       </div>
