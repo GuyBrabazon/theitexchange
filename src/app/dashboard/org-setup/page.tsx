@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 type TenantSettings = {
@@ -21,17 +21,7 @@ type TenantSettings = {
   eori?: string | null
 }
 
-type UserRow = {
-  id: string
-  tenant_id: string | null
-  role: string | null
-  name: string | null
-  company: string | null
-  phone: string | null
-}
-
 const currencies = ['USD', 'EUR', 'GBP', 'ZAR', 'AUD', 'CAD', 'SGD', 'AED']
-const roles: Array<UserRow['role']> = ['admin', 'broker', 'ops', 'finance', 'readonly']
 
 export default function OrgSetupPage() {
   const [loading, setLoading] = useState(true)
@@ -59,9 +49,6 @@ export default function OrgSetupPage() {
     registered_address: '',
     eori: '',
   })
-  const [users, setUsers] = useState<UserRow[]>([])
-  const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole] = useState<UserRow['role']>('broker')
   const [previewOpen, setPreviewOpen] = useState(false)
 
   const getToken = async () => {
@@ -94,16 +81,13 @@ export default function OrgSetupPage() {
 
         setTenantId(profile.tenant_id)
 
-        const [{ data: tenantRow, error: tenantErr }, { data: settingsRow, error: settingsErr }, { data: usersRows, error: usersErr }] =
-          await Promise.all([
-            supabase.from('tenants').select('name').eq('id', profile.tenant_id).maybeSingle(),
-            supabase.from('tenant_settings').select('*').eq('tenant_id', profile.tenant_id).maybeSingle(),
-            supabase.from('users').select('id,tenant_id,role,name,company,phone').eq('tenant_id', profile.tenant_id).order('created_at', { ascending: true }),
-          ])
+        const [{ data: tenantRow, error: tenantErr }, { data: settingsRow, error: settingsErr }] = await Promise.all([
+          supabase.from('tenants').select('name').eq('id', profile.tenant_id).maybeSingle(),
+          supabase.from('tenant_settings').select('*').eq('tenant_id', profile.tenant_id).maybeSingle(),
+        ])
 
         if (tenantErr) throw tenantErr
         if (settingsErr) throw settingsErr
-        if (usersErr) throw usersErr
 
         setTenantName(tenantRow?.name ?? '')
         if (settingsRow) {
@@ -126,16 +110,6 @@ export default function OrgSetupPage() {
           })
         }
 
-        setUsers(
-          (usersRows ?? []).map((u: Record<string, unknown>) => ({
-            id: String(u.id ?? ''),
-            tenant_id: (u.tenant_id as string | null) ?? null,
-            role: (u.role as string | null) ?? 'broker',
-            name: (u.name as string | null) ?? null,
-            company: (u.company as string | null) ?? null,
-            phone: (u.phone as string | null) ?? null,
-          }))
-        )
       } catch (e) {
         console.error(e)
         const msg = e instanceof Error ? e.message : 'Failed to load org settings'
@@ -189,50 +163,6 @@ export default function OrgSetupPage() {
     } catch (e) {
       console.error(e)
       const msg = e instanceof Error ? e.message : 'Save failed'
-      setError(msg)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const updateRole = async (userId: string, role: string) => {
-    if (!tenantId) return
-    try {
-      const { error } = await supabase.from('users').update({ role }).eq('id', userId).eq('tenant_id', tenantId)
-      if (error) throw error
-      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)))
-      setSuccess('Role updated')
-    } catch (e) {
-      console.error(e)
-      const msg = e instanceof Error ? e.message : 'Failed to update role'
-      setError(msg)
-    }
-  }
-
-  const filteredUsers = useMemo(() => users, [users])
-
-  const sendInvite = async () => {
-    setError('')
-    setSuccess('')
-    if (!inviteEmail.trim()) {
-      setError('Invite email is required')
-      return
-    }
-    try {
-      setSaving(true)
-      const res = await fetch('/api/users/invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
-      })
-      const json = await res.json()
-      if (!res.ok || !json.ok) throw new Error(json.message || 'Invite failed')
-      setSuccess('Invite sent')
-      setInviteEmail('')
-      setInviteRole('broker')
-    } catch (e) {
-      console.error(e)
-      const msg = e instanceof Error ? e.message : 'Failed to send invite'
       setError(msg)
     } finally {
       setSaving(false)
@@ -540,72 +470,6 @@ export default function OrgSetupPage() {
           >
             Preview PO
           </button>
-        </div>
-      </div>
-
-      <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 16, background: 'var(--panel)', display: 'grid', gap: 10 }}>
-        <h2 style={{ margin: 0 }}>Users & roles</h2>
-        <div style={{ color: 'var(--muted)', fontSize: 12, marginBottom: 4 }}>
-          Edit roles for users in this organisation. Invites to new users will inherit the chosen role.
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <input
-            type="email"
-            placeholder="user@company.com"
-            value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value)}
-            style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
-          />
-          <select
-            value={inviteRole ?? 'broker'}
-            onChange={(e) => setInviteRole(e.target.value as UserRow['role'])}
-            style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
-          >
-            {roles.map((r) => (
-              <option key={r ?? 'broker'} value={r ?? 'broker'}>
-                {r ?? 'broker'}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={sendInvite}
-            disabled={saving}
-            style={{
-              padding: '10px 12px',
-              borderRadius: 10,
-              border: '1px solid var(--border)',
-              background: 'var(--panel)',
-              fontWeight: 900,
-              cursor: saving ? 'wait' : 'pointer',
-            }}
-          >
-            {saving ? 'Inviting…' : 'Send invite'}
-          </button>
-        </div>
-
-        <div style={{ display: 'grid', gap: 8 }}>
-          {filteredUsers.map((u) => (
-            <div key={u.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'var(--surface-2)' }}>
-              <div style={{ fontWeight: 900 }}>{u.name || 'User'} </div>
-              <div style={{ color: 'var(--muted)', fontSize: 12 }}>ID: {u.id}</div>
-              <div style={{ marginTop: 8, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                <label style={{ fontSize: 12, color: 'var(--muted)' }}>Role</label>
-                <select
-                  value={u.role ?? 'broker'}
-                  onChange={(e) => updateRole(u.id, e.target.value)}
-                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
-                >
-                  {roles.map((r) => (
-                    <option key={r ?? 'broker'} value={r ?? 'broker'}>
-                      {r ?? 'broker'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          ))}
-          {filteredUsers.length === 0 ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>No users found.</div> : null}
         </div>
       </div>
 
