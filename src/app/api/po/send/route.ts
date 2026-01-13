@@ -1,6 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabaseServer'
 
+async function refreshOutlookToken(supa: ReturnType<typeof supabaseServer>, userId: string, refreshToken: string) {
+  const tenant = process.env.OUTLOOK_TENANT || 'common'
+  const clientId = process.env.OUTLOOK_CLIENT_ID
+  const clientSecret = process.env.OUTLOOK_CLIENT_SECRET
+  if (!clientId || !clientSecret) throw new Error('Outlook client env vars missing')
+
+  const params = new URLSearchParams()
+  params.append('client_id', clientId)
+  params.append('client_secret', clientSecret)
+  params.append('grant_type', 'refresh_token')
+  params.append('refresh_token', refreshToken)
+  params.append('scope', 'https://graph.microsoft.com/.default offline_access')
+
+  const res = await fetch(`https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString(),
+  })
+  if (!res.ok) {
+    const txt = await res.text()
+    throw new Error(`Outlook refresh failed: ${res.status} ${txt}`)
+  }
+  const json = (await res.json()) as {
+    access_token?: string
+    refresh_token?: string
+    expires_in?: number
+    ext_expires_in?: number
+  }
+  if (!json.access_token) throw new Error('No access_token in refresh response')
+  const expiresAt = new Date(Date.now() + ((json.expires_in ?? 3600) - 60) * 1000).toISOString()
+
+  const { error: upErr } = await supa
+    .from('outlook_tokens')
+    .update({
+      access_token: json.access_token,
+      refresh_token: json.refresh_token ?? refreshToken,
+      expires_at: expiresAt,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', userId)
+  if (upErr) throw upErr
+
+  return { accessToken: json.access_token, refreshToken: json.refresh_token ?? refreshToken, expiresAt }
+}
+
 type SendPayload = {
   to: string
   subject: string
@@ -29,13 +74,22 @@ export async function POST(req: NextRequest) {
     // fetch Outlook tokens for this user
     const { data: tokenRow, error: tokenErr } = await supa
       .from('outlook_tokens')
-      .select('access_token')
+      .select('access_token,refresh_token,expires_at')
       .eq('user_id', user.id)
       .maybeSingle()
     if (tokenErr) throw tokenErr
-    const accessToken = tokenRow?.access_token as string | undefined
+    let accessToken = tokenRow?.access_token as string | undefined
+    const refreshToken = tokenRow?.refresh_token as string | undefined
+    const expiresAt = tokenRow?.expires_at as string | undefined
     if (!accessToken) {
       return NextResponse.json({ ok: false, message: 'Outlook not connected' }, { status: 400 })
+    }
+
+    // refresh if expiring/expired
+    const needsRefresh = expiresAt ? new Date(expiresAt).getTime() < Date.now() + 60 * 1000 : false
+    if (needsRefresh && refreshToken) {
+      const refreshed = await refreshOutlookToken(supa, user.id, refreshToken)
+      accessToken = refreshed.accessToken
     }
 
     const attachmentName = body.attachment_name || 'purchase-order.pdf'
@@ -58,14 +112,21 @@ export async function POST(req: NextRequest) {
       saveToSentItems: true,
     }
 
-    const graphRes = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(graphPayload),
-    })
+    const sendOnce = async (tokenToUse: string) =>
+      fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${tokenToUse}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(graphPayload),
+      })
+
+    let graphRes = await sendOnce(accessToken)
+    if (graphRes.status === 401 && refreshToken) {
+      const refreshed = await refreshOutlookToken(supa, user.id, refreshToken)
+      graphRes = await sendOnce(refreshed.accessToken)
+    }
 
     if (!graphRes.ok) {
       const txt = await graphRes.text()
