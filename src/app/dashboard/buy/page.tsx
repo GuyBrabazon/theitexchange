@@ -918,8 +918,10 @@ export default function BuyPage() {
                           const txt = await draftRes.text()
                           throw new Error(txt || 'Draft creation failed')
                         }
-                        const draftJson = (await draftRes.json()) as { drafts_url?: string }
-                        alert(`Draft created in Outlook. Open Drafts: ${draftJson.drafts_url ?? 'https://outlook.office.com/mail/drafts'}`)
+                        const draftJson = (await draftRes.json()) as { drafts_url?: string; compose_url?: string }
+                        const openUrl = draftJson.compose_url || draftJson.drafts_url || 'https://outlook.office.com/mail/drafts'
+                        window.open(openUrl, '_blank')
+                        alert(`Draft created in Outlook. If a new tab did not open, visit: ${openUrl}`)
                       } catch (err) {
                         console.error(err)
                         alert(err instanceof Error ? err.message : 'Failed to prepare email')

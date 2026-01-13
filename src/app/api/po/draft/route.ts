@@ -125,7 +125,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, message: `Graph error: ${graphRes.status} ${txt}` }, { status: graphRes.status })
     }
 
-    return NextResponse.json({ ok: true, drafts_url: 'https://outlook.office.com/mail/drafts' })
+    const draftJson = (await graphRes.json()) as { id?: string }
+    const draftId = draftJson?.id
+    const draftsUrl = 'https://outlook.office.com/mail/drafts'
+    const composeUrl = draftId ? `https://outlook.office.com/mail/deeplink/compose?draftid=${encodeURIComponent(draftId)}` : draftsUrl
+
+    return NextResponse.json({ ok: true, drafts_url: draftsUrl, compose_url: composeUrl })
   } catch (e) {
     console.error('create PO draft via Outlook error', e)
     return NextResponse.json({ ok: false, message: e instanceof Error ? e.message : 'Draft failed' }, { status: 500 })
