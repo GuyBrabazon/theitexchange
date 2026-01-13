@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabaseServer'
+import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
 
@@ -7,13 +8,19 @@ const allowedRoles = ['admin', 'broker', 'ops', 'finance', 'readonly']
 
 export async function POST(req: Request) {
   try {
-    const supa = supabaseServer()
-    const {
-      data: { user },
-      error: userErr,
-    } = await supa.auth.getUser()
-    if (userErr) throw userErr
-    if (!user) return NextResponse.json({ ok: false, message: 'Not authenticated' }, { status: 401 })
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    if (!url || !anon) throw new Error('Supabase env missing')
+
+    const authHeader = req.headers.get('authorization')
+    const token = authHeader?.replace(/Bearer\\s+/i, '')
+    if (!token) return NextResponse.json({ ok: false, message: 'Not authenticated' }, { status: 401 })
+
+    // User-scoped client to check caller + role
+    const supaUser = createClient(url, anon, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { persistSession: false },
+    })
 
     const body = (await req.json()) as { email: string; role?: string }
     const email = body.email?.trim().toLowerCase()
@@ -21,11 +28,20 @@ export async function POST(req: Request) {
     if (!email) return NextResponse.json({ ok: false, message: 'Email is required' }, { status: 400 })
 
     // Ensure caller is admin and get tenant_id
-    const { data: profile, error: profileErr } = await supa.from('users').select('tenant_id,role').eq('id', user.id).maybeSingle()
+    const {
+      data: { user },
+      error: userErr,
+    } = await supaUser.auth.getUser()
+    if (userErr) throw userErr
+    if (!user) return NextResponse.json({ ok: false, message: 'Not authenticated' }, { status: 401 })
+
+    const { data: profile, error: profileErr } = await supaUser.from('users').select('tenant_id,role').eq('id', user.id).maybeSingle()
     if (profileErr) throw profileErr
     if (!profile?.tenant_id) return NextResponse.json({ ok: false, message: 'Tenant not found' }, { status: 400 })
     if (profile.role !== 'admin') return NextResponse.json({ ok: false, message: 'Only admins can invite users' }, { status: 403 })
 
+    // Service client for admin actions + upsert
+    const supa = supabaseServer()
     const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/login`
 
     const { data: inviteRes, error: inviteErr } = await supa.auth.admin.inviteUserByEmail(email, { redirectTo })

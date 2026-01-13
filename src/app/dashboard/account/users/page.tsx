@@ -99,9 +99,18 @@ export default function ManageUsersPage() {
     }
 
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      const token = session?.access_token
+
       const res = await fetch('/api/users/invite', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: 'include',
         body: JSON.stringify({ email, role: inviteRole }),
       })
       const json = await res.json()
