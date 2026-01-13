@@ -83,6 +83,21 @@ export default function BuyPage() {
   const [poShipCountry, setPoShipCountry] = useState('')
   const [poShipPostcode, setPoShipPostcode] = useState('')
   const [defaultShipTo, setDefaultShipTo] = useState('')
+  const [poHistoryOpen, setPoHistoryOpen] = useState(false)
+  const [poHistorySearch, setPoHistorySearch] = useState('')
+  type PoRecord = {
+    poNumber: string
+    supplierName: string
+    supplierEmail: string | null
+    supplierPhone: string | null
+    supplierAddress?: string
+    shipTo?: string
+    terms?: string
+    taxRate?: number
+    lines: Array<{ part: string; desc: string; qty: number; price: number }>
+    createdAt: string
+  }
+  const [poHistory, setPoHistory] = useState<PoRecord[]>([])
 
   useEffect(() => {
     const init = async () => {
@@ -174,6 +189,55 @@ export default function BuyPage() {
     return map
   }, [selected])
 
+  const filteredPoHistory = useMemo(() => {
+    const q = poHistorySearch.trim().toLowerCase()
+    if (!q) return poHistory
+    return poHistory.filter(
+      (p) => p.poNumber.toLowerCase().includes(q) || (p.supplierName || '').toLowerCase().includes(q)
+    )
+  }, [poHistory, poHistorySearch])
+
+  const downloadPoRecord = async (rec: PoRecord) => {
+    setPoDownloadLoading(true)
+    try {
+      const res = await fetch('/api/po/render', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          preview: true,
+          tenant_id: tenantId || undefined,
+          buyer_name: rec.supplierName,
+          buyer_address: rec.supplierAddress || undefined,
+          buyer_phone: rec.supplierPhone || undefined,
+          po_number: rec.poNumber,
+          po_ref: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.floor(Math.random() * 9999)}`,
+          ship_to: rec.shipTo || undefined,
+          tax_rate: rec.taxRate ?? 0,
+          lines: rec.lines,
+          settings: {
+            po_terms: rec.terms || undefined,
+          },
+        }),
+      })
+      if (!res.ok) {
+        const txt = await res.text()
+        throw new Error(txt || 'Download failed')
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${rec.poNumber}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error(err)
+      alert(err instanceof Error ? err.message : 'Download failed')
+    } finally {
+      setPoDownloadLoading(false)
+    }
+  }
+
   const sendRfq = async (supplierId: string) => {
     const itemIds = selectedBySupplier[supplierId] || []
     if (!itemIds.length) {
@@ -227,6 +291,20 @@ export default function BuyPage() {
             }}
           >
             New PO
+          </button>
+          <button
+            onClick={() => setPoHistoryOpen(true)}
+            style={{
+              padding: '8px 12px',
+              borderRadius: 10,
+              border: '1px solid var(--border)',
+              background: 'var(--panel)',
+              textDecoration: 'none',
+              fontWeight: 800,
+              color: 'var(--text)',
+            }}
+          >
+            My POs
           </button>
           <a
             href="/dashboard/my-rfqs"
@@ -790,6 +868,14 @@ export default function BuyPage() {
                     }))
                     setPoCreating(true)
                     try {
+                      const supplierAddress = poSelectedSupplier
+                        ? [poSelectedSupplier.address_line1, poSelectedSupplier.address_line2, poSelectedSupplier.city, poSelectedSupplier.state, poSelectedSupplier.country, poSelectedSupplier.postcode]
+                            .filter((v) => v && v.trim())
+                            .join('\n') || undefined
+                        : undefined
+                      const shipToString = poDropShip
+                        ? [poShipName, poShipStreet1, poShipStreet2, poShipCity, poShipState, poShipCountry, poShipPostcode].filter((v) => v && v.trim()).join('\n') || undefined
+                        : defaultShipTo || undefined
                       if (tenantId) {
                         const { data: updated, error: upErr } = await supabase
                           .from('tenant_settings')
@@ -802,6 +888,21 @@ export default function BuyPage() {
                       }
                       setPoAssignedNumber(nextPoLabel)
                       setPoCreated(true)
+                      setPoHistory((prev) => [
+                        {
+                          poNumber: nextPoLabel,
+                          supplierName: poSelectedSupplier.name,
+                          supplierEmail: poSelectedSupplier.email,
+                          supplierPhone: poSelectedSupplier.phone,
+                          supplierAddress,
+                          shipTo: shipToString,
+                          terms: poTerms || undefined,
+                          taxRate: poApplyTax ? (Number(poTaxRate) > 0 ? Number(poTaxRate) / 100 : 0) : 0,
+                          lines,
+                          createdAt: new Date().toISOString(),
+                        },
+                        ...prev,
+                      ])
                       alert(
                         `PO created (draft).\nNumber: ${nextPoLabel}\nSupplier: ${poSelectedSupplier.name}\nLines: ${lines.length}\nTerms: ${
                           poTerms || 'n/a'
@@ -1012,6 +1113,112 @@ export default function BuyPage() {
                 </>
               ) : null}
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {poHistoryOpen ? (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'grid',
+            placeItems: 'center',
+            zIndex: 9999,
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              width: 'min(1100px, 92vw)',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              borderRadius: 12,
+              border: '1px solid var(--border)',
+              background: 'var(--surface-2)',
+              padding: 16,
+              display: 'grid',
+              gap: 12,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontWeight: 900, fontSize: 18 }}>My POs</div>
+                <div style={{ color: 'var(--muted)', fontSize: 12 }}>Search and download your drafted POs.</div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  value={poHistorySearch}
+                  onChange={(e) => setPoHistorySearch(e.target.value)}
+                  placeholder="Search by PO number or supplier"
+                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', minWidth: 240 }}
+                />
+                <button
+                  onClick={() => {
+                    setPoHistoryOpen(false)
+                    setPoHistorySearch('')
+                  }}
+                  style={{ borderRadius: 999, border: '1px solid var(--border)', padding: '6px 10px', background: 'var(--panel)', cursor: 'pointer' }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            {filteredPoHistory.length === 0 ? (
+              <div style={{ color: 'var(--muted)', padding: 8 }}>No POs yet. Create one to see it here.</div>
+            ) : (
+              <div style={{ display: 'grid', gap: 8 }}>
+                {filteredPoHistory.map((rec) => (
+                  <div
+                    key={`${rec.poNumber}-${rec.createdAt}`}
+                    style={{
+                      border: '1px solid var(--border)',
+                      borderRadius: 10,
+                      padding: 12,
+                      background: 'var(--panel)',
+                      display: 'grid',
+                      gap: 6,
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                      <div>
+                        <div style={{ fontWeight: 900 }}>{rec.poNumber}</div>
+                        <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+                          Supplier: {rec.supplierName} • Created: {new Date(rec.createdAt).toLocaleString()}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => downloadPoRecord(rec)}
+                        style={{
+                          padding: '8px 10px',
+                          borderRadius: 10,
+                          border: '1px solid var(--border)',
+                          background: 'var(--panel)',
+                          fontWeight: 900,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Download PO
+                      </button>
+                    </div>
+                    {rec.supplierEmail || rec.supplierPhone ? (
+                      <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+                        {rec.supplierEmail ? `Email: ${rec.supplierEmail} ` : ''}
+                        {rec.supplierPhone ? ` • Phone: ${rec.supplierPhone}` : ''}
+                      </div>
+                    ) : null}
+                    {rec.lines.length ? (
+                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                        Lines: {rec.lines.length} · Total qty {rec.lines.reduce((s, l) => s + (Number(l.qty) || 0), 0)}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       ) : null}
