@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { ensureProfile } from '@/lib/bootstrap'
+import { useRouter } from 'next/navigation'
 
 type UserRow = {
   id: string
@@ -33,6 +34,7 @@ export default function AccountPage() {
   const [authEmail, setAuthEmail] = useState<string>('')
 
   const [row, setRow] = useState<UserRow | null>(null)
+  const [userCount, setUserCount] = useState<number>(0)
 
   const [name, setName] = useState('')
   const [company, setCompany] = useState('')
@@ -42,6 +44,7 @@ export default function AccountPage() {
   const [canSeeOrg, setCanSeeOrg] = useState(false)
   const [tenantId, setTenantId] = useState<string>('')
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
+  const router = useRouter()
 
   useEffect(() => {
     const load = async () => {
@@ -75,6 +78,15 @@ export default function AccountPage() {
           setPhone(data.phone ?? '')
           setCanSeeOrg(data.role === 'admin')
           setTenantId(data.tenant_id ?? '')
+        }
+
+        // Fetch user count for this tenant (admin only)
+        if (data?.tenant_id) {
+          const { count } = await supabase
+            .from('users')
+            .select('id', { count: 'exact', head: true })
+            .eq('tenant_id', data.tenant_id)
+          setUserCount(count ?? 0)
         }
 
         // Check Outlook status
@@ -492,6 +504,40 @@ export default function AccountPage() {
             </button>
           </div>
         </div>
+
+        {/* User management (admin only) */}
+        {canSeeOrg ? (
+          <div
+            style={{
+              border: '1px solid var(--border)',
+              borderRadius: 12,
+              padding: 14,
+              background: 'var(--panel)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+            }}
+          >
+            <div style={{ fontWeight: 950 }}>User management</div>
+            <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+              Invite, edit, or remove users for this organisation. Visible to admins only.
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 800 }}>Users in org: {userCount}</div>
+            <button
+              onClick={() => router.push('/dashboard/account/users')}
+              style={{
+                padding: '10px 12px',
+                borderRadius: 12,
+                border: '1px solid var(--border)',
+                background: 'var(--panel)',
+                fontWeight: 900,
+                cursor: 'pointer',
+              }}
+            >
+              Manage users
+            </button>
+          </div>
+        ) : null}
       </div>
     </main>
   )
