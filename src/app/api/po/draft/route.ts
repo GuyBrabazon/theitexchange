@@ -128,7 +128,9 @@ export async function POST(req: NextRequest) {
     const draftJson = (await graphRes.json()) as { id?: string }
     const draftId = draftJson?.id
     const draftsUrl = 'https://outlook.office.com/mail/drafts'
-    const composeUrl = draftId ? `https://outlook.office.com/mail/deeplink/compose?draftid=${encodeURIComponent(draftId)}` : draftsUrl
+    const composeUrl = draftId
+      ? `https://outlook.office.com/mail/deeplink/compose?itemid=${encodeURIComponent(draftId)}&path=/mail/drafts`
+      : draftsUrl
 
     return NextResponse.json({ ok: true, drafts_url: draftsUrl, compose_url: composeUrl })
   } catch (e) {
