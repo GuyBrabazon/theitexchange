@@ -325,7 +325,16 @@ export default function AccountPage() {
               onClick={async () => {
                 setOutlookBusy(true)
                 try {
-                  const res = await fetch('/api/outlook/disconnect', { method: 'POST' })
+                  const {
+                    data: { session },
+                  } = await supabase.auth.getSession()
+                  const token = session?.access_token
+                  if (!token) throw new Error('Not authenticated')
+
+                  const res = await fetch('/api/outlook/disconnect', {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${token}` },
+                  })
                   const json = await res.json()
                   if (!res.ok || !json.ok) throw new Error(json.message || 'Failed')
                   setOutlookStatus('Disconnected')
