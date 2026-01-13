@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabaseServer'
 import { createClient } from '@supabase/supabase-js'
@@ -13,12 +14,12 @@ export async function POST(req: Request) {
     if (!url || !anon) throw new Error('Supabase env missing')
 
     const authHeader = req.headers.get('authorization')
-    const token = authHeader?.replace(/Bearer\\s+/i, '')
+    const cookieToken = cookies().get('sb-access-token')?.value
+    const token = authHeader?.replace(/Bearer\\s+/i, '') || cookieToken
     if (!token) return NextResponse.json({ ok: false, message: 'Not authenticated' }, { status: 401 })
 
     // User-scoped client to check caller + role
     const supaUser = createClient(url, anon, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
       auth: { persistSession: false },
     })
 
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
     const {
       data: { user },
       error: userErr,
-    } = await supaUser.auth.getUser()
+    } = await supaUser.auth.getUser(token)
     if (userErr) throw userErr
     if (!user) return NextResponse.json({ ok: false, message: 'Not authenticated' }, { status: 401 })
 
