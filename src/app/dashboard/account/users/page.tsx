@@ -1,7 +1,6 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { ensureProfile } from '@/lib/bootstrap'
 
@@ -20,13 +19,17 @@ export default function ManageUsersPage() {
   const [rows, setRows] = useState<UserRow[]>([])
   const [tenantId, setTenantId] = useState<string>('')
   const [isAdmin, setIsAdmin] = useState(false)
-  const router = useRouter()
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRole, setInviteRole] = useState('broker')
+  const [success, setSuccess] = useState('')
+  const roleOptions = ['admin', 'finance', 'ops', 'broker', 'readonly']
 
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true)
         setError('')
+        setSuccess('')
         await ensureProfile()
 
         const {
@@ -34,7 +37,6 @@ export default function ManageUsersPage() {
         } = await supabase.auth.getUser()
         if (!user) throw new Error('Not authenticated')
 
-        // Pull tenant/role from users (primary), fallback to profiles
         let tenant: string | null = null
         let role: string | null = null
         const { data: userRow } = await supabase.from('users').select('tenant_id,role').eq('id', user.id).maybeSingle()
@@ -75,8 +77,38 @@ export default function ManageUsersPage() {
     load()
   }, [])
 
-  const onAddUser = () => {
-    alert('To add a user, send them your signup link or invite through your auth flow. (Admin-only action)')
+  const onInvite = () => {
+    if (!isAdmin) return
+    setError('')
+    setSuccess('')
+    const email = inviteEmail.trim()
+    if (!email) {
+      setError('Enter an email to send an invite.')
+      return
+    }
+
+    const subject = encodeURIComponent("You're invited to The IT Exchange")
+    const signupLink = typeof window !== 'undefined' ? `${window.location.origin}/auth/sign-in` : 'https://www.theitexchange.app/auth/sign-in'
+    const body = encodeURIComponent(
+      [
+        'Hi,',
+        '',
+        'You have been invited to join The IT Exchange.',
+        `Sign up link: ${signupLink}`,
+        tenantId ? `Organisation ID: ${tenantId}` : '',
+        `Intended role: ${inviteRole} (admin will confirm after first login).`,
+        '',
+        'After you sign up, an admin will set your role and complete onboarding.',
+        '',
+        'Thanks!',
+      ]
+        .filter(Boolean)
+        .join('\n')
+    )
+    const href = `mailto:${encodeURIComponent(email)}?subject=${subject}&body=${body}`
+    window.location.href = href
+    setSuccess('Invite draft opened in your email client. Attach any instructions before sending.')
+    setInviteEmail('')
   }
 
   const onEdit = (id: string) => {
@@ -95,24 +127,47 @@ export default function ManageUsersPage() {
           <div style={{ color: 'var(--muted)', fontSize: 13 }}>Manage users for this organisation</div>
           {tenantId ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>Tenant: {tenantId}</div> : null}
         </div>
-        <button
-          onClick={onAddUser}
-          disabled={!isAdmin}
-          style={{
-            padding: '10px 12px',
-            borderRadius: 12,
-            border: '1px solid var(--border)',
-            background: 'var(--panel)',
-            fontWeight: 900,
-            cursor: isAdmin ? 'pointer' : 'not-allowed',
-          }}
-        >
-          Add user
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            type="email"
+            placeholder="Invitee email"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+            style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', minWidth: 220 }}
+            disabled={!isAdmin}
+          />
+          <select
+            value={inviteRole}
+            onChange={(e) => setInviteRole(e.target.value)}
+            style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
+            disabled={!isAdmin}
+          >
+            {roleOptions.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={onInvite}
+            disabled={!isAdmin}
+            style={{
+              padding: '10px 12px',
+              borderRadius: 12,
+              border: '1px solid var(--border)',
+              background: 'var(--panel)',
+              fontWeight: 900,
+              cursor: isAdmin ? 'pointer' : 'not-allowed',
+            }}
+          >
+            Send invite
+          </button>
+        </div>
       </div>
 
       {loading ? <div style={{ color: 'var(--muted)' }}>Loading…</div> : null}
       {error ? <div style={{ color: 'var(--bad)' }}>{error}</div> : null}
+      {success ? <div style={{ color: 'var(--good)' }}>{success}</div> : null}
 
       {!loading && !error ? (
         <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--panel)' }}>
