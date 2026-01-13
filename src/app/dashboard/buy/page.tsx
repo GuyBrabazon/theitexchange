@@ -27,6 +27,7 @@ export default function BuyPage() {
   const [term, setTerm] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [companyName, setCompanyName] = useState('')
   const [results, setResults] = useState<SupplierResult[]>([])
   const [selected, setSelected] = useState<Record<string, { qty: string; supplier: string }>>({})
   const [sending, setSending] = useState(false)
@@ -88,6 +89,7 @@ export default function BuyPage() {
       try {
         const profile = await ensureProfile()
         setTenantId(profile.tenant_id)
+        setCompanyName((profile as { company?: string }).company || '')
         // fetch default ship-to from tenant settings (registered_address)
         const { data: tsRow } = await supabase
           .from('tenant_settings')
@@ -828,8 +830,87 @@ export default function BuyPage() {
               {poCreated ? (
                 <>
                   <button
-                    onClick={() => {
-                      alert('Send directly to supplier (opens Outlook) - coming soon.')
+                    onClick={async () => {
+                      if (!poSelectedSupplier) {
+                        alert('Supplier missing')
+                        return
+                      }
+                      if (!poSelectedSupplier.email) {
+                        alert('Supplier email is required to open an email draft.')
+                        return
+                      }
+                      if (!poManualLines.length) {
+                        alert('No lines to send.')
+                        return
+                      }
+                      setPoDownloadLoading(true)
+                      try {
+                        const lines = poManualLines.map((ln) => ({
+                          part: ln.part,
+                          desc: ln.desc,
+                          qty: ln.qty ? Number(ln.qty) || 1 : 1,
+                          price: ln.price ? Number(ln.price) || 0 : 0,
+                        }))
+                        const supplierAddress = [poSelectedSupplier.address_line1, poSelectedSupplier.address_line2, poSelectedSupplier.city, poSelectedSupplier.state, poSelectedSupplier.country, poSelectedSupplier.postcode]
+                          .filter((v) => v && v.trim())
+                          .join('\n') || undefined
+                        const nextSeq = poAssignedNumber
+                          ? Number(poAssignedNumber.replace(/\D+/g, '')) || null
+                          : (poCurrentNumber ?? poStartNumber ?? 1000) + 1
+                        const poNumber = poAssignedNumber || (nextSeq ? `PO-${nextSeq}` : 'PO-DRAFT')
+                        const poRef = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.floor(Math.random() * 9999)}`
+                        const res = await fetch('/api/po/render', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            preview: true,
+                            tenant_id: tenantId || undefined,
+                            buyer_name: poSelectedSupplier.name,
+                            buyer_address: supplierAddress,
+                            buyer_phone: poSelectedSupplier.phone || undefined,
+                            po_number: poNumber,
+                            po_ref: poRef,
+                            ship_to:
+                              poDropShip
+                                ? [poShipName, poShipStreet1, poShipStreet2, poShipCity, poShipState, poShipCountry, poShipPostcode]
+                                    .filter((v) => v && v.trim())
+                                    .join('\n') || undefined
+                                : defaultShipTo || undefined,
+                            tax_rate: poApplyTax ? (Number(poTaxRate) > 0 ? Number(poTaxRate) / 100 : 0) : 0,
+                            lines,
+                            settings: {
+                              po_terms: poTerms || undefined,
+                              po_start_number: poStartNumber ?? undefined,
+                              po_current_number: nextSeq ?? undefined,
+                            },
+                          }),
+                        })
+                        if (!res.ok) {
+                          const txt = await res.text()
+                          throw new Error(txt || 'Failed to generate PO')
+                        }
+                        const blob = await res.blob()
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = `${poNumber}.pdf`
+                        a.click()
+                        URL.revokeObjectURL(url)
+
+                        const subj = `${poNumber} from ${companyName || 'Your company'}`
+                        const body =
+                          `Hi ${poSelectedSupplier.name},\n\n` +
+                          `Please find attached purchase order ${poNumber}.\n` +
+                          `If the attachment does not auto-attach, it has been downloaded locally as ${poNumber}.pdf.\n\n` +
+                          `Regards,\n${companyName || ''}`
+                        const mailto = `mailto:${encodeURIComponent(poSelectedSupplier.email)}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`
+                        window.location.href = mailto
+                      } catch (err) {
+                        console.error(err)
+                        alert(err instanceof Error ? err.message : 'Failed to prepare email')
+                      } finally {
+                        setPoDownloadLoading(false)
+                      }
                     }}
                     style={{
                       padding: '8px 10px',
