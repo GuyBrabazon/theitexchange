@@ -12,12 +12,14 @@ type SendPayload = {
 export async function POST(req: NextRequest) {
   try {
     const supa = supabaseServer()
-    const {
-      data: { user },
-    } = await supa.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ ok: false, message: 'Not authenticated' }, { status: 401 })
-    }
+    const authHeader = req.headers.get('authorization')
+    const token = authHeader?.replace(/Bearer\s+/i, '').trim()
+    if (!token) return NextResponse.json({ ok: false, message: 'Not authenticated' }, { status: 401 })
+
+    const { data: userResp, error: userErr } = await supa.auth.getUser(token)
+    if (userErr) return NextResponse.json({ ok: false, message: userErr.message }, { status: 401 })
+    const user = userResp?.user
+    if (!user) return NextResponse.json({ ok: false, message: 'Not authenticated' }, { status: 401 })
 
     const body: SendPayload = await req.json()
     if (!body.to || !body.subject || !body.body || !body.attachment_base64) {

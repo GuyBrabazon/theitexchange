@@ -899,9 +899,13 @@ export default function BuyPage() {
                           `Please find attached purchase order ${poNumber}.\n\n` +
                           `Regards,\n${companyName || ''}`
 
+                        const token = await getToken()
                         const sendRes = await fetch('/api/po/send', {
                           method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
+                          headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${token}`,
+                          },
                           body: JSON.stringify({
                             to: poSelectedSupplier.email,
                             subject: subj,
