@@ -77,7 +77,18 @@ export default function ManageUsersPage() {
     load()
   }, [])
 
-  const onInvite = () => {
+  const refreshUsers = async (tenant: string) => {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id,role,name,company,phone,created_at')
+      .eq('tenant_id', tenant)
+      .order('created_at', { ascending: false })
+      .limit(500)
+    if (error) throw error
+    setRows((data ?? []) as UserRow[])
+  }
+
+  const onInvite = async () => {
     if (!isAdmin) return
     setError('')
     setSuccess('')
@@ -87,28 +98,25 @@ export default function ManageUsersPage() {
       return
     }
 
-    const subject = encodeURIComponent("You're invited to The IT Exchange")
-    const signupLink = typeof window !== 'undefined' ? `${window.location.origin}/auth/sign-in` : 'https://www.theitexchange.app/auth/sign-in'
-    const body = encodeURIComponent(
-      [
-        'Hi,',
-        '',
-        'You have been invited to join The IT Exchange.',
-        `Sign up link: ${signupLink}`,
-        tenantId ? `Organisation ID: ${tenantId}` : '',
-        `Intended role: ${inviteRole} (admin will confirm after first login).`,
-        '',
-        'After you sign up, an admin will set your role and complete onboarding.',
-        '',
-        'Thanks!',
-      ]
-        .filter(Boolean)
-        .join('\n')
-    )
-    const href = `mailto:${encodeURIComponent(email)}?subject=${subject}&body=${body}`
-    window.location.href = href
-    setSuccess('Invite draft opened in your email client. Attach any instructions before sending.')
-    setInviteEmail('')
+    try {
+      const res = await fetch('/api/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, role: inviteRole }),
+      })
+      const json = await res.json()
+      if (!res.ok || json?.ok === false) {
+        throw new Error(json?.message || 'Invite failed')
+      }
+      setSuccess('Invite sent via auth provider. User will appear after signup.')
+      setInviteEmail('')
+      if (tenantId) {
+        await refreshUsers(tenantId)
+      }
+    } catch (e) {
+      console.error(e)
+      setError(e instanceof Error ? e.message : 'Invite failed')
+    }
   }
 
   const onEdit = (id: string) => {
