@@ -14,7 +14,8 @@ export async function POST(req: Request) {
     if (!url || !anon) throw new Error('Supabase env missing')
 
     const authHeader = req.headers.get('authorization')
-    const cookieToken = cookies().get('sb-access-token')?.value
+    const cookieStore = await cookies()
+    const cookieToken = cookieStore.get('sb-access-token')?.value
     const token = authHeader?.replace(/Bearer\\s+/i, '') || cookieToken
     if (!token) return NextResponse.json({ ok: false, message: 'Not authenticated' }, { status: 401 })
 
