@@ -26,6 +26,8 @@ type RenderRequest = {
     accounts_email: string | null
     registered_address: string | null
     eori: string | null
+    po_start_number?: number | null
+    po_current_number?: number | null
   }>
 }
 
@@ -183,6 +185,16 @@ export async function POST(req: NextRequest) {
     let eori: string | null | undefined = null
     let taxRate: number = typeof body.tax_rate === 'number' && body.tax_rate > 0 ? body.tax_rate : 0
     let taxNote = taxRate > 0 ? `Tax applied at ${(taxRate * 100).toFixed(2)}%` : 'No tax applied'
+    // allow start/current number overrides from settings
+    const s = body.settings || {}
+    if (typeof s.po_current_number === 'number' && !body.po_number) {
+      poNumber = `PO-${s.po_current_number}`
+    } else if (typeof s.po_start_number === 'number' && !body.po_number) {
+      poNumber = `PO-${s.po_start_number}`
+    }
+    if (typeof s.po_start_number === 'number' && !body.po_ref) {
+      poRef = `REF-${s.po_start_number}`
+    }
 
   if (!isPreview) {
     if (!body.po_id) return NextResponse.json({ ok: false, message: 'po_id required' }, { status: 400 })
@@ -272,6 +284,22 @@ export async function POST(req: NextRequest) {
     if (typeof body.tax_rate === 'number') {
       taxRate = body.tax_rate > 0 ? body.tax_rate : 0
       taxNote = taxRate > 0 ? `Tax applied at ${(taxRate * 100).toFixed(2)}%` : 'No tax applied'
+    }
+    if (typeof s.po_current_number === 'number' && !body.po_number) {
+      poNumber = `PO-${s.po_current_number}`
+    } else if (typeof s.po_start_number === 'number' && !body.po_number) {
+      poNumber = `PO-${s.po_start_number}`
+    }
+    if (typeof s.po_start_number === 'number' && !body.po_ref) {
+      poRef = `REF-${s.po_start_number}`
+    }
+    if (typeof s.po_current_number === 'number' && !body.po_number) {
+      poNumber = `PO-${s.po_current_number}`
+    } else if (typeof s.po_start_number === 'number' && !body.po_number) {
+      poNumber = `PO-${s.po_start_number}`
+    }
+    if (typeof s.po_start_number === 'number' && !body.po_ref) {
+      poRef = `REF-${s.po_start_number}`
     }
     color = s.po_brand_color || color
     background = s.po_brand_color_secondary || background
