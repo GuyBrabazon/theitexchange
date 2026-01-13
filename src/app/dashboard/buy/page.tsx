@@ -890,38 +890,21 @@ export default function BuyPage() {
                           throw new Error(txt || 'Failed to generate PO')
                         }
                         const blob = await res.blob()
-                        const arr = await blob.arrayBuffer()
-                        const base64 = btoa(String.fromCharCode(...new Uint8Array(arr)))
+                        // Download locally so user can attach
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = `${poNumber}.pdf`
+                        a.click()
+                        URL.revokeObjectURL(url)
 
                         const subj = `${poNumber} from ${companyName || 'Your company'}`
                         const body =
                           `Hi ${poSelectedSupplier.name},\n\n` +
-                          `Draft PO ${poNumber} created for your review. Open Outlook drafts, review, and send.\n\n` +
+                          `Please attach the downloaded PO (${poNumber}.pdf) and send.\n\n` +
                           `Regards,\n${companyName || ''}`
-
-                        const token = await getToken()
-                        const draftRes = await fetch('/api/po/draft', {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            Authorization: `Bearer ${token}`,
-                          },
-                          body: JSON.stringify({
-                            to: poSelectedSupplier.email,
-                            subject: subj,
-                            body,
-                            attachment_name: `${poNumber}.pdf`,
-                            attachment_base64: base64,
-                          }),
-                        })
-                        if (!draftRes.ok) {
-                          const txt = await draftRes.text()
-                          throw new Error(txt || 'Draft creation failed')
-                        }
-                        const draftJson = (await draftRes.json()) as { drafts_url?: string; compose_url?: string }
-                        const openUrl = draftJson.compose_url || draftJson.drafts_url || 'https://outlook.office.com/mail/drafts'
-                        window.open(openUrl, '_blank')
-                        alert(`Draft created in Outlook. If a new tab did not open, visit: ${openUrl}`)
+                        const mailto = `mailto:${encodeURIComponent(poSelectedSupplier.email)}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`
+                        window.location.href = mailto
                       } catch (err) {
                         console.error(err)
                         alert(err instanceof Error ? err.message : 'Failed to prepare email')
