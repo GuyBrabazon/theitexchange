@@ -157,6 +157,21 @@ export default function InventoryPage() {
     load()
   }, [])
 
+  const getParentId = (specs: Record<string, unknown> | null) => {
+    const raw = specs ? specs['parent_id'] : null
+    return typeof raw === 'string' && raw.trim() ? raw : null
+  }
+
+  const parentLabels = useMemo(() => {
+    const map = new Map<string, string>()
+    rows.forEach((row) => {
+      if (!row.id) return
+      const label = row.model || row.description || row.id
+      map.set(row.id, label)
+    })
+    return map
+  }, [rows])
+
   const filteredRows = useMemo(() => {
     const term = search.trim().toLowerCase()
     return rows.filter((r) => {
@@ -629,6 +644,11 @@ export default function InventoryPage() {
             <div style={{ padding: 8, fontWeight: 900 }}>{r.model || 'Untitled item'}</div>
             <div style={{ padding: 8, color: 'var(--muted)', fontSize: 12 }}>
               {r.description || 'No description'}
+              {r.category?.toLowerCase() === 'component' && getParentId(r.specs) ? (
+                <div style={{ marginTop: 6, fontSize: 11 }}>
+                  Installed in: {parentLabels.get(getParentId(r.specs) as string) || getParentId(r.specs)}
+                </div>
+              ) : null}
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
                 {r.specs?.auction ? (
                   <span

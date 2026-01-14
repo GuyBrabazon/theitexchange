@@ -4,6 +4,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { ensureProfile } from '@/lib/bootstrap'
 import { supabase } from '@/lib/supabase'
 
+type ComponentItem = {
+  id: string
+  model: string | null
+  description: string | null
+  oem: string | null
+  qty_available: number | null
+  currency: string | null
+}
+
 type SupplierResult = {
   supplier_tenant_id: string
   supplier_name: string
@@ -13,12 +22,14 @@ type SupplierResult = {
     description: string | null
     oem: string | null
     condition: string | null
+    category: string | null
     qty_available: number | null
     qty_total: number | null
     status: string | null
     location: string | null
     currency: string | null
     cost: number | null
+    components: ComponentItem[]
   }[]
 }
 
@@ -424,6 +435,23 @@ export default function BuyPage() {
                         <div style={{ color: 'var(--muted)', fontSize: 12 }}>{it.description || '—'}</div>
                         <div style={{ color: 'var(--muted)', fontSize: 11, marginTop: 4 }}>Status: {it.status || 'available'}</div>
                         {it.location ? <div style={{ color: 'var(--muted)', fontSize: 11 }}>Location: {it.location}</div> : null}
+                        {(it.category ?? '').toLowerCase() !== 'component' && it.components?.length ? (
+                          <div style={{ marginTop: 6, display: 'grid', gap: 2 }}>
+                            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)' }}>Configured with:</div>
+                            {it.components.slice(0, 6).map((c) => (
+                              <div key={c.id} style={{ fontSize: 11, color: 'var(--muted)' }}>
+                                {c.model || c.description || 'Component'}
+                                {c.oem ? ` - ${c.oem}` : ''}
+                                {c.qty_available != null ? ` (qty ${c.qty_available})` : ''}
+                              </div>
+                            ))}
+                            {it.components.length > 6 ? (
+                              <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                                {it.components.length - 6} more components
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
                       </div>
                       <div style={{ padding: 8 }}>{it.oem || '—'}</div>
                       <div style={{ padding: 8 }}>{it.condition || '—'}</div>

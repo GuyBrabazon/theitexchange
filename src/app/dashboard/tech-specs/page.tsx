@@ -153,7 +153,8 @@ export default function TechSpecsPage() {
     <main style={{ padding: 24, display: 'grid', gap: 16 }}>
       <div>
         <h1 style={{ marginBottom: 6 }}>Tech Specs</h1>
-        <div style={{ color: 'var(--muted)' }}>Create and check compatibility relationships between systems and parts. Help us to grow a global database of system compatibility relationships for the betterment of the IT community.</div>
+        <div style={{ color: 'var(--muted)' }}>Create and check compatibility relationships between systems and parts. 
+          Help us to grow a global database of system compatibility relationships for the betterment of the IT community.</div>
       </div>
 
       {error ? <div style={{ color: 'crimson' }}>{error}</div> : null}

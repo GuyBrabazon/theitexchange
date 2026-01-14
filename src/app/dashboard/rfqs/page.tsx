@@ -21,6 +21,15 @@ type RfqListItem = {
   lines: RfqLine[]
 }
 
+type ComponentItem = {
+  id: string
+  model: string | null
+  description: string | null
+  oem: string | null
+  qty_available: number | null
+  currency: string | null
+}
+
 type RfqLine = {
   id: string
   inventory_item_id: string | null
@@ -28,6 +37,8 @@ type RfqLine = {
   model: string | null
   description: string | null
   oem: string | null
+  category: string | null
+  components: ComponentItem[]
   qty_available: number | null
   cost: number | null
   currency: string | null
@@ -75,7 +86,7 @@ export default function RfqsPage() {
     const { data, error } = await supabase
       .from('rfqs')
       .select(
-        'id,subject,note,status,buyer_tenant_id,created_at,supplier_email,rfq_lines(id,inventory_item_id,qty_requested,inventory_items(id,model,description,oem,qty_available,cost,currency)),requester_name,requester_email,requester_phone,requester_company'
+        'id,subject,note,status,buyer_tenant_id,created_at,supplier_email,rfq_lines(id,inventory_item_id,qty_requested,inventory_items(id,model,description,oem,qty_available,cost,currency,category,specs)),requester_name,requester_email,requester_phone,requester_company'
       )
       .eq('supplier_tenant_id', tenant)
       .in('status', ['new', 'sent'])
@@ -100,6 +111,42 @@ export default function RfqsPage() {
     })
 
     const itemIdList = Array.from(itemIds)
+    const parentIds = new Set<string>()
+    ;(data ?? []).forEach((r: any) => {
+      ;(r.rfq_lines ?? []).forEach((l: any) => {
+        const inv = l.inventory_items || {}
+        const invId = inv.id ? String(inv.id) : ''
+        const category = String(inv.category ?? '').toLowerCase()
+        if (invId && category && category !== 'component') parentIds.add(invId)
+      })
+    })
+    const parentIdList = Array.from(parentIds)
+    const componentsByParent = new Map<string, ComponentItem[]>()
+    if (parentIdList.length) {
+      const { data: compRows, error: compErr } = await supabase
+        .from('inventory_items')
+        .select('id,model,description,oem,qty_available,currency,specs')
+        .in('specs->>parent_id', parentIdList)
+        .eq('tenant_id', tenant)
+        .limit(2000)
+      if (compErr) throw compErr
+      ;(compRows ?? []).forEach((row: any) => {
+        const specs = (row.specs as Record<string, unknown> | null) ?? null
+        const parentId = typeof specs?.parent_id === 'string' ? specs.parent_id : ''
+        if (!parentId) return
+        const comp: ComponentItem = {
+          id: String(row.id ?? ''),
+          model: row.model ?? null,
+          description: row.description ?? null,
+          oem: row.oem ?? null,
+          qty_available: row.qty_available == null ? null : Number(row.qty_available),
+          currency: row.currency ?? null,
+        }
+        const list = componentsByParent.get(parentId) ?? []
+        list.push(comp)
+        componentsByParent.set(parentId, list)
+      })
+    }
     // Fetch sales/quote history for these items
     const [soRes, quoteRes] = await Promise.all([
       itemIdList.length
@@ -169,6 +216,9 @@ export default function RfqsPage() {
           ? (r as any).rfq_lines.map((l: any) => {
               const inv = l.inventory_items || {}
               const invId = l.inventory_item_id ? String(l.inventory_item_id) : null
+              const category = inv.category == null ? null : String(inv.category)
+              const components =
+                invId && String(category ?? '').toLowerCase() !== 'component' ? componentsByParent.get(invId) ?? [] : []
               return {
                 id: String(l.id ?? ''),
                 inventory_item_id: invId,
@@ -176,6 +226,8 @@ export default function RfqsPage() {
                 model: inv.model ?? null,
                 description: inv.description ?? null,
                 oem: inv.oem ?? null,
+                category,
+                components,
                 qty_available: inv.qty_available == null ? null : Number(inv.qty_available),
                 cost: inv.cost == null ? null : Number(inv.cost),
                 currency: inv.currency ?? null,
@@ -342,6 +394,23 @@ export default function RfqsPage() {
                       <div style={{ fontWeight: 800 }}>{l.model || l.description || 'Line'}</div>
                       <div style={{ color: 'var(--muted)', fontSize: 12 }}>{l.description || ''}</div>
                       <div style={{ color: 'var(--muted)', fontSize: 11 }}>{l.oem || ''}</div>
+                      {(l.category ?? '').toLowerCase() !== 'component' && l.components?.length ? (
+                        <div style={{ marginTop: 6, display: 'grid', gap: 2 }}>
+                          <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)' }}>Configured with:</div>
+                          {l.components.slice(0, 6).map((c) => (
+                            <div key={c.id} style={{ fontSize: 11, color: 'var(--muted)' }}>
+                              {c.model || c.description || 'Component'}
+                              {c.oem ? ` - ${c.oem}` : ''}
+                              {c.qty_available != null ? ` (qty ${c.qty_available})` : ''}
+                            </div>
+                          ))}
+                          {l.components.length > 6 ? (
+                            <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                              {l.components.length - 6} more components
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
                     <div style={{ padding: 8 }}>{l.qty_requested ?? '—'}</div>
                     <div style={{ padding: 8 }}>{l.qty_available ?? '—'}</div>
