@@ -102,7 +102,7 @@ function ModalShell({
     >
       <div
         style={{
-          width: 'min(980px, 96vw)',
+          width: 'min(1100px, 96vw)',
           maxHeight: 'calc(100vh - 32px)',
           display: 'flex',
           flexDirection: 'column',
@@ -138,7 +138,7 @@ function ModalShell({
             Close
           </button>
         </div>
-        <div style={{ padding: 14, overflowY: 'auto' }}>{children}</div>
+        <div style={{ padding: 12, overflowY: 'auto' }}>{children}</div>
       </div>
     </div>
   )
@@ -650,7 +650,7 @@ export default function CustomersPage() {
 
       {editOpen ? (
         <ModalShell title={editBuyer ? `Edit customer � ${editBuyer.name}` : 'Add customer'} onClose={closeEdit}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
         <div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Name</div>
           <input
@@ -757,7 +757,14 @@ export default function CustomersPage() {
               />
             </div>
 
-        <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div
+          style={{
+            gridColumn: '1 / -1',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: 10,
+          }}
+        >
           <div>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Street address 1</div>
             <input
@@ -903,7 +910,7 @@ export default function CustomersPage() {
                 value={fTags}
                 onChange={(e) => setFTags(e.target.value)}
                 placeholder="Comma-separated tags, e.g. dell, cisco, lenovo"
-                rows={3}
+                rows={2}
                 style={{
                   width: '100%',
                   padding: 10,
