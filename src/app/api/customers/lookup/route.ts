@@ -52,9 +52,29 @@ export async function POST(req: Request) {
     const requesterTenant = requesterProfile?.tenant_id
     if (!requesterTenant) return NextResponse.json({ ok: false, message: 'Tenant not found' }, { status: 400 })
 
-    const { data: authLookup, error: authErr } = await supa.auth.admin.getUserByEmail(email)
-    if (authErr) throw authErr
-    const authUser = authLookup?.user
+    const admin = supa.auth.admin as {
+      getUserByEmail?: (
+        email: string
+      ) => Promise<{ data?: { user?: { id?: string; email?: string | null } }; error?: unknown }>
+      listUsers: (params?: {
+        page?: number
+        perPage?: number
+      }) => Promise<{ data?: { users?: Array<{ id: string; email?: string | null }> }; error?: unknown }>
+    }
+
+    let authUser: { id?: string; email?: string | null } | undefined
+    if (admin.getUserByEmail) {
+      const { data: authLookup, error: authErr } = await admin.getUserByEmail(email)
+      if (authErr) throw authErr
+      authUser = authLookup?.user
+    } else {
+      const { data: listData, error: listErr } = await admin.listUsers({ page: 1, perPage: 1000 })
+      if (listErr) throw listErr
+      authUser = (listData?.users ?? []).find(
+        (u) => (u.email ?? '').toLowerCase() === email
+      )
+    }
+
     if (!authUser?.id) {
       const resp: LookupResult = { ok: false, reason: 'not_found', message: 'This user is not a user of The IT Exchange' }
       return NextResponse.json(resp, { status: 404 })
