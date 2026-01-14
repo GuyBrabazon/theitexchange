@@ -13,10 +13,11 @@ export async function POST(req: Request) {
     const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     if (!url || !anon) throw new Error('Supabase env missing')
 
-    const authHeader = req.headers.get('authorization')
+    const authHeader = req.headers.get('authorization') ?? ''
     const cookieStore = await cookies()
     const cookieToken = cookieStore.get('sb-access-token')?.value
-    const token = authHeader?.replace(/Bearer\s+/i, '') || cookieToken
+    const bearerToken = authHeader.toLowerCase().startsWith('bearer ') ? authHeader.slice(7).trim() : authHeader.trim()
+    const token = bearerToken || cookieToken
     console.log('invite token present', Boolean(token), {
       authHeader: Boolean(authHeader),
       cookieToken: Boolean(cookieToken),
