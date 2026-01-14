@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     const authHeader = req.headers.get('authorization')
     const cookieStore = await cookies()
     const cookieToken = cookieStore.get('sb-access-token')?.value
-    const token = authHeader?.replace(/Bearer\\s+/i, '') || cookieToken
+    const token = authHeader?.replace(/Bearer\s+/i, '') || cookieToken
     console.log('invite token present', Boolean(token), {
       authHeader: Boolean(authHeader),
       cookieToken: Boolean(cookieToken),
