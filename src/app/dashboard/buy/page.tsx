@@ -30,6 +30,8 @@ type SupplierResult = {
     currency: string | null
     cost: number | null
     components: ComponentItem[]
+    source_count: number
+    components_mixed: boolean
   }[]
 }
 
@@ -434,6 +436,11 @@ export default function BuyPage() {
                         <div style={{ fontWeight: 900 }}>{it.model || it.description || 'Unnamed part'}</div>
                         <div style={{ color: 'var(--muted)', fontSize: 12 }}>{it.description || '—'}</div>
                         <div style={{ color: 'var(--muted)', fontSize: 11, marginTop: 4 }}>Status: {it.status || 'available'}</div>
+                        {it.source_count > 1 ? (
+                          <div style={{ color: 'var(--muted)', fontSize: 11 }}>
+                            Aggregated across {it.source_count} listings
+                          </div>
+                        ) : null}
                         {it.location ? <div style={{ color: 'var(--muted)', fontSize: 11 }}>Location: {it.location}</div> : null}
                         {(it.category ?? '').toLowerCase() !== 'component' && it.components?.length ? (
                           <div style={{ marginTop: 6, display: 'grid', gap: 2 }}>
@@ -449,6 +456,9 @@ export default function BuyPage() {
                               <div style={{ fontSize: 11, color: 'var(--muted)' }}>
                                 {it.components.length - 6} more components
                               </div>
+                            ) : null}
+                            {it.components_mixed ? (
+                              <div style={{ fontSize: 11, color: 'var(--muted)' }}>Multiple configurations across listings</div>
                             ) : null}
                           </div>
                         ) : null}

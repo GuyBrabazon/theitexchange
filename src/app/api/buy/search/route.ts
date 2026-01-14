@@ -75,6 +75,8 @@ export async function GET(request: Request) {
       currency: string | null
       cost: number | null
       components: ComponentItem[]
+      source_count: number
+      components_mixed: boolean
     }
 
     type Group = { supplier_tenant_id: string; supplier_name: string; items: ItemResult[] }
@@ -96,6 +98,8 @@ export async function GET(request: Request) {
         currency: toText(rec.currency),
         cost: toNum(rec.cost),
         components: [],
+        source_count: 1,
+        components_mixed: false,
       }
     })
 
@@ -131,12 +135,68 @@ export async function GET(request: Request) {
       })
     }
 
-    const enriched: ItemResult[] = normalized.map((row) => ({
+    const enriched = normalized.map((row) => ({
       ...row,
       components: (row.category ?? '').toLowerCase() === 'component' ? [] : componentsByParent.get(row.id) ?? [],
     }))
 
-    const grouped = enriched.reduce<Record<string, Group>>((acc, row) => {
+    const mergeText = (a: string | null, b: string | null) => {
+      if (!a) return b
+      if (!b) return a
+      if (a === b) return a
+      return 'mixed'
+    }
+    const mergeNumExact = (a: number | null, b: number | null) => {
+      if (a == null) return b
+      if (b == null) return a
+      return a === b ? a : null
+    }
+    const componentSignature = (list: ComponentItem[]) =>
+      list
+        .map((c) => `${(c.model ?? c.description ?? '').trim().toLowerCase()}|${(c.oem ?? '').trim().toLowerCase()}`)
+        .sort()
+        .join('||')
+
+    const aggregated = new Map<
+      string,
+      ItemResult & {
+        component_signature: string
+      }
+    >()
+
+    enriched.forEach((row) => {
+      const partKey = (row.model ?? row.description ?? '').trim().toLowerCase()
+      const groupKey = partKey ? `${row.tenant_id}::${partKey}` : `${row.tenant_id}::${row.id}`
+      const signature = componentSignature(row.components)
+      const existing = aggregated.get(groupKey)
+      if (!existing) {
+        aggregated.set(groupKey, {
+          ...row,
+          qty_available: row.qty_available ?? 0,
+          qty_total: row.qty_total ?? 0,
+          source_count: 1,
+          components_mixed: false,
+          component_signature: signature,
+        })
+        return
+      }
+      existing.source_count += 1
+      existing.qty_available = (existing.qty_available ?? 0) + (row.qty_available ?? 0)
+      existing.qty_total = (existing.qty_total ?? 0) + (row.qty_total ?? 0)
+      existing.condition = mergeText(existing.condition, row.condition)
+      existing.location = mergeText(existing.location, row.location)
+      existing.currency = mergeText(existing.currency, row.currency)
+      existing.status = mergeText(existing.status, row.status)
+      existing.category = mergeText(existing.category, row.category)
+      existing.cost = mergeNumExact(existing.cost, row.cost)
+      if (existing.component_signature !== signature) {
+        existing.components_mixed = true
+      }
+    })
+
+    const aggregatedList: ItemResult[] = Array.from(aggregated.values()).map(({ component_signature, ...row }) => row)
+
+    const grouped = aggregatedList.reduce<Record<string, Group>>((acc, row) => {
       const sid = String(row.tenant_id)
       if (!acc[sid]) {
         acc[sid] = { supplier_tenant_id: sid, supplier_name: tenantMap.get(sid) ?? 'Supplier', items: [] }
