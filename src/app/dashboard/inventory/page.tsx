@@ -9,6 +9,7 @@ import * as XLSX from 'xlsx'
 type InventoryRow = {
   id: string
   tenant_id: string
+  sid: string | null
   model: string | null
   description: string | null
   oem: string | null
@@ -127,6 +128,7 @@ export default function InventoryPage() {
           return {
             id: String(row.id ?? ''),
             tenant_id: String(row.tenant_id ?? ''),
+            sid: row.sid == null ? null : String(row.sid),
             model: (row.model as string | null) ?? null,
             description: (row.description as string | null) ?? null,
             oem: (row.oem as string | null) ?? null,
@@ -166,7 +168,8 @@ export default function InventoryPage() {
     const map = new Map<string, string>()
     rows.forEach((row) => {
       if (!row.id) return
-      const label = row.model || row.description || row.id
+      const baseLabel = row.model || row.description || row.id
+      const label = row.sid ? `${baseLabel} (SID: ${row.sid})` : baseLabel
       map.set(row.id, label)
     })
     return map
@@ -178,7 +181,7 @@ export default function InventoryPage() {
       const statusOk = statusFilter === 'all' || (r.status ?? 'available')?.toLowerCase() === statusFilter
       if (!statusOk) return false
       if (!term) return true
-      const hay = [r.model, r.description, r.oem, r.condition].map((x) => (x ?? '').toLowerCase())
+      const hay = [r.model, r.description, r.oem, r.condition, r.sid].map((x) => (x ?? '').toLowerCase())
       return hay.some((h) => h.includes(term))
     })
   }, [rows, statusFilter, search])
@@ -609,7 +612,7 @@ export default function InventoryPage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '0.25fr 0.9fr 1.0fr 0.65fr 0.65fr 0.65fr 0.65fr 0.65fr 0.65fr',
+            gridTemplateColumns: '0.25fr 0.85fr 0.7fr 1.1fr 0.6fr 0.6fr 0.6fr 0.7fr 0.7fr 0.7fr',
             gap: 0,
             background: 'var(--surface-2)',
             fontWeight: 900,
@@ -618,6 +621,7 @@ export default function InventoryPage() {
         >
           <div style={{ padding: 8 }}>Select</div>
           <div style={{ padding: 8 }}>Part number</div>
+          <div style={{ padding: 8 }}>SID</div>
           <div style={{ padding: 8 }}>Description</div>
           <div style={{ padding: 8 }}>OEM</div>
           <div style={{ padding: 8 }}>Condition</div>
@@ -632,7 +636,7 @@ export default function InventoryPage() {
             key={r.id}
             style={{
               display: 'grid',
-              gridTemplateColumns: '0.25fr 0.9fr 1.0fr 0.65fr 0.65fr 0.65fr 0.65fr 0.65fr 0.65fr',
+              gridTemplateColumns: '0.25fr 0.85fr 0.7fr 1.1fr 0.6fr 0.6fr 0.6fr 0.7fr 0.7fr 0.7fr',
               gap: 0,
               borderTop: `1px solid var(--border)`,
               background: 'var(--panel)',
@@ -642,6 +646,7 @@ export default function InventoryPage() {
               <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
             </div>
             <div style={{ padding: 8, fontWeight: 900 }}>{r.model || 'Untitled item'}</div>
+            <div style={{ padding: 8, fontFamily: 'var(--font-mono)', fontSize: 12 }}>{r.sid || '-'}</div>
             <div style={{ padding: 8, color: 'var(--muted)', fontSize: 12 }}>
               {r.description || 'No description'}
               {r.category?.toLowerCase() === 'component' && getParentId(r.specs) ? (
