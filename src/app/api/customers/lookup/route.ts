@@ -52,14 +52,10 @@ export async function POST(req: Request) {
     const requesterTenant = requesterProfile?.tenant_id
     if (!requesterTenant) return NextResponse.json({ ok: false, message: 'Tenant not found' }, { status: 400 })
 
-    const { data: authRow, error: authErr } = await supa
-      .schema('auth')
-      .from('users')
-      .select('id,email')
-      .ilike('email', email)
-      .maybeSingle()
+    const { data: authLookup, error: authErr } = await supa.auth.admin.getUserByEmail(email)
     if (authErr) throw authErr
-    if (!authRow?.id) {
+    const authUser = authLookup?.user
+    if (!authUser?.id) {
       const resp: LookupResult = { ok: false, reason: 'not_found', message: 'This user is not a user of The IT Exchange' }
       return NextResponse.json(resp, { status: 404 })
     }
@@ -67,7 +63,7 @@ export async function POST(req: Request) {
     const { data: targetProfile, error: targetErr } = await supa
       .from('users')
       .select('id,tenant_id,name,company,phone')
-      .eq('id', authRow.id)
+      .eq('id', authUser.id)
       .maybeSingle()
     if (targetErr) throw targetErr
     if (!targetProfile?.tenant_id) {
@@ -102,7 +98,7 @@ export async function POST(req: Request) {
       tenant_name: tenantRow?.name ?? null,
       company_name: tenantRow?.name ?? targetProfile.company ?? null,
       contact_name: targetProfile.name ?? null,
-      contact_email: authRow.email ?? null,
+      contact_email: authUser.email ?? null,
       contact_phone: targetProfile.phone ?? null,
       accounts_email: settingsRow.accounts_email ?? null,
       address_line1: addressLines.address_line1 || null,
