@@ -24,6 +24,13 @@ type InventoryRow = {
   specs: Record<string, unknown> | null
 }
 
+type UnitRow = {
+  id: string
+  unit_sid: string
+  status: string
+  created_at: string | null
+}
+
 const currencyOptions = ['USD', 'EUR', 'GBP', 'ZAR', 'AUD', 'CAD', 'SGD', 'AED']
 const categoryOptions = ['server', 'storage', 'networking', 'component', 'pc', 'laptop']
 
@@ -67,6 +74,11 @@ export default function InventoryPage() {
   const [containedComponents, setContainedComponents] = useState<Array<{ model: string; oem: string; qty: string }>>([
     { model: '', oem: '', qty: '' },
   ])
+  const [unitsOpen, setUnitsOpen] = useState(false)
+  const [unitsFor, setUnitsFor] = useState<{ id: string; label: string } | null>(null)
+  const [units, setUnits] = useState<UnitRow[]>([])
+  const [unitsLoading, setUnitsLoading] = useState(false)
+  const [unitsError, setUnitsError] = useState('')
 
   useEffect(() => {
     if (tenantCurrency) {
@@ -418,6 +430,49 @@ export default function InventoryPage() {
     })
   }
 
+  const closeUnits = () => {
+    setUnitsOpen(false)
+    setUnitsFor(null)
+    setUnits([])
+    setUnitsError('')
+  }
+
+  const openUnits = async (row: InventoryRow) => {
+    try {
+      setUnitsOpen(true)
+      setUnitsLoading(true)
+      setUnitsError('')
+      setUnitsFor({ id: row.id, label: row.model || row.description || row.id })
+
+      const { data, error: unitErr } = await supabase
+        .from('inventory_units')
+        .select('id,unit_sid,status,created_at')
+        .eq('inventory_item_id', row.id)
+        .order('created_at', { ascending: true })
+
+      if (unitErr) throw unitErr
+
+      const mapped: UnitRow[] =
+        (data ?? []).map((u) => ({
+          id: String((u as Record<string, unknown>).id ?? ''),
+          unit_sid: String((u as Record<string, unknown>).unit_sid ?? ''),
+          status: String((u as Record<string, unknown>).status ?? ''),
+          created_at: (u as Record<string, unknown>).created_at
+            ? String((u as Record<string, unknown>).created_at)
+            : null,
+        })) ?? []
+
+      setUnits(mapped)
+    } catch (e) {
+      console.error(e)
+      const msg = e instanceof Error ? e.message : 'Failed to load unit SIDs'
+      setUnitsError(msg)
+      setUnits([])
+    } finally {
+      setUnitsLoading(false)
+    }
+  }
+
   const downloadTemplate = () => {
     const headers = [
       'Type',
@@ -646,7 +701,25 @@ export default function InventoryPage() {
               <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
             </div>
             <div style={{ padding: 8, fontWeight: 900 }}>{r.model || 'Untitled item'}</div>
-            <div style={{ padding: 8, fontFamily: 'var(--font-mono)', fontSize: 12 }}>{r.sid || '-'}</div>
+            <div style={{ padding: 8, display: 'grid', gap: 6 }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{r.sid || '-'}</div>
+              {(r.qty_available ?? 0) > 1 ? (
+                <button
+                  onClick={() => openUnits(r)}
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: 8,
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface-2)',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  View unit SIDs
+                </button>
+              ) : null}
+            </div>
             <div style={{ padding: 8, color: 'var(--muted)', fontSize: 12 }}>
               {r.description || 'No description'}
               {r.category?.toLowerCase() === 'component' && getParentId(r.specs) ? (
@@ -1204,6 +1277,101 @@ export default function InventoryPage() {
                 After choosing a file, you&apos;ll be asked to map columns before import.
               </div>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {unitsOpen ? (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 26,
+          }}
+        >
+          <div
+            style={{
+              background: 'var(--panel)',
+              border: '1px solid var(--border)',
+              borderRadius: 14,
+              padding: 16,
+              width: 'min(720px, 92vw)',
+              maxHeight: '85vh',
+              overflow: 'auto',
+              display: 'grid',
+              gap: 12,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: 900, fontSize: 18 }}>Unit SIDs</div>
+                <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+                  {unitsFor ? `Inventory item: ${unitsFor.label}` : 'Inventory item'}
+                </div>
+              </div>
+              <button
+                onClick={closeUnits}
+                style={{
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface-2)',
+                  borderRadius: 10,
+                  padding: '8px 10px',
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+
+            {unitsLoading ? (
+              <div style={{ padding: 10, color: 'var(--muted)', fontSize: 12 }}>Loading unit SIDs...</div>
+            ) : units.length === 0 ? (
+              <div style={{ padding: 10, color: 'var(--muted)', fontSize: 12 }}>
+                No unit SIDs found for this item.
+              </div>
+            ) : (
+              <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1.2fr 0.6fr 0.8fr',
+                    gap: 0,
+                    background: 'var(--surface-2)',
+                    fontWeight: 800,
+                    fontSize: 12,
+                  }}
+                >
+                  <div style={{ padding: 8 }}>Unit SID</div>
+                  <div style={{ padding: 8 }}>Status</div>
+                  <div style={{ padding: 8 }}>Created</div>
+                </div>
+                {units.map((u) => (
+                  <div
+                    key={u.id}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1.2fr 0.6fr 0.8fr',
+                      gap: 0,
+                      borderTop: '1px solid var(--border)',
+                    }}
+                  >
+                    <div style={{ padding: 8, fontFamily: 'var(--font-mono)', fontSize: 12 }}>{u.unit_sid}</div>
+                    <div style={{ padding: 8, fontSize: 12 }}>{u.status}</div>
+                    <div style={{ padding: 8, fontSize: 12 }}>
+                      {u.created_at ? new Date(u.created_at).toLocaleString() : '-'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {unitsError ? (
+              <div style={{ padding: 10, color: 'var(--bad)', fontSize: 12 }}>{unitsError}</div>
+            ) : null}
           </div>
         </div>
       ) : null}

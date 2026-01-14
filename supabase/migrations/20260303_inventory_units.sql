@@ -38,7 +38,7 @@ declare
   v_to_create int;
 begin
   v_target := coalesce(new.qty_available, 0);
-  if v_target <= 0 then
+  if v_target <= 1 then
     return new;
   end if;
 
@@ -75,7 +75,8 @@ with counts as (
     from public.inventory_units
     group by inventory_item_id
   ) u on u.inventory_item_id = ii.id
-  where coalesce(ii.qty_available, 0) > coalesce(u.cnt, 0)
+  where coalesce(ii.qty_available, 0) > 1
+    and coalesce(ii.qty_available, 0) > coalesce(u.cnt, 0)
 )
 insert into public.inventory_units (inventory_item_id, tenant_id, status)
 select c.id, c.tenant_id, 'available'
