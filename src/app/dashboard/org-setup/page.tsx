@@ -24,6 +24,34 @@ type TenantSettings = {
 
 const currencies = ['USD', 'EUR', 'GBP', 'ZAR', 'AUD', 'CAD', 'SGD', 'AED']
 
+const parseRegisteredAddress = (value: string | null | undefined) => {
+  const lines = (value ?? '')
+    .split(/\r?\n/g)
+    .map((line) => line.trim())
+    .filter(Boolean)
+  return {
+    line1: lines[0] ?? '',
+    line2: lines[1] ?? '',
+    city: lines[2] ?? '',
+    state: lines[3] ?? '',
+    country: lines[4] ?? '',
+    postcode: lines[5] ?? '',
+  }
+}
+
+const buildRegisteredAddress = (input: {
+  line1: string
+  line2: string
+  city: string
+  state: string
+  country: string
+  postcode: string
+}) =>
+  [input.line1, input.line2, input.city, input.state, input.country, input.postcode]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join('\n')
+
 export default function OrgSetupPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -50,6 +78,14 @@ export default function OrgSetupPage() {
     accounts_email: '',
     registered_address: '',
     eori: '',
+  })
+  const [registeredAddr, setRegisteredAddr] = useState({
+    line1: '',
+    line2: '',
+    city: '',
+    state: '',
+    country: '',
+    postcode: '',
   })
   const [previewOpen, setPreviewOpen] = useState(false)
 
@@ -93,6 +129,7 @@ export default function OrgSetupPage() {
 
         setTenantName(tenantRow?.name ?? '')
         if (settingsRow) {
+          const parsedAddress = parseRegisteredAddress(settingsRow.registered_address ?? '')
           setSettings({
             default_currency: settingsRow.default_currency ?? 'USD',
             margins_visible_to_brokers: settingsRow.margins_visible_to_brokers ?? true,
@@ -111,6 +148,14 @@ export default function OrgSetupPage() {
             registered_address: settingsRow.registered_address ?? '',
             eori: settingsRow.eori ?? '',
           })
+          setRegisteredAddr({
+            line1: parsedAddress.line1,
+            line2: parsedAddress.line2,
+            city: parsedAddress.city,
+            state: parsedAddress.state,
+            country: parsedAddress.country,
+            postcode: parsedAddress.postcode,
+          })
         }
 
       } catch (e) {
@@ -125,6 +170,20 @@ export default function OrgSetupPage() {
     load()
   }, [])
 
+  useEffect(() => {
+    setSettings((prev) => ({
+      ...prev,
+      registered_address: buildRegisteredAddress(registeredAddr),
+    }))
+  }, [
+    registeredAddr.line1,
+    registeredAddr.line2,
+    registeredAddr.city,
+    registeredAddr.state,
+    registeredAddr.country,
+    registeredAddr.postcode,
+  ])
+
   const saveSettings = async () => {
     if (!tenantId) return
     setSaving(true)
@@ -132,6 +191,7 @@ export default function OrgSetupPage() {
     setSuccess('')
     try {
       const token = await getToken()
+      const registeredAddress = buildRegisteredAddress(registeredAddr)
       const res = await fetch('/api/org-setup/save', {
         method: 'POST',
         headers: {
@@ -156,7 +216,7 @@ export default function OrgSetupPage() {
             po_number_start: settings.po_number_start ?? null,
             po_number_current: settings.po_number_current ?? null,
             accounts_email: settings.accounts_email || null,
-            registered_address: settings.registered_address || null,
+            registered_address: registeredAddress || null,
             eori: settings.eori || null,
           },
         }),
@@ -201,10 +261,15 @@ export default function OrgSetupPage() {
 
   const previewPo = async () => {
     try {
+      const registeredAddress = buildRegisteredAddress(registeredAddr)
       const res = await fetch('/api/po/render', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ preview: true, tenant_id: tenantId, settings }),
+        body: JSON.stringify({
+          preview: true,
+          tenant_id: tenantId,
+          settings: { ...settings, registered_address: registeredAddress || null },
+        }),
       })
       if (!res.ok) throw new Error('Preview failed')
       const blob = await res.blob()
@@ -308,15 +373,46 @@ export default function OrgSetupPage() {
             />
           </div>
 
-          <div style={{ display: 'grid', gap: 6 }}>
+          <div style={{ gridColumn: '1 / -1', display: 'grid', gap: 6 }}>
             <label style={{ fontSize: 12, color: 'var(--muted)' }}>Registered business address</label>
-            <textarea
-              value={settings.registered_address ?? ''}
-              onChange={(e) => setSettings((prev) => ({ ...prev, registered_address: e.target.value }))}
-              rows={3}
-              placeholder="Street, City, Country"
-              style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', resize: 'vertical' }}
-            />
+            <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
+              <input
+                value={registeredAddr.line1}
+                onChange={(e) => setRegisteredAddr((prev) => ({ ...prev, line1: e.target.value }))}
+                placeholder="Street address 1"
+                style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+              />
+              <input
+                value={registeredAddr.line2}
+                onChange={(e) => setRegisteredAddr((prev) => ({ ...prev, line2: e.target.value }))}
+                placeholder="Street address 2"
+                style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+              />
+              <input
+                value={registeredAddr.city}
+                onChange={(e) => setRegisteredAddr((prev) => ({ ...prev, city: e.target.value }))}
+                placeholder="Town/City"
+                style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+              />
+              <input
+                value={registeredAddr.state}
+                onChange={(e) => setRegisteredAddr((prev) => ({ ...prev, state: e.target.value }))}
+                placeholder="County/State"
+                style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+              />
+              <input
+                value={registeredAddr.country}
+                onChange={(e) => setRegisteredAddr((prev) => ({ ...prev, country: e.target.value }))}
+                placeholder="Country"
+                style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+              />
+              <input
+                value={registeredAddr.postcode}
+                onChange={(e) => setRegisteredAddr((prev) => ({ ...prev, postcode: e.target.value }))}
+                placeholder="Zip/Post code"
+                style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+              />
+            </div>
           </div>
         </div>
 
