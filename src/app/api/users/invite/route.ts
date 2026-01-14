@@ -17,6 +17,10 @@ export async function POST(req: Request) {
     const cookieStore = await cookies()
     const cookieToken = cookieStore.get('sb-access-token')?.value
     const token = authHeader?.replace(/Bearer\\s+/i, '') || cookieToken
+    console.log('invite token present', Boolean(token), {
+      authHeader: Boolean(authHeader),
+      cookieToken: Boolean(cookieToken),
+    })
     if (!token) return NextResponse.json({ ok: false, message: 'Not authenticated' }, { status: 401 })
 
     const body = (await req.json()) as { email: string; role?: string }
