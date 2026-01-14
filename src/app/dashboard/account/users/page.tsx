@@ -33,40 +33,28 @@ export default function ManageUsersPage() {
         await ensureProfile()
 
         const {
-          data: { user },
-        } = await supabase.auth.getUser()
-        if (!user) throw new Error('Not authenticated')
+          data: { session },
+        } = await supabase.auth.getSession()
+        const token = session?.access_token
+        if (!token) throw new Error('Auth session missing')
 
-        let tenant: string | null = null
-        let role: string | null = null
-        const { data: userRow } = await supabase.from('users').select('tenant_id,role').eq('id', user.id).maybeSingle()
-        if (userRow) {
-          tenant = (userRow as { tenant_id: string | null }).tenant_id
-          role = (userRow as { role: string | null }).role
-        } else {
-          const { data: profRow } = await supabase.from('profiles').select('tenant_id,role').eq('id', user.id).maybeSingle()
-          tenant = (profRow as { tenant_id?: string | null } | null)?.tenant_id ?? null
-          role = (profRow as { role?: string | null } | null)?.role ?? null
+        const res = await fetch('/api/users/list', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: 'include',
+        })
+        const json = await res.json()
+        if (!res.ok || json?.ok === false) {
+          if (res.status === 403) {
+            setError('You do not have permission to view this page.')
+            return
+          }
+          throw new Error(json?.message || 'Failed to load users')
         }
-
-        if (!tenant) throw new Error('Tenant not found for this user')
-
-        const admin = role === 'admin'
-        setIsAdmin(admin)
-        setTenantId(tenant)
-        if (!admin) {
-          setError('You do not have permission to view this page.')
-          return
-        }
-
-        const { data, error } = await supabase
-          .from('users')
-          .select('id,role,name,company,phone,created_at')
-          .eq('tenant_id', tenant)
-          .order('created_at', { ascending: false })
-          .limit(500)
-        if (error) throw error
-        setRows((data ?? []) as UserRow[])
+        setIsAdmin(json?.role === 'admin')
+        setTenantId(json?.tenant_id || '')
+        setRows((json?.users ?? []) as UserRow[])
       } catch (e) {
         console.error(e)
         setError(e instanceof Error ? e.message : 'Failed to load users')
@@ -77,15 +65,23 @@ export default function ManageUsersPage() {
     load()
   }, [])
 
-  const refreshUsers = async (tenant: string) => {
-    const { data, error } = await supabase
-      .from('users')
-      .select('id,role,name,company,phone,created_at')
-      .eq('tenant_id', tenant)
-      .order('created_at', { ascending: false })
-      .limit(500)
-    if (error) throw error
-    setRows((data ?? []) as UserRow[])
+  const refreshUsers = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    const token = session?.access_token
+    if (!token) throw new Error('Auth session missing')
+    const res = await fetch('/api/users/list', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      credentials: 'include',
+    })
+    const json = await res.json()
+    if (!res.ok || json?.ok === false) {
+      throw new Error(json?.message || 'Failed to load users')
+    }
+    setRows((json?.users ?? []) as UserRow[])
   }
 
   const onInvite = async () => {
@@ -126,9 +122,7 @@ export default function ManageUsersPage() {
       }
       setSuccess('Invite sent via auth provider. User will appear after signup.')
       setInviteEmail('')
-      if (tenantId) {
-        await refreshUsers(tenantId)
-      }
+      await refreshUsers()
     } catch (e) {
       console.error(e)
       setError(e instanceof Error ? e.message : 'Invite failed')
