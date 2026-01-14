@@ -81,12 +81,21 @@ export default function AccountPage() {
         }
 
         // Fetch user count for this tenant (admin only)
-        if (data?.tenant_id) {
-          const { count } = await supabase
-            .from('users')
-            .select('id', { count: 'exact', head: true })
-            .eq('tenant_id', data.tenant_id)
-          setUserCount(count ?? 0)
+        if (data?.tenant_id && data.role === 'admin') {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession()
+          const token = session?.access_token
+          if (token) {
+            const res = await fetch('/api/users/list', {
+              headers: { Authorization: `Bearer ${token}` },
+              credentials: 'include',
+            })
+            const json = await res.json()
+            if (res.ok && json?.ok) {
+              setUserCount(Array.isArray(json.users) ? json.users.length : 0)
+            }
+          }
         }
 
         // Check Outlook status
