@@ -26,6 +26,19 @@ type AwardedLine = {
   created_at: string | null
 }
 
+type MonthlyMetric = {
+  tenant_id: string
+  month: string
+  lots_created: number
+  lots_invited: number
+  lots_with_offers: number
+  lots_awarded: number
+  lots_with_po: number
+  awarded_lines: number
+  po_uploads: number
+  avg_hours_award_to_po: number | null
+}
+
 type LineItem = {
   id: string
   lot_id: string
@@ -63,6 +76,16 @@ type LotAgg = {
 function n(v: unknown) {
   const x = Number(v ?? 0)
   return Number.isFinite(x) ? x : 0
+}
+
+function pct(numer: number, denom: number) {
+  if (!denom) return 'n/a'
+  return `${Math.round((numer / denom) * 100)}%`
+}
+
+function fmtHours(v: number | null | undefined) {
+  if (v === null || v === undefined || Number.isNaN(v)) return 'n/a'
+  return `${Math.round(v * 10) / 10}h`
 }
 
 function money(v: number, currency: string) {
@@ -183,6 +206,7 @@ export default function AnalyticsPage() {
   const [lineItems, setLineItems] = useState<LineItem[]>([])
   const [financials, setFinancials] = useState<Map<string, LotFinancial>>(new Map())
   const [inventoryCounts, setInventoryCounts] = useState<Record<string, number>>({})
+  const [metrics, setMetrics] = useState<MonthlyMetric[]>([])
   const [quotesSent, setQuotesSent] = useState(0)
   const [quotesWon, setQuotesWon] = useState(0)
 
@@ -209,6 +233,19 @@ export default function AnalyticsPage() {
       if (lotErr) throw lotErr
       const lotRows = (lotData as Lot[]) ?? []
       setLots(lotRows)
+
+      // Monthly metrics (last 3 months)
+      const { data: mData, error: mErr } = await supabase
+        .from('broker_metrics_monthly')
+        .select(
+          'tenant_id,month,lots_created,lots_invited,lots_with_offers,lots_awarded,lots_with_po,awarded_lines,po_uploads,avg_hours_award_to_po'
+        )
+        .eq('tenant_id', profile.tenant_id)
+        .order('month', { ascending: false })
+        .limit(3)
+
+      if (mErr) throw mErr
+      setMetrics((mData as MonthlyMetric[]) ?? [])
 
       // Awarded lines in timeframe = main driver for “Profit”, “Lots sold”, “Leftovers”
       const { data: awData, error: awErr } = await supabase
@@ -306,6 +343,38 @@ export default function AnalyticsPage() {
     }
     return m
   }, [lineItems])
+
+  const kpi = useMemo(() => {
+    const sum = (k: keyof MonthlyMetric) => metrics.reduce((acc, r) => acc + n(r[k]), 0)
+
+    const lotsInvited = sum('lots_invited')
+    const lotsWithOffers = sum('lots_with_offers')
+    const lotsAwarded = sum('lots_awarded')
+    const lotsWithPo = sum('lots_with_po')
+
+    let hoursSum = 0
+    let w = 0
+    for (const r of metrics) {
+      if (r.avg_hours_award_to_po !== null && r.avg_hours_award_to_po !== undefined) {
+        const ww = n(r.lots_with_po) || 1
+        hoursSum += Number(r.avg_hours_award_to_po) * ww
+        w += ww
+      }
+    }
+    const avgHours = w ? hoursSum / w : null
+
+    return {
+      offerRate: lotsInvited ? lotsWithOffers / lotsInvited : null,
+      awardRate: lotsWithOffers ? lotsAwarded / lotsWithOffers : null,
+      poRate: lotsAwarded ? lotsWithPo / lotsAwarded : null,
+      lotsInvited,
+      lotsWithOffers,
+      lotsAwarded,
+      lotsWithPo,
+      avgHours,
+    }
+  }, [metrics])
+
 
   const aggByLot = useMemo<LotAgg[]>(() => {
     // aggregate awards by lot
@@ -527,6 +596,34 @@ export default function AnalyticsPage() {
             <div style={{ color: 'var(--muted)', fontSize: 12 }}>{inventoryCounts[s.key] ?? 0} items</div>
           </div>
         ))}
+      </div>
+
+      <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+        <Card title="Offer rate (rolling)" subtitle="Lots with offers / lots invited">
+          <div style={{ fontSize: 24, fontWeight: 950 }}>{kpi.offerRate === null ? 'n/a' : pct(kpi.lotsWithOffers, kpi.lotsInvited)}</div>
+          <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: 12 }}>
+            {kpi.lotsWithOffers} / {kpi.lotsInvited} lots
+          </div>
+        </Card>
+
+        <Card title="Award rate (rolling)" subtitle="Lots awarded / lots with offers">
+          <div style={{ fontSize: 24, fontWeight: 950 }}>{kpi.awardRate === null ? 'n/a' : pct(kpi.lotsAwarded, kpi.lotsWithOffers)}</div>
+          <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: 12 }}>
+            {kpi.lotsAwarded} / {kpi.lotsWithOffers} lots
+          </div>
+        </Card>
+
+        <Card title="PO rate (rolling)" subtitle="Lots with PO / lots awarded">
+          <div style={{ fontSize: 24, fontWeight: 950 }}>{kpi.poRate === null ? 'n/a' : pct(kpi.lotsWithPo, kpi.lotsAwarded)}</div>
+          <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: 12 }}>
+            {kpi.lotsWithPo} / {kpi.lotsAwarded} lots
+          </div>
+        </Card>
+
+        <Card title="Avg time award -> PO" subtitle="Weighted by PO lots">
+          <div style={{ fontSize: 24, fontWeight: 950 }}>{fmtHours(kpi.avgHours)}</div>
+          <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: 12 }}>Rolling last ~3 months</div>
+        </Card>
       </div>
 
       <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>

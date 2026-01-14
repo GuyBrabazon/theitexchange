@@ -19,18 +19,6 @@ type LotRow = {
   purchase_orders?: { count: number }[] | null
 }
 
-type MonthlyMetric = {
-  tenant_id: string
-  month: string
-  lots_created: number
-  lots_invited: number
-  lots_with_offers: number
-  lots_awarded: number
-  lots_with_po: number
-  awarded_lines: number
-  po_uploads: number
-  avg_hours_award_to_po: number | null
-}
 
 type ActivityItem =
   | { kind: 'PO'; at: string; title: string; lot_id: string; detail: string }
@@ -43,15 +31,6 @@ function n(v: unknown) {
   return Number.isFinite(x) ? x : 0
 }
 
-function pct(numer: number, denom: number) {
-  if (!denom) return '—'
-  return `${Math.round((numer / denom) * 100)}%`
-}
-
-function fmtHours(v: number | null | undefined) {
-  if (v === null || v === undefined || Number.isNaN(v)) return '—'
-  return `${Math.round(v * 10) / 10}h`
-}
 
 function fmtDate(ts: string | null | undefined) {
   if (!ts) return '—'
@@ -291,8 +270,8 @@ export default function DashboardHomePage() {
   const [tenantId, setTenantId] = useState<string>('')
 
   const [lots, setLots] = useState<LotRow[]>([])
-  const [metrics, setMetrics] = useState<MonthlyMetric[]>([])
   const [activity, setActivity] = useState<ActivityItem[]>([])
+  const [rfqPendingCount, setRfqPendingCount] = useState(0)
 
   // Step 1 additions:
   const [activityOpen, setActivityOpen] = useState(false)
@@ -420,18 +399,15 @@ export default function DashboardHomePage() {
       if (lotErr) throw lotErr
       setLots((lotData as LotRow[]) ?? [])
 
-      // Monthly metrics (last 3 months)
-      const { data: mData, error: mErr } = await supabase
-        .from('broker_metrics_monthly')
-        .select(
-          'tenant_id,month,lots_created,lots_invited,lots_with_offers,lots_awarded,lots_with_po,awarded_lines,po_uploads,avg_hours_award_to_po'
-        )
-        .eq('tenant_id', profile.tenant_id)
-        .order('month', { ascending: false })
-        .limit(3)
+      // RFQs awaiting response (supplier side)
+      const { count: rfqCount, error: rfqErr } = await supabase
+        .from('rfqs')
+        .select('id', { count: 'exact', head: true })
+        .eq('supplier_tenant_id', profile.tenant_id)
+        .in('status', ['new', 'sent'])
 
-      if (mErr) throw mErr
-      setMetrics((mData as MonthlyMetric[]) ?? [])
+      if (rfqErr) throw rfqErr
+      setRfqPendingCount(rfqCount ?? 0)
 
       // Activity feed (build in app)
       const poQ = supabase
@@ -555,37 +531,6 @@ export default function DashboardHomePage() {
     return { needsInvites, waitingReview, waitingPo, saleInProgress }
   }, [lots])
 
-  const kpi = useMemo(() => {
-    const sum = (k: keyof MonthlyMetric) => metrics.reduce((acc, r) => acc + n(r[k]), 0)
-
-    const lotsInvited = sum('lots_invited')
-    const lotsWithOffers = sum('lots_with_offers')
-    const lotsAwarded = sum('lots_awarded')
-    const lotsWithPo = sum('lots_with_po')
-
-    let hoursSum = 0
-    let w = 0
-    for (const r of metrics) {
-      if (r.avg_hours_award_to_po !== null && r.avg_hours_award_to_po !== undefined) {
-        const ww = n(r.lots_with_po) || 1
-        hoursSum += Number(r.avg_hours_award_to_po) * ww
-        w += ww
-      }
-    }
-    const avgHours = w ? hoursSum / w : null
-
-    return {
-      offerRate: lotsInvited ? lotsWithOffers / lotsInvited : null,
-      awardRate: lotsWithOffers ? lotsAwarded / lotsWithOffers : null,
-      poRate: lotsAwarded ? lotsWithPo / lotsAwarded : null,
-      lotsInvited,
-      lotsWithOffers,
-      lotsAwarded,
-      lotsWithPo,
-      avgHours,
-    }
-  }, [metrics])
-
   if (loading) {
     return (
       <main>
@@ -668,156 +613,45 @@ export default function DashboardHomePage() {
         </div>
       </div>
 
-      {/* KPI strip */}
-      <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12 }}>
-        <Card title="Offer rate (rolling)" subtitle="Lots with offers / lots invited">
-          <div style={{ fontSize: 24, fontWeight: 950 }}>{kpi.offerRate === null ? '—' : pct(kpi.lotsWithOffers, kpi.lotsInvited)}</div>
-          <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: 12 }}>
-            {kpi.lotsWithOffers} / {kpi.lotsInvited} lots
-          </div>
-        </Card>
-
-        <Card title="Award rate (rolling)" subtitle="Lots awarded / lots with offers">
-          <div style={{ fontSize: 24, fontWeight: 950 }}>{kpi.awardRate === null ? '—' : pct(kpi.lotsAwarded, kpi.lotsWithOffers)}</div>
-          <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: 12 }}>
-            {kpi.lotsAwarded} / {kpi.lotsWithOffers} lots
-          </div>
-        </Card>
-
-        <Card title="PO rate (rolling)" subtitle="Lots with PO / lots awarded">
-          <div style={{ fontSize: 24, fontWeight: 950 }}>{kpi.poRate === null ? '—' : pct(kpi.lotsWithPo, kpi.lotsAwarded)}</div>
-          <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: 12 }}>
-            {kpi.lotsWithPo} / {kpi.lotsAwarded} lots
-          </div>
-        </Card>
-
-        <Card title="Avg time award → PO" subtitle="Weighted by PO lots">
-          <div style={{ fontSize: 24, fontWeight: 950 }}>{fmtHours(kpi.avgHours)}</div>
-          <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: 12 }}>Rolling last ~3 months</div>
-        </Card>
-      </div>
-
       {/* Main grid */}
-      <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 14, alignItems: 'start' }}>
+      <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '2.2fr 0.9fr', gap: 14, alignItems: 'start' }}>
         {/* Needs attention */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <Card title="Needs attention" subtitle="Your daily queue">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline' }}>
-                  <div style={{ fontWeight: 950 }}>Needs invites</div>
-                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>{queues.needsInvites.length}</div>
-                </div>
-                <div style={{ marginTop: 10 }}>
-                  <TinyLotList lots={queues.needsInvites} empty="All good — no lots waiting for invites." />
-                </div>
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline' }}>
-                  <div style={{ fontWeight: 950 }}>Offers to review</div>
-                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>{queues.waitingReview.length}</div>
-                </div>
-                <div style={{ marginTop: 10 }}>
-                  <TinyLotList lots={queues.waitingReview} empty="No lots waiting on offer review." />
-                </div>
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline' }}>
-                  <div style={{ fontWeight: 950 }}>Awaiting PO</div>
-                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>{queues.waitingPo.length}</div>
-                </div>
-                <div style={{ marginTop: 10 }}>
-                  <TinyLotList lots={queues.waitingPo} empty="No awarded lots are awaiting a PO." />
-                </div>
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline' }}>
-                  <div style={{ fontWeight: 950 }}>Sale in progress</div>
-                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>{queues.saleInProgress.length}</div>
-                </div>
-                <div style={{ marginTop: 10 }}>
-                  <TinyLotList lots={queues.saleInProgress} empty="No lots in sale_in_progress." />
-                </div>
-              </div>
-            </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          <Card title="Needs invites" subtitle={`${queues.needsInvites.length} lots`}>
+            <TinyLotList lots={queues.needsInvites} empty="All good: no lots waiting for invites." />
           </Card>
 
-          <Card title="Quick actions">
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <Link
-                href="/dashboard/lots/new"
-                style={{
-                  textDecoration: 'none',
-                  padding: '10px 12px',
-                  borderRadius: 'var(--r-md)',
-                  border: '1px solid var(--border)',
-                  background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%)',
-                  color: '#fff',
-                  fontWeight: 950,
-                }}
-              >
-                + New Lot
-              </Link>
+          <Card title="Offers to review" subtitle={`${queues.waitingReview.length} lots`}>
+            <TinyLotList lots={queues.waitingReview} empty="No lots waiting on offer review." />
+          </Card>
 
-              <Link
-                href="/dashboard/lots/new/import"
-                style={{
-                  textDecoration: 'none',
-                  padding: '10px 12px',
-                  borderRadius: 'var(--r-md)',
-                  border: '1px solid var(--border)',
-                  background: 'var(--panel)',
-                  fontWeight: 900,
-                }}
-              >
-                Import Lot
-              </Link>
+          <Card title="Awaiting PO" subtitle={`${queues.waitingPo.length} lots`}>
+            <TinyLotList lots={queues.waitingPo} empty="No awarded lots are awaiting a PO." />
+          </Card>
 
-              <Link
-                href="/dashboard/buyers/import"
-                style={{
-                  textDecoration: 'none',
-                  padding: '10px 12px',
-                  borderRadius: 'var(--r-md)',
-                  border: '1px solid var(--border)',
-                  background: 'var(--panel)',
-                  fontWeight: 900,
-                }}
-              >
-                Import Customers
-              </Link>
+          <Card title="Sale in progress" subtitle={`${queues.saleInProgress.length} lots`}>
+            <TinyLotList lots={queues.saleInProgress} empty="No lots in sale_in_progress." />
+          </Card>
 
-              <Link
-                href="/dashboard/buyers"
-                style={{
-                  textDecoration: 'none',
-                  padding: '10px 12px',
-                  borderRadius: 'var(--r-md)',
-                  border: '1px solid var(--border)',
-                  background: 'var(--panel)',
-                  fontWeight: 900,
-                }}
-              >
-                Manage Customers
-              </Link>
-
-              <Link
-                href="/dashboard/analytics"
-                style={{
-                  textDecoration: 'none',
-                  padding: '10px 12px',
-                  borderRadius: 'var(--r-md)',
-                  border: '1px solid var(--border)',
-                  background: 'var(--panel)',
-                  fontWeight: 900,
-                }}
-              >
-                Analytics
-              </Link>
+          <Card title="RFQs awaiting response" subtitle={`${rfqPendingCount} pending`}>
+            <div style={{ color: 'var(--muted)', fontSize: 12, marginBottom: 10 }}>
+              Supplier-side requests waiting on a quote.
             </div>
+            <Link
+              href="/dashboard/rfqs"
+              style={{
+                textDecoration: 'none',
+                fontWeight: 900,
+                fontSize: 12,
+                padding: '6px 10px',
+                borderRadius: 999,
+                border: '1px solid var(--border)',
+                background: 'var(--panel)',
+                display: 'inline-flex',
+              }}
+            >
+              View RFQs
+            </Link>
           </Card>
         </div>
 
