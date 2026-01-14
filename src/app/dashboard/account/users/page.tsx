@@ -102,7 +102,14 @@ export default function ManageUsersPage() {
       const {
         data: { session },
       } = await supabase.auth.getSession()
-      const token = session?.access_token
+      let token = session?.access_token
+      if (!token) {
+        const { data } = await supabase.auth.refreshSession()
+        token = data.session?.access_token
+      }
+      if (!token) {
+        throw new Error('Auth session missing')
+      }
 
       const res = await fetch('/api/users/invite', {
         method: 'POST',
