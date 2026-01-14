@@ -12,6 +12,8 @@ type BuyerRow = {
   email: string | null
   company: string | null
   phone: string | null
+  accounts_email?: string | null
+  linked_tenant_id?: string | null
   address_line1?: string | null
   address_line2?: string | null
   city?: string | null
@@ -149,6 +151,7 @@ export default function CustomersPage() {
   const [fEmail, setFEmail] = useState('')
   const [fCompany, setFCompany] = useState('')
   const [fPhone, setFPhone] = useState('')
+  const [fAccountsEmail, setFAccountsEmail] = useState('')
   const [fTags, setFTags] = useState('')
   const [fCreditOk, setFCreditOk] = useState<boolean>(true)
   const [fReliability, setFReliability] = useState<string>('') // keep as string for input
@@ -159,6 +162,17 @@ export default function CustomersPage() {
   const [fState, setFState] = useState('')
   const [fCountry, setFCountry] = useState('')
   const [fPostcode, setFPostcode] = useState('')
+  const [linkedTenantId, setLinkedTenantId] = useState('')
+  const [lookupStatus, setLookupStatus] = useState<'idle' | 'checking' | 'ok' | 'not_found' | 'same_tenant' | 'not_discoverable' | 'error'>('idle')
+  const [lookupNote, setLookupNote] = useState('')
+  const [lookupTenantName, setLookupTenantName] = useState('')
+
+  const resetLookup = () => {
+    setLookupStatus('idle')
+    setLookupNote('')
+    setLookupTenantName('')
+    setLinkedTenantId('')
+  }
 
   const openCreate = () => {
     setEditBuyer(null)
@@ -166,6 +180,7 @@ export default function CustomersPage() {
     setFEmail('')
     setFCompany('')
     setFPhone('')
+    setFAccountsEmail('')
     setFTags('')
     setFCreditOk(true)
     setFReliability('')
@@ -176,6 +191,7 @@ export default function CustomersPage() {
     setFState('')
     setFCountry('')
     setFPostcode('')
+    resetLookup()
     setEditOpen(true)
   }
 
@@ -185,6 +201,7 @@ export default function CustomersPage() {
     setFEmail(b.email ?? '')
     setFCompany(b.company ?? '')
     setFPhone(b.phone ?? '')
+    setFAccountsEmail(b.accounts_email ?? '')
     setFTags(tagsToText(b.tags))
     setFCreditOk(Boolean(b.credit_ok ?? false))
     setFReliability(b.reliability_score === null || b.reliability_score === undefined ? '' : String(b.reliability_score))
@@ -195,6 +212,10 @@ export default function CustomersPage() {
     setFState(b.state ?? '')
     setFCountry(b.country ?? '')
     setFPostcode(b.postcode ?? '')
+    setLinkedTenantId(b.linked_tenant_id ?? '')
+    setLookupStatus('idle')
+    setLookupNote('')
+    setLookupTenantName('')
     setEditOpen(true)
   }
 
@@ -211,7 +232,7 @@ export default function CustomersPage() {
       const { data, error } = await supabase
         .from('buyers')
         .select(
-          'id,tenant_id,name,email,company,phone,address_line1,address_line2,city,state,country,postcode,tags,credit_ok,reliability_score,payment_terms,created_at'
+          'id,tenant_id,name,email,company,phone,accounts_email,linked_tenant_id,address_line1,address_line2,city,state,country,postcode,tags,credit_ok,reliability_score,payment_terms,created_at'
         )
         .eq('tenant_id', tid)
         .order('created_at', { ascending: false })
@@ -259,6 +280,85 @@ export default function CustomersPage() {
     })
   }, [customers, q])
 
+  const getToken = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    const token = session?.access_token ?? null
+    if (!token) throw new Error('Not authenticated')
+    return token
+  }
+
+  const lookupTenantByEmail = async () => {
+    const email = norm(fEmail).toLowerCase()
+    if (!email) {
+      setLookupStatus('error')
+      setLookupNote('Enter an email address first.')
+      return
+    }
+    setLookupStatus('checking')
+    setLookupNote('')
+    try {
+      const token = await getToken()
+      const res = await fetch('/api/customers/lookup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ email }),
+      })
+      const json = (await res.json()) as { ok?: boolean; reason?: string; message?: string; data?: Record<string, unknown> }
+
+      if (!res.ok || !json.ok) {
+        const reason = json.reason ?? 'error'
+        if (reason === 'not_found') {
+          setLookupStatus('not_found')
+          setLookupNote('This user is not a user of The IT Exchange.')
+        } else if (reason === 'same_tenant') {
+          setLookupStatus('same_tenant')
+          setLookupNote('User already belongs to your organisation.')
+        } else if (reason === 'not_discoverable') {
+          setLookupStatus('not_discoverable')
+          setLookupNote('Tenant has not opted in to share details.')
+        } else {
+          setLookupStatus('error')
+          setLookupNote(json.message || 'Lookup failed.')
+        }
+        setLinkedTenantId('')
+        setLookupTenantName('')
+        return
+      }
+
+      const data = json.data ?? {}
+      const tenantName = typeof data.tenant_name === 'string' ? data.tenant_name : ''
+      const linkedTenant = typeof data.linked_tenant_id === 'string' ? data.linked_tenant_id : ''
+      setLookupTenantName(tenantName)
+      setLinkedTenantId(linkedTenant)
+
+      const companyName = typeof data.company_name === 'string' ? data.company_name : tenantName
+      const contactName = typeof data.contact_name === 'string' ? data.contact_name : ''
+      const contactPhone = typeof data.contact_phone === 'string' ? data.contact_phone : ''
+      const accountsEmail = typeof data.accounts_email === 'string' ? data.accounts_email : ''
+      const addressLine1 = typeof data.address_line1 === 'string' ? data.address_line1 : ''
+      const addressLine2 = typeof data.address_line2 === 'string' ? data.address_line2 : ''
+
+      if (!norm(fCompany) && companyName) setFCompany(companyName)
+      if (!norm(fName) && contactName) setFName(contactName)
+      if (!norm(fPhone) && contactPhone) setFPhone(contactPhone)
+      if (!norm(fAccountsEmail) && accountsEmail) setFAccountsEmail(accountsEmail)
+      if (!norm(fAddr1) && addressLine1) setFAddr1(addressLine1)
+      if (!norm(fAddr2) && addressLine2) setFAddr2(addressLine2)
+
+      setLookupStatus('ok')
+      setLookupNote(tenantName ? `Auto-filled from ${tenantName}.` : 'Auto-filled from tenant details.')
+    } catch (e: unknown) {
+      console.error(e)
+      setLookupStatus('error')
+      setLookupNote(e instanceof Error ? e.message : 'Lookup failed.')
+    }
+  }
+
   const saveEdit = async () => {
     if (!tenantId) return
     if (saving) return
@@ -294,6 +394,8 @@ export default function CustomersPage() {
             email: norm(fEmail) ? norm(fEmail) : null,
             company: norm(fCompany) ? norm(fCompany) : null,
             phone: phone || null,
+            accounts_email: norm(fAccountsEmail) ? norm(fAccountsEmail) : null,
+            linked_tenant_id: linkedTenantId || null,
             address_line1: norm(fAddr1) || null,
             address_line2: norm(fAddr2) || null,
             city: norm(fCity) || null,
@@ -317,6 +419,8 @@ export default function CustomersPage() {
           email_norm: norm(fEmail) ? norm(fEmail).toLowerCase() : null,
           company: norm(fCompany) ? norm(fCompany) : null,
           phone: phone || null,
+          accounts_email: norm(fAccountsEmail) ? norm(fAccountsEmail) : null,
+          linked_tenant_id: linkedTenantId || null,
           address_line1: norm(fAddr1) || null,
           address_line2: norm(fAddr2) || null,
           city: norm(fCity) || null,
@@ -554,7 +658,10 @@ export default function CustomersPage() {
               <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Email</div>
               <input
                 value={fEmail}
-                onChange={(e) => setFEmail(e.target.value)}
+                onChange={(e) => {
+                  setFEmail(e.target.value)
+                  resetLookup()
+                }}
                 placeholder="name@company.com"
                 style={{
                   width: '100%',
@@ -564,6 +671,31 @@ export default function CustomersPage() {
                   background: 'var(--panel)',
                 }}
               />
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
+                <button
+                  type="button"
+                  onClick={lookupTenantByEmail}
+                  disabled={lookupStatus === 'checking'}
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: 10,
+                    border: '1px solid var(--border)',
+                    background: 'var(--panel)',
+                    fontWeight: 900,
+                    cursor: lookupStatus === 'checking' ? 'wait' : 'pointer',
+                  }}
+                >
+                  {lookupStatus === 'checking' ? 'Looking up...' : 'Lookup tenant'}
+                </button>
+                {lookupNote ? (
+                  <div style={{ color: lookupStatus === 'ok' ? 'var(--good)' : 'var(--muted)', fontSize: 12 }}>
+                    {lookupNote}
+                  </div>
+                ) : null}
+                {lookupTenantName ? (
+                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>Tenant: {lookupTenantName}</div>
+                ) : null}
+              </div>
             </div>
 
             <div>
@@ -596,6 +728,22 @@ export default function CustomersPage() {
                 }}
           />
         </div>
+
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Accounts email</div>
+              <input
+                value={fAccountsEmail}
+                onChange={(e) => setFAccountsEmail(e.target.value)}
+                placeholder="accounts@company.com"
+                style={{
+                  width: '100%',
+                  padding: 10,
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--panel)',
+                }}
+              />
+            </div>
 
         <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <div>

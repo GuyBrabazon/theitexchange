@@ -9,6 +9,7 @@ type TenantSettings = {
   ops_can_edit_costs: boolean
   require_finance_approval_for_award: boolean
   work_email_domain: string | null
+  discoverable?: boolean
   po_logo_path: string | null
   po_brand_color: string | null
   po_brand_color_secondary: string | null
@@ -38,6 +39,7 @@ export default function OrgSetupPage() {
     ops_can_edit_costs: false,
     require_finance_approval_for_award: false,
     work_email_domain: '',
+    discoverable: false,
     po_logo_path: '',
     po_brand_color: '',
     po_brand_color_secondary: '',
@@ -97,6 +99,7 @@ export default function OrgSetupPage() {
             ops_can_edit_costs: settingsRow.ops_can_edit_costs ?? false,
             require_finance_approval_for_award: settingsRow.require_finance_approval_for_award ?? false,
             work_email_domain: settingsRow.work_email_domain ?? '',
+            discoverable: settingsRow.discoverable ?? false,
             po_logo_path: settingsRow.po_logo_path ?? '',
             po_brand_color: settingsRow.po_brand_color ?? '',
             po_brand_color_secondary: settingsRow.po_brand_color_secondary ?? '',
@@ -144,6 +147,7 @@ export default function OrgSetupPage() {
             ops_can_edit_costs: settings.ops_can_edit_costs,
             require_finance_approval_for_award: settings.require_finance_approval_for_award,
             work_email_domain: settings.work_email_domain || null,
+            discoverable: settings.discoverable ?? false,
             po_logo_path: settings.po_logo_path || null,
             po_brand_color: settings.po_brand_color || null,
             po_brand_color_secondary: settings.po_brand_color_secondary || null,
@@ -341,6 +345,14 @@ export default function OrgSetupPage() {
               onChange={(e) => setSettings((prev) => ({ ...prev, require_finance_approval_for_award: e.target.checked }))}
             />
             <span>Require Finance approval before awards</span>
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={Boolean(settings.discoverable)}
+              onChange={(e) => setSettings((prev) => ({ ...prev, discoverable: e.target.checked }))}
+            />
+            <span>Allow other tenants to discover our contact details</span>
           </label>
         </div>
 
