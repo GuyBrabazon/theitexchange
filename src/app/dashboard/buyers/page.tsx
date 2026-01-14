@@ -103,14 +103,26 @@ function ModalShell({
       <div
         style={{
           width: 'min(980px, 96vw)',
+          maxHeight: 'calc(100vh - 32px)',
+          display: 'flex',
+          flexDirection: 'column',
           borderRadius: 'var(--r-lg)',
           border: '1px solid var(--border)',
           background: 'var(--panel)',
           boxShadow: 'var(--shadow)',
-          padding: 14,
+          overflow: 'hidden',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 10,
+            alignItems: 'center',
+            padding: '12px 14px',
+            borderBottom: '1px solid var(--border)',
+          }}
+        >
           <div style={{ fontWeight: 950, fontSize: 16, letterSpacing: -0.2 }}>{title}</div>
           <button
             onClick={onClose}
@@ -126,7 +138,7 @@ function ModalShell({
             Close
           </button>
         </div>
-        <div style={{ marginTop: 12 }}>{children}</div>
+        <div style={{ padding: 14, overflowY: 'auto' }}>{children}</div>
       </div>
     </div>
   )
