@@ -243,7 +243,7 @@ export default function TechSpecsPage() {
             <input
               value={checkTag}
               onChange={(e) => setCheckTag(e.target.value)}
-              placeholder="e.g., ram_ddr4_16gb"
+              placeholder="e.g., A9781930"
               style={{ padding: 10, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)' }}
             />
           </label>
