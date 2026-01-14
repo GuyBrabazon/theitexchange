@@ -102,7 +102,7 @@ function ModalShell({
     >
       <div
         style={{
-          width: 'min(720px, 96vw)',
+          width: 'min(980px, 96vw)',
           borderRadius: 'var(--r-lg)',
           border: '1px solid var(--border)',
           background: 'var(--panel)',
