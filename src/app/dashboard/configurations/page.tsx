@@ -453,7 +453,7 @@ export default function ConfigurationsPage() {
         if (error) throw error
 
         const mapped = (data ?? [])
-          .map((rec) => {
+          .map((rec: unknown) => {
             const row = rec as Record<string, unknown>
             const machineTypeRaw = typeof row.machine_type === 'string' ? row.machine_type : ''
             if (machineTypeRaw !== 'server' && machineTypeRaw !== 'storage' && machineTypeRaw !== 'network') return null
@@ -539,7 +539,7 @@ export default function ConfigurationsPage() {
           p_tenant_id: tenantId || null,
         })
         if (error) throw error
-        const mapped = (data ?? []).map((rec) => {
+        const mapped = (data ?? []).map((rec: unknown) => {
           const row = rec as Record<string, unknown>
           const rawType = typeof row.component_type === 'string' ? row.component_type : 'other'
           const componentType = componentTypeOrder.includes(rawType) ? rawType : 'other'
