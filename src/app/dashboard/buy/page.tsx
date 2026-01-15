@@ -334,7 +334,7 @@ export default function BuyPage() {
             My RFQs
           </a>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
           <input
             type="text"
             value={term}
