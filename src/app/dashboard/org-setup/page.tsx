@@ -72,6 +72,13 @@ export default function OrgSetupPage() {
     country: '',
     postcode: '',
   })
+  const compactFieldStyle = {
+    padding: '10px 12px',
+    borderRadius: 10,
+    border: '1px solid var(--border)',
+    background: 'var(--surface-2)',
+    height: 40,
+  }
 
   const getToken = async () => {
     const {
@@ -249,7 +256,7 @@ export default function OrgSetupPage() {
             <select
               value={settings.default_currency ?? 'USD'}
               onChange={(e) => setSettings((prev) => ({ ...prev, default_currency: e.target.value }))}
-              style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)' }}
+              style={{ ...compactFieldStyle, color: 'var(--text)' }}
             >
               {currencies.map((c) => (
                 <option key={c} value={c}>
@@ -266,7 +273,7 @@ export default function OrgSetupPage() {
               placeholder="example.com"
               value={settings.work_email_domain ?? ''}
               onChange={(e) => setSettings((prev) => ({ ...prev, work_email_domain: e.target.value }))}
-              style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+              style={compactFieldStyle}
             />
             <div style={{ color: 'var(--muted)', fontSize: 12 }}>
               Enforce invites/signups to this domain. Leave blank to allow any work email.
@@ -280,7 +287,7 @@ export default function OrgSetupPage() {
               placeholder="accounts@company.com"
               value={settings.accounts_email ?? ''}
               onChange={(e) => setSettings((prev) => ({ ...prev, accounts_email: e.target.value }))}
-              style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+              style={compactFieldStyle}
             />
           </div>
 
@@ -291,48 +298,48 @@ export default function OrgSetupPage() {
               placeholder="EORI number"
               value={settings.eori ?? ''}
               onChange={(e) => setSettings((prev) => ({ ...prev, eori: e.target.value }))}
-              style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+              style={compactFieldStyle}
             />
           </div>
 
           <div style={{ gridColumn: '1 / -1', display: 'grid', gap: 6 }}>
             <label style={{ fontSize: 12, color: 'var(--muted)' }}>Registered business address</label>
-            <div style={{ display: 'grid', gap: 10, gridTemplateColumns: '1fr' }}>
+            <div style={{ display: 'grid', gap: 10, width: '100%', maxWidth: '33%' }}>
               <input
                 value={registeredAddr.line1}
                 onChange={(e) => setRegisteredAddr((prev) => ({ ...prev, line1: e.target.value }))}
                 placeholder="Street address 1"
-                style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+                style={compactFieldStyle}
               />
               <input
                 value={registeredAddr.line2}
                 onChange={(e) => setRegisteredAddr((prev) => ({ ...prev, line2: e.target.value }))}
                 placeholder="Street address 2"
-                style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+                style={compactFieldStyle}
               />
               <input
                 value={registeredAddr.city}
                 onChange={(e) => setRegisteredAddr((prev) => ({ ...prev, city: e.target.value }))}
                 placeholder="Town/City"
-                style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+                style={compactFieldStyle}
               />
               <input
                 value={registeredAddr.state}
                 onChange={(e) => setRegisteredAddr((prev) => ({ ...prev, state: e.target.value }))}
                 placeholder="County/State"
-                style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+                style={compactFieldStyle}
               />
               <input
                 value={registeredAddr.country}
                 onChange={(e) => setRegisteredAddr((prev) => ({ ...prev, country: e.target.value }))}
                 placeholder="Country"
-                style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+                style={compactFieldStyle}
               />
               <input
                 value={registeredAddr.postcode}
                 onChange={(e) => setRegisteredAddr((prev) => ({ ...prev, postcode: e.target.value }))}
                 placeholder="Zip/Post code"
-                style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+                style={compactFieldStyle}
               />
             </div>
           </div>
