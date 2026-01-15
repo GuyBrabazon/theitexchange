@@ -73,12 +73,18 @@ export default function OrgSetupPage() {
     postcode: '',
   })
   const compactFieldStyle = {
-    padding: '10px 12px',
+    padding: '8px 10px',
     borderRadius: 10,
     border: '1px solid var(--border)',
     background: 'var(--surface-2)',
-    height: 40,
+    height: 36,
   }
+  const fieldStackStyle = {
+    display: 'grid',
+    gap: 2,
+    alignItems: 'start',
+  }
+  const labelStyle = { fontSize: 12, color: 'var(--muted)', lineHeight: 1.1, display: 'block' }
 
   const getToken = async () => {
     const {
@@ -213,7 +219,7 @@ export default function OrgSetupPage() {
   if (loading) {
     return (
       <main style={{ padding: 24 }}>
-        <div>Loading organisation settings…</div>
+        <div>Loading organisation settings...</div>
       </main>
     )
   }
@@ -250,9 +256,16 @@ export default function OrgSetupPage() {
           />
         </div>
 
-        <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))' }}>
-          <div style={{ display: 'grid', gap: 6 }}>
-            <label style={{ fontSize: 12, color: 'var(--muted)' }}>Default currency</label>
+        <div
+          style={{
+            display: 'grid',
+            gap: 6,
+            alignItems: 'start',
+            gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))',
+          }}
+        >
+          <div style={fieldStackStyle}>
+            <label style={labelStyle}>Default currency</label>
             <select
               value={settings.default_currency ?? 'USD'}
               onChange={(e) => setSettings((prev) => ({ ...prev, default_currency: e.target.value }))}
@@ -266,8 +279,8 @@ export default function OrgSetupPage() {
             </select>
           </div>
 
-          <div style={{ display: 'grid', gap: 6 }}>
-            <label style={{ fontSize: 12, color: 'var(--muted)' }}>Work email domain (optional)</label>
+          <div style={fieldStackStyle}>
+            <label style={labelStyle}>Work email domain (optional)</label>
             <input
               type="text"
               placeholder="example.com"
@@ -275,13 +288,13 @@ export default function OrgSetupPage() {
               onChange={(e) => setSettings((prev) => ({ ...prev, work_email_domain: e.target.value }))}
               style={compactFieldStyle}
             />
-            <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+            <div style={{ color: 'var(--muted)', fontSize: 11, lineHeight: 1.2, marginTop: 2 }}>
               Enforce invites/signups to this domain. Leave blank to allow any work email.
             </div>
           </div>
 
-          <div style={{ display: 'grid', gap: 6 }}>
-            <label style={{ fontSize: 12, color: 'var(--muted)' }}>Accounts email (send invoices to)</label>
+          <div style={fieldStackStyle}>
+            <label style={labelStyle}>Accounts email (send invoices to)</label>
             <input
               type="email"
               placeholder="accounts@company.com"
@@ -291,8 +304,8 @@ export default function OrgSetupPage() {
             />
           </div>
 
-          <div style={{ display: 'grid', gap: 6 }}>
-            <label style={{ fontSize: 12, color: 'var(--muted)' }}>EORI</label>
+          <div style={fieldStackStyle}>
+            <label style={labelStyle}>EORI</label>
             <input
               type="text"
               placeholder="EORI number"
@@ -394,7 +407,7 @@ export default function OrgSetupPage() {
               cursor: saving ? 'wait' : 'pointer',
             }}
           >
-            {saving ? 'Saving…' : 'Save settings'}
+            {saving ? 'Saving...' : 'Save settings'}
           </button>
         </div>
       </div>
