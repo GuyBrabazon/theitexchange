@@ -1,0 +1,7 @@
+id,tenant_id,machine_type,manufacturer,family,model,form_factor,tags,meta
+11111111-1111-1111-1111-111111111111,,server,Dell,PowerEdge,R740,2U,"{server,dual_socket}","{}"
+22222222-2222-2222-2222-222222222222,,server,HPE,ProLiant,DL380 Gen10,2U,"{server,dual_socket}","{}"
+33333333-3333-3333-3333-333333333333,,storage,Dell EMC,Unity,Unity 380F,2U,"{storage,all_flash}","{}"
+44444444-4444-4444-4444-444444444444,,storage,NetApp,FAS,FAS2750,2U,"{storage,hybrid}","{}"
+55555555-5555-5555-5555-555555555555,,network,Cisco,Nexus,Nexus 9000,1U,"{network,switch}","{}"
+66666666-6666-6666-6666-666666666666,,network,Arista,7000,7050X3,1U,"{network,switch}","{}"

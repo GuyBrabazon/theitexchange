@@ -1,0 +1,9 @@
+id,tenant_id,component_type,manufacturer,model,part_number,tags,meta
+aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,,cpu,Intel,Xeon Gold 6244,SRF8Y,"{intel,xeon,6244,lga3647}","{}"
+bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,,memory,Micron,16GB DDR4 RDIMM,MTA18ASF2G72PDZ,"{memory,ddr4,rdimm,16gb}","{}"
+cccccccc-cccc-cccc-cccc-cccccccccccc,,drive,Samsung,PM983 3.84TB,MZ1LB3T8HALS,"{drive,nvme,3_84tb}","{}"
+dddddddd-dddd-dddd-dddd-dddddddddddd,,controller,Dell,PERC H740,405-AAUP,"{controller,raid,sas}","{}"
+eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee,,nic,Intel,X710-DA2,XXV710DA2,"{nic,10gbe,sfp_plus}","{}"
+ffffffff-ffff-ffff-ffff-ffffffffffff,,transceiver,Generic,SFP28 SR,SFP28-SR,"{transceiver,sfp28,25gbe}","{}"
+10101010-1010-1010-1010-101010101010,,gpu,NVIDIA,RTX A4000,VCNRTXA4000,"{gpu}","{}"
+12121212-1212-1212-1212-121212121212,,power,Dell,1100W PSU,0HU2M8,"{power,1100w}","{}"

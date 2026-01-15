@@ -1,6 +1,8 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { ensureProfile } from '@/lib/bootstrap'
 
 type FieldKind = 'text' | 'number' | 'select' | 'toggle' | 'readonly' | 'textarea'
 
@@ -25,7 +27,43 @@ type MachineConfig = {
   sections: Section[]
 }
 
+type SystemModel = {
+  id: string
+  tenant_id: string | null
+  machine_type: 'server' | 'storage' | 'network'
+  manufacturer: string
+  family: string | null
+  model: string
+  form_factor: string | null
+  tags: string[]
+}
+
+type ComponentModel = {
+  id: string
+  tenant_id: string | null
+  component_type: string
+  manufacturer: string | null
+  model: string
+  part_number: string | null
+  tags: string[]
+}
+
 const yesNo = ['Yes', 'No']
+
+const componentTypeOrder = ['cpu', 'memory', 'drive', 'gpu', 'nic', 'controller', 'transceiver', 'module', 'power', 'cable', 'other']
+const componentTypeLabels: Record<string, string> = {
+  cpu: 'CPU',
+  memory: 'Memory',
+  drive: 'Drives',
+  gpu: 'GPU',
+  nic: 'Network card',
+  controller: 'Storage controller',
+  transceiver: 'Transceiver',
+  module: 'Module',
+  power: 'Power',
+  cable: 'Cable',
+  other: 'Other',
+}
 
 const serverConfig: MachineConfig = {
   label: 'Server',
@@ -381,12 +419,169 @@ const machineOptions = [
 export default function ConfigurationsPage() {
   const [machineType, setMachineType] = useState<string>('server')
   const [values, setValues] = useState<Record<string, string | boolean>>({})
+  const [catalogLoading, setCatalogLoading] = useState(false)
+  const [catalogError, setCatalogError] = useState<string>('')
+  const [tenantId, setTenantId] = useState<string>('')
+  const [systemModels, setSystemModels] = useState<SystemModel[]>([])
+  const [selectedManufacturer, setSelectedManufacturer] = useState<string>('')
+  const [selectedFamily, setSelectedFamily] = useState<string>('')
+  const [selectedModelId, setSelectedModelId] = useState<string>('')
+  const [compatibleComponents, setCompatibleComponents] = useState<ComponentModel[]>([])
+  const [compatLoading, setCompatLoading] = useState(false)
+  const [compatError, setCompatError] = useState<string>('')
 
   const selected = useMemo(() => machineOptions.find((m) => m.value === machineType)?.config, [machineType])
 
   const setValue = (key: string, value: string | boolean) => {
     setValues((prev) => ({ ...prev, [key]: value }))
   }
+
+  useEffect(() => {
+    const loadCatalog = async () => {
+      setCatalogLoading(true)
+      setCatalogError('')
+      try {
+        const profile = await ensureProfile()
+        const tenantId = profile?.tenant_id ? String(profile.tenant_id) : ''
+        setTenantId(tenantId)
+
+        const { data, error } = await supabase
+          .from('system_models')
+          .select('id,tenant_id,machine_type,manufacturer,family,model,form_factor,tags')
+          .order('manufacturer', { ascending: true })
+          .order('model', { ascending: true })
+        if (error) throw error
+
+        const mapped = (data ?? [])
+          .map((rec) => {
+            const row = rec as Record<string, unknown>
+            const machineTypeRaw = typeof row.machine_type === 'string' ? row.machine_type : ''
+            if (machineTypeRaw !== 'server' && machineTypeRaw !== 'storage' && machineTypeRaw !== 'network') return null
+            const tags = Array.isArray(row.tags) ? row.tags.map((tag) => String(tag)) : []
+            return {
+              id: String(row.id ?? ''),
+              tenant_id: row.tenant_id ? String(row.tenant_id) : null,
+              machine_type: machineTypeRaw as SystemModel['machine_type'],
+              manufacturer: String(row.manufacturer ?? ''),
+              family: typeof row.family === 'string' && row.family.trim() ? row.family : null,
+              model: String(row.model ?? ''),
+              form_factor: typeof row.form_factor === 'string' && row.form_factor.trim() ? row.form_factor : null,
+              tags,
+            } satisfies SystemModel
+          })
+          .filter((item): item is SystemModel => Boolean(item))
+          .filter((item) => !item.tenant_id || item.tenant_id === tenantId)
+        setSystemModels(mapped)
+      } catch (e) {
+        console.error(e)
+        const msg = e instanceof Error ? e.message : 'Failed to load catalog'
+        setCatalogError(msg)
+      } finally {
+        setCatalogLoading(false)
+      }
+    }
+    loadCatalog()
+  }, [])
+
+  useEffect(() => {
+    setSelectedManufacturer('')
+    setSelectedFamily('')
+    setSelectedModelId('')
+    setCompatibleComponents([])
+    setCompatError('')
+  }, [machineType])
+
+  useEffect(() => {
+    setSelectedFamily('')
+    setSelectedModelId('')
+  }, [selectedManufacturer])
+
+  useEffect(() => {
+    setSelectedModelId('')
+  }, [selectedFamily])
+
+  const filteredModels = useMemo(() => systemModels.filter((m) => m.machine_type === machineType), [systemModels, machineType])
+
+  const manufacturerOptions = useMemo(() => {
+    const set = new Set(filteredModels.map((m) => m.manufacturer).filter(Boolean))
+    return Array.from(set).sort()
+  }, [filteredModels])
+
+  const familyOptions = useMemo(() => {
+    const set = new Set(
+      filteredModels
+        .filter((m) => !selectedManufacturer || m.manufacturer === selectedManufacturer)
+        .map((m) => m.family || '')
+        .filter(Boolean)
+    )
+    return Array.from(set).sort()
+  }, [filteredModels, selectedManufacturer])
+
+  const modelOptions = useMemo(() => {
+    return filteredModels
+      .filter((m) => (!selectedManufacturer || m.manufacturer === selectedManufacturer) && (!selectedFamily || (m.family || '') === selectedFamily))
+      .sort((a, b) => a.model.localeCompare(b.model))
+  }, [filteredModels, selectedManufacturer, selectedFamily])
+
+  const selectedModel = useMemo(() => modelOptions.find((m) => m.id === selectedModelId) || null, [modelOptions, selectedModelId])
+
+  useEffect(() => {
+    const loadCompat = async () => {
+      if (!selectedModelId) {
+        setCompatibleComponents([])
+        return
+      }
+      setCompatLoading(true)
+      setCompatError('')
+      try {
+        const { data, error } = await supabase.rpc('get_compatible_components', {
+          p_system_model_id: selectedModelId,
+          p_tenant_id: tenantId || null,
+        })
+        if (error) throw error
+        const mapped = (data ?? []).map((rec) => {
+          const row = rec as Record<string, unknown>
+          const rawType = typeof row.component_type === 'string' ? row.component_type : 'other'
+          const componentType = componentTypeOrder.includes(rawType) ? rawType : 'other'
+          const tags = Array.isArray(row.tags) ? row.tags.map((tag) => String(tag)) : []
+          return {
+            id: String(row.id ?? ''),
+            tenant_id: row.tenant_id ? String(row.tenant_id) : null,
+            component_type: componentType,
+            manufacturer: typeof row.manufacturer === 'string' ? row.manufacturer : null,
+            model: String(row.model ?? ''),
+            part_number: typeof row.part_number === 'string' ? row.part_number : null,
+            tags,
+          } satisfies ComponentModel
+        })
+        setCompatibleComponents(mapped)
+      } catch (e) {
+        console.error(e)
+        const msg = e instanceof Error ? e.message : 'Failed to load compatible parts'
+        setCompatError(msg)
+      } finally {
+        setCompatLoading(false)
+      }
+    }
+    loadCompat()
+  }, [selectedModelId, tenantId])
+
+  const compatibleByType = useMemo(() => {
+    const groups: Record<string, ComponentModel[]> = {}
+    for (const component of compatibleComponents) {
+      const key = component.component_type || 'other'
+      if (!groups[key]) groups[key] = []
+      groups[key].push(component)
+    }
+    return groups
+  }, [compatibleComponents])
+
+  const compatibleTypes = useMemo(() => {
+    const keys = Object.keys(compatibleByType)
+    const ordered = componentTypeOrder.filter((type) => keys.includes(type))
+    const extra = keys.filter((type) => !ordered.includes(type)).sort()
+    return [...ordered, ...extra]
+  }, [compatibleByType])
 
   return (
     <main style={{ padding: 24, display: 'grid', gap: 16 }}>
@@ -410,6 +605,125 @@ export default function ConfigurationsPage() {
             ))}
           </select>
         </label>
+      </div>
+
+      <div
+        style={{
+          border: '1px solid var(--border)',
+          borderRadius: 12,
+          padding: 14,
+          background: 'var(--panel)',
+          display: 'grid',
+          gap: 12,
+        }}
+      >
+        <div>
+          <div style={{ fontWeight: 900 }}>Model catalog</div>
+          <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+            Pick a platform to load verified compatibility rules and component dropdowns.
+          </div>
+        </div>
+        {catalogLoading ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>Loading catalog...</div> : null}
+        {catalogError ? <div style={{ color: 'var(--bad)', fontSize: 12 }}>{catalogError}</div> : null}
+        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>Manufacturer</span>
+            <select
+              value={selectedManufacturer}
+              onChange={(e) => setSelectedManufacturer(e.target.value)}
+              disabled={catalogLoading || manufacturerOptions.length === 0}
+              style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)' }}
+            >
+              <option value="">Select manufacturer</option>
+              {manufacturerOptions.map((maker) => (
+                <option key={maker} value={maker}>
+                  {maker}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>Family</span>
+            <select
+              value={selectedFamily}
+              onChange={(e) => setSelectedFamily(e.target.value)}
+              disabled={catalogLoading || familyOptions.length === 0}
+              style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)' }}
+            >
+              <option value="">Select family</option>
+              {familyOptions.map((family) => (
+                <option key={family} value={family}>
+                  {family}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>Model</span>
+            <select
+              value={selectedModelId}
+              onChange={(e) => setSelectedModelId(e.target.value)}
+              disabled={catalogLoading || modelOptions.length === 0}
+              style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)' }}
+            >
+              <option value="">Select model</option>
+              {modelOptions.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.model}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div style={{ display: 'grid', gap: 8 }}>
+          {selectedModel ? (
+            <div style={{ display: 'grid', gap: 4, fontSize: 12 }}>
+              <div>
+                <strong>Selected:</strong> {selectedModel.manufacturer} {selectedModel.model}
+              </div>
+              <div style={{ color: 'var(--muted)' }}>
+                Form factor: {selectedModel.form_factor || 'n/a'} - Tags: {selectedModel.tags.length ? selectedModel.tags.join(', ') : 'none'}
+              </div>
+            </div>
+          ) : (
+            <div style={{ color: 'var(--muted)', fontSize: 12 }}>Select a model to load compatibility.</div>
+          )}
+          <div style={{ fontWeight: 900, marginTop: 6 }}>Compatible components</div>
+          {compatLoading ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>Loading compatible parts...</div> : null}
+          {compatError ? <div style={{ color: 'var(--bad)', fontSize: 12 }}>{compatError}</div> : null}
+          {selectedModelId && compatibleTypes.length === 0 && !compatLoading ? (
+            <div style={{ color: 'var(--muted)', fontSize: 12 }}>No compatibility rules yet for this model.</div>
+          ) : null}
+          {compatibleTypes.length ? (
+            <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+              {compatibleTypes.map((type) => {
+                const options = compatibleByType[type] || []
+                const fieldKey = `compat_${type}`
+                const value = typeof values[fieldKey] === 'string' ? values[fieldKey] : ''
+                return (
+                  <label key={type} style={{ display: 'grid', gap: 6 }}>
+                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>{componentTypeLabels[type] || type}</span>
+                    <select
+                      value={value}
+                      onChange={(e) => setValue(fieldKey, e.target.value)}
+                      style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)' }}
+                    >
+                      <option value="">Select {componentTypeLabels[type] || type}</option>
+                      {options.map((component) => (
+                        <option key={component.id} value={component.id}>
+                          {(component.manufacturer ? `${component.manufacturer} ` : '') + component.model}
+                          {component.part_number ? ` (${component.part_number})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>{options.length} compatible options</span>
+                  </label>
+                )
+              })}
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {selected ? (
