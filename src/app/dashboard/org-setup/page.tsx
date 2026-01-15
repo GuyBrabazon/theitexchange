@@ -297,7 +297,7 @@ export default function OrgSetupPage() {
 
           <div style={{ gridColumn: '1 / -1', display: 'grid', gap: 6 }}>
             <label style={{ fontSize: 12, color: 'var(--muted)' }}>Registered business address</label>
-            <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
+            <div style={{ display: 'grid', gap: 10, gridTemplateColumns: '1fr' }}>
               <input
                 value={registeredAddr.line1}
                 onChange={(e) => setRegisteredAddr((prev) => ({ ...prev, line1: e.target.value }))}
