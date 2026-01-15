@@ -10,13 +10,6 @@ type TenantSettings = {
   require_finance_approval_for_award: boolean
   work_email_domain: string | null
   discoverable?: boolean
-  po_logo_path: string | null
-  po_brand_color: string | null
-  po_brand_color_secondary: string | null
-  po_terms: string | null
-  po_header: string | null
-  po_number_start: number | null
-  po_number_current: number | null
   accounts_email?: string | null
   registered_address?: string | null
   eori?: string | null
@@ -57,7 +50,6 @@ export default function OrgSetupPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string>('')
   const [success, setSuccess] = useState<string>('')
-  const [uploadingLogo, setUploadingLogo] = useState(false)
 
   const [tenantId, setTenantId] = useState<string>('')
   const [tenantName, setTenantName] = useState<string>('')
@@ -68,13 +60,6 @@ export default function OrgSetupPage() {
     require_finance_approval_for_award: false,
     work_email_domain: '',
     discoverable: false,
-    po_logo_path: '',
-    po_brand_color: '',
-    po_brand_color_secondary: '',
-    po_terms: '',
-    po_header: '',
-    po_number_start: 1000,
-    po_number_current: 1000,
     accounts_email: '',
     registered_address: '',
     eori: '',
@@ -87,7 +72,6 @@ export default function OrgSetupPage() {
     country: '',
     postcode: '',
   })
-  const [previewOpen, setPreviewOpen] = useState(false)
 
   const getToken = async () => {
     const {
@@ -137,13 +121,6 @@ export default function OrgSetupPage() {
             require_finance_approval_for_award: settingsRow.require_finance_approval_for_award ?? false,
             work_email_domain: settingsRow.work_email_domain ?? '',
             discoverable: settingsRow.discoverable ?? false,
-            po_logo_path: settingsRow.po_logo_path ?? '',
-            po_brand_color: settingsRow.po_brand_color ?? '',
-            po_brand_color_secondary: settingsRow.po_brand_color_secondary ?? '',
-            po_terms: settingsRow.po_terms ?? '',
-            po_header: settingsRow.po_header ?? '',
-            po_number_start: settingsRow.po_number_start ?? 1000,
-            po_number_current: settingsRow.po_number_current ?? settingsRow.po_number_start ?? 1000,
             accounts_email: settingsRow.accounts_email ?? '',
             registered_address: settingsRow.registered_address ?? '',
             eori: settingsRow.eori ?? '',
@@ -208,13 +185,6 @@ export default function OrgSetupPage() {
             require_finance_approval_for_award: settings.require_finance_approval_for_award,
             work_email_domain: settings.work_email_domain || null,
             discoverable: settings.discoverable ?? false,
-            po_logo_path: settings.po_logo_path || null,
-            po_brand_color: settings.po_brand_color || null,
-            po_brand_color_secondary: settings.po_brand_color_secondary || null,
-            po_terms: settings.po_terms || null,
-            po_header: settings.po_header || null,
-            po_number_start: settings.po_number_start ?? null,
-            po_number_current: settings.po_number_current ?? null,
             accounts_email: settings.accounts_email || null,
             registered_address: registeredAddress || null,
             eori: settings.eori || null,
@@ -230,54 +200,6 @@ export default function OrgSetupPage() {
       setError(msg)
     } finally {
       setSaving(false)
-    }
-  }
-
-  const handleLogoUpload = async (file: File | null) => {
-    if (!file || !tenantId) return
-    setError('')
-    setSuccess('')
-    try {
-      setUploadingLogo(true)
-      const bucket = 'logos'
-      const path = `logos/${tenantId}/po-logo-${Date.now()}-${file.name}`
-      const { error: upErr } = await supabase.storage.from(bucket).upload(path, file, {
-        upsert: true,
-        contentType: file.type,
-      })
-      if (upErr) throw new Error(`Logo upload failed: ${upErr.message || upErr}`)
-      const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path)
-      const url = pub?.publicUrl
-      if (!url) throw new Error('Failed to get public URL for logo')
-      setSettings((prev) => ({ ...prev, po_logo_path: url }))
-      setSuccess('Logo uploaded and applied to PO template')
-    } catch (e) {
-      console.error(e)
-      setError(e instanceof Error ? e.message : 'Logo upload failed')
-    } finally {
-      setUploadingLogo(false)
-    }
-  }
-
-  const previewPo = async () => {
-    try {
-      const registeredAddress = buildRegisteredAddress(registeredAddr)
-      const res = await fetch('/api/po/render', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          preview: true,
-          tenant_id: tenantId,
-          settings: { ...settings, registered_address: registeredAddress || null },
-        }),
-      })
-      if (!res.ok) throw new Error('Preview failed')
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      window.open(url, '_blank')
-    } catch (e) {
-      console.error(e)
-      setError(e instanceof Error ? e.message : 'Failed to preview PO')
     }
   }
 
@@ -452,103 +374,6 @@ export default function OrgSetupPage() {
           </label>
         </div>
 
-        <div style={{ display: 'grid', gap: 12, marginTop: 6 }}>
-          <h3 style={{ margin: 0 }}>PO template</h3>
-          <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
-            <div style={{ display: 'grid', gap: 6 }}>
-              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Logo path (storage URL)</label>
-              <input
-                type="text"
-                value={settings.po_logo_path ?? ''}
-                onChange={(e) => setSettings((prev) => ({ ...prev, po_logo_path: e.target.value }))}
-                placeholder="e.g. https://.../logo.png"
-                style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
-              />
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <label
-                  style={{
-                    padding: '8px 10px',
-                    borderRadius: 10,
-                    border: '1px solid var(--border)',
-                    background: 'var(--panel)',
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                  }}
-                >
-                  <input
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={(e) => handleLogoUpload(e.target.files?.[0] ?? null)}
-                  />
-                  {uploadingLogo ? 'Uploading…' : 'Upload logo'}
-                </label>
-                <div style={{ color: 'var(--muted)', fontSize: 12 }}>
-                  Uploads to public storage and applies URL automatically.
-                </div>
-              </div>
-            </div>
-            <div style={{ display: 'grid', gap: 6 }}>
-              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Font color</label>
-              <input
-                type="color"
-                value={settings.po_brand_color || '#1e3a5f'}
-                onChange={(e) => setSettings((prev) => ({ ...prev, po_brand_color: e.target.value }))}
-                style={{ height: 44, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
-              />
-            </div>
-            <div style={{ display: 'grid', gap: 6 }}>
-              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Background color</label>
-              <input
-                type="color"
-                value={settings.po_brand_color_secondary || '#2f7f7a'}
-                onChange={(e) => setSettings((prev) => ({ ...prev, po_brand_color_secondary: e.target.value }))}
-                style={{ height: 44, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
-              />
-            </div>
-            <div style={{ display: 'grid', gap: 6 }}>
-              <label style={{ fontSize: 12, color: 'var(--muted)' }}>PO number start</label>
-              <input
-                type="number"
-                value={settings.po_number_start ?? 1000}
-                onChange={(e) => setSettings((prev) => ({ ...prev, po_number_start: Number(e.target.value) || 0 }))}
-                style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
-              />
-            </div>
-            <div style={{ display: 'grid', gap: 6 }}>
-              <label style={{ fontSize: 12, color: 'var(--muted)' }}>PO number current</label>
-              <input
-                type="number"
-                value={settings.po_number_current ?? settings.po_number_start ?? 1000}
-                onChange={(e) => setSettings((prev) => ({ ...prev, po_number_current: Number(e.target.value) || 0 }))}
-                style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
-              />
-              <div style={{ color: 'var(--muted)', fontSize: 12 }}>Next PO will use this number and increment.</div>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gap: 8 }}>
-            <label style={{ fontSize: 12, color: 'var(--muted)' }}>PO header (optional)</label>
-            <input
-              type="text"
-              value={settings.po_header ?? ''}
-              onChange={(e) => setSettings((prev) => ({ ...prev, po_header: e.target.value }))}
-              placeholder="e.g. Purchase Order"
-              style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
-            />
-          </div>
-
-          <div style={{ display: 'grid', gap: 6 }}>
-            <label style={{ fontSize: 12, color: 'var(--muted)' }}>PO terms / footer</label>
-            <textarea
-              value={settings.po_terms ?? ''}
-              onChange={(e) => setSettings((prev) => ({ ...prev, po_terms: e.target.value }))}
-              rows={4}
-              placeholder="Payment terms, delivery notes, etc."
-              style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', resize: 'vertical' }}
-            />
-          </div>
-        </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <button
             onClick={saveSettings}
@@ -564,205 +389,8 @@ export default function OrgSetupPage() {
           >
             {saving ? 'Saving…' : 'Save settings'}
           </button>
-          <button
-            type="button"
-            onClick={() => setPreviewOpen(true)}
-            style={{
-              padding: '10px 14px',
-              borderRadius: 12,
-              border: '1px solid var(--border)',
-              background: 'var(--surface-2)',
-              fontWeight: 900,
-              cursor: 'pointer',
-            }}
-          >
-            Preview PO
-          </button>
         </div>
       </div>
-
-      {previewOpen ? (
-        <div
-          onClick={() => setPreviewOpen(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.55)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
-            zIndex: 70,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: 'min(980px, 100%)',
-              maxHeight: '90vh',
-              overflow: 'auto',
-              background: 'var(--panel)',
-              border: '1px solid var(--border)',
-              borderRadius: 16,
-              padding: 20,
-              display: 'grid',
-              gap: 14,
-              boxShadow: '0 12px 36px rgba(0,0,0,0.25)',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-              <div>
-                <div style={{ fontWeight: 900, fontSize: 18 }}>PO preview</div>
-                <div style={{ color: 'var(--muted)', fontSize: 12 }}>Preview using current template settings</div>
-              </div>
-              <button
-                onClick={() => setPreviewOpen(false)}
-                style={{
-                  padding: '8px 12px',
-                  borderRadius: 10,
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface-2)',
-                  cursor: 'pointer',
-                }}
-              >
-                Close
-              </button>
-            </div>
-
-            <div
-              style={{
-                border: '1px solid var(--border)',
-                borderRadius: 12,
-                background: 'var(--surface-2)',
-                padding: 16,
-                display: 'grid',
-                gap: 12,
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <div>
-                  <div style={{ fontWeight: 900, fontSize: 20, color: settings.po_brand_color || '#1E3A5F' }}>
-                    {settings.po_header || 'Purchase Order'}
-                  </div>
-                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>{tenantName || 'Tenant name'}</div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 700 }}>PO#{(settings.po_number_current ?? settings.po_number_start ?? 1000).toString()}</div>
-                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>Date: {new Date().toLocaleDateString()}</div>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))',
-                  gap: 10,
-                  border: '1px solid var(--border)',
-                  borderRadius: 10,
-                  padding: 12,
-                  background: 'var(--panel)',
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 800, marginBottom: 4 }}>Bill to</div>
-                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>{tenantName || 'Your organisation'}</div>
-                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>address line, city</div>
-                </div>
-                <div>
-                  <div style={{ fontWeight: 800, marginBottom: 4 }}>Supplier</div>
-                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>Supplier name</div>
-                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>supplier@email.com</div>
-                </div>
-              </div>
-
-              <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '2fr 1fr 1fr 1fr',
-                    background: 'var(--surface-3, var(--surface-2))',
-                    fontWeight: 800,
-                    fontSize: 12,
-                  }}
-                >
-                  <div style={{ padding: 10, borderRight: '1px solid var(--border)' }}>Description</div>
-                  <div style={{ padding: 10, borderRight: '1px solid var(--border)' }}>Qty</div>
-                  <div style={{ padding: 10, borderRight: '1px solid var(--border)' }}>Price</div>
-                  <div style={{ padding: 10 }}>Line total</div>
-                </div>
-                {[
-                  { desc: 'Server chassis', qty: 2, price: 2500 },
-                  { desc: 'Memory kit', qty: 4, price: 300 },
-                ].map((line, idx) => (
-                  <div
-                    key={line.desc}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '2fr 1fr 1fr 1fr',
-                      background: idx % 2 === 0 ? 'var(--panel)' : 'var(--surface-2)',
-                      fontSize: 13,
-                    }}
-                  >
-                    <div style={{ padding: 10, borderRight: '1px solid var(--border)' }}>{line.desc}</div>
-                    <div style={{ padding: 10, borderRight: '1px solid var(--border)' }}>{line.qty}</div>
-                    <div style={{ padding: 10, borderRight: '1px solid var(--border)' }}>${line.price.toLocaleString()}</div>
-                    <div style={{ padding: 10 }}>${(line.qty * line.price).toLocaleString()}</div>
-                  </div>
-                ))}
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'flex-end',
-                    gap: 24,
-                    padding: 12,
-                    borderTop: '1px solid var(--border)',
-                    fontWeight: 800,
-                  }}
-                >
-                  <span>Subtotal</span>
-                  <span>$6,200</span>
-                </div>
-              </div>
-
-              <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'var(--panel)' }}>
-                <div style={{ fontWeight: 800, marginBottom: 6 }}>Terms</div>
-                <div style={{ color: 'var(--muted)', fontSize: 12, whiteSpace: 'pre-wrap' }}>
-                  {settings.po_terms || 'Payment due within 30 days. Delivery within 7 business days.'}
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                <button
-                  onClick={previewPo}
-                  style={{
-                    padding: '10px 12px',
-                    borderRadius: 10,
-                    border: '1px solid var(--border)',
-                    background: 'var(--panel)',
-                    fontWeight: 900,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Preview
-                </button>
-                <button
-                  onClick={() => setPreviewOpen(false)}
-                  style={{
-                    padding: '10px 12px',
-                    borderRadius: 10,
-                    border: '1px solid var(--border)',
-                    background: 'var(--panel)',
-                    fontWeight: 900,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </main>
   )
 }

@@ -380,73 +380,6 @@ export default function AccountPage() {
             </button>
           </div>
           <div style={{ color: 'var(--muted)', fontSize: 12 }}>{outlookStatus}</div>
-
-          {canSeeOrg ? (
-            <div style={{ marginTop: 6, padding: 12, border: '1px solid var(--border)', borderRadius: 12, background: 'var(--panel)' }}>
-              <div style={{ fontWeight: 900, marginBottom: 6 }}>Organisation setup</div>
-              <div style={{ color: 'var(--muted)', fontSize: 12, marginBottom: 10 }}>
-                Configure org-wide defaults, domain policy, and roles.
-              </div>
-              <a
-                href="/dashboard/org-setup"
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: 12,
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface-2)',
-                  fontWeight: 900,
-                  color: 'var(--text)',
-                  textDecoration: 'none',
-                }}
-              >
-                Open Org Setup
-              </a>
-              <div style={{ marginTop: 12 }}>
-                <button
-                  onClick={async () => {
-                    if (!tenantId) return
-                    const {
-                      data: { session },
-                    } = await supabase.auth.getSession()
-                    const token = session?.access_token
-                    if (!confirm('This deletes all AVAILABLE inventory for your organisation. Proceed?')) return
-                    setOutlookBusy(true)
-                    try {
-                      const res = await fetch('/api/inventory/purge', {
-                        method: 'POST',
-                        credentials: 'include',
-                        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-                      })
-                      const json = await res.json()
-                      if (!res.ok || !json.ok) throw new Error(json.message || 'Purge failed')
-                      alert('Available inventory purged.')
-                    } catch (e) {
-                      console.error(e)
-                      alert(e instanceof Error ? e.message : 'Purge failed')
-                    } finally {
-                      setOutlookBusy(false)
-                    }
-                  }}
-                  style={{
-                    marginTop: 8,
-                    padding: '8px 10px',
-                    borderRadius: 10,
-                    border: '1px solid var(--border)',
-                    background: 'var(--panel)',
-                    fontWeight: 900,
-                    color: 'var(--bad)',
-                    cursor: outlookBusy ? 'wait' : 'pointer',
-                  }}
-                  disabled={outlookBusy}
-                >
-                  Purge available inventory
-                </button>
-                <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>
-                  Admin only. Deletes all inventory with status &quot;available&quot; for this org.
-                </div>
-              </div>
-            </div>
-          ) : null}
         </div>
 
         {/* Profile */}
@@ -513,6 +446,116 @@ export default function AccountPage() {
             </button>
           </div>
         </div>
+
+        {/* Organisation setup (admin only) */}
+        {canSeeOrg ? (
+          <div
+            style={{
+              border: '1px solid var(--border)',
+              borderRadius: 12,
+              padding: 14,
+              background: 'var(--panel)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+            }}
+          >
+            <div style={{ fontWeight: 950 }}>Organisation setup</div>
+            <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+              Configure org defaults, discoverability, and organisation contact details.
+            </div>
+            <button
+              onClick={() => router.push('/dashboard/org-setup')}
+              style={{
+                padding: '10px 12px',
+                borderRadius: 12,
+                border: '1px solid var(--border)',
+                background: 'var(--panel)',
+                fontWeight: 900,
+                cursor: 'pointer',
+              }}
+            >
+              Open Org Setup
+            </button>
+            <div style={{ marginTop: 8 }}>
+              <button
+                onClick={async () => {
+                  if (!tenantId) return
+                  const {
+                    data: { session },
+                  } = await supabase.auth.getSession()
+                  const token = session?.access_token
+                  if (!confirm('This deletes all AVAILABLE inventory for your organisation. Proceed?')) return
+                  setOutlookBusy(true)
+                  try {
+                    const res = await fetch('/api/inventory/purge', {
+                      method: 'POST',
+                      credentials: 'include',
+                      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                    })
+                    const json = await res.json()
+                    if (!res.ok || !json.ok) throw new Error(json.message || 'Purge failed')
+                    alert('Available inventory purged.')
+                  } catch (e) {
+                    console.error(e)
+                    alert(e instanceof Error ? e.message : 'Purge failed')
+                  } finally {
+                    setOutlookBusy(false)
+                  }
+                }}
+                style={{
+                  marginTop: 8,
+                  padding: '8px 10px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--panel)',
+                  fontWeight: 900,
+                  color: 'var(--bad)',
+                  cursor: outlookBusy ? 'wait' : 'pointer',
+                }}
+                disabled={outlookBusy}
+              >
+                Purge available inventory
+              </button>
+              <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>
+                Admin only. Deletes all inventory with status &quot;available&quot; for this org.
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* PO setup (admin only) */}
+        {canSeeOrg ? (
+          <div
+            style={{
+              border: '1px solid var(--border)',
+              borderRadius: 12,
+              padding: 14,
+              background: 'var(--panel)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+            }}
+          >
+            <div style={{ fontWeight: 950 }}>PO setup</div>
+            <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+              Configure purchase order branding, numbering, and preview.
+            </div>
+            <button
+              onClick={() => router.push('/dashboard/account/po-setup')}
+              style={{
+                padding: '10px 12px',
+                borderRadius: 12,
+                border: '1px solid var(--border)',
+                background: 'var(--panel)',
+                fontWeight: 900,
+                cursor: 'pointer',
+              }}
+            >
+              Open PO Setup
+            </button>
+          </div>
+        ) : null}
 
         {/* User management (admin only) */}
         {canSeeOrg ? (

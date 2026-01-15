@@ -30,6 +30,8 @@ export async function POST(req: Request) {
         po_brand_color_secondary?: string | null
         po_terms?: string | null
         po_header?: string | null
+        po_start_number?: number | null
+        po_current_number?: number | null
         po_number_start?: number | null
         po_number_current?: number | null
         accounts_email?: string | null
@@ -53,31 +55,35 @@ export async function POST(req: Request) {
     }
 
     if (body.settings) {
-      const { error: setErr } = await supa
-        .from('tenant_settings')
-        .upsert(
-          {
-            tenant_id: tenantId,
-            default_currency: body.settings.default_currency ?? 'USD',
-            margins_visible_to_brokers: body.settings.margins_visible_to_brokers ?? true,
-            ops_can_edit_costs: body.settings.ops_can_edit_costs ?? false,
-            require_finance_approval_for_award: body.settings.require_finance_approval_for_award ?? false,
-            work_email_domain: body.settings.work_email_domain ?? null,
-            discoverable: body.settings.discoverable ?? false,
-            po_logo_path: body.settings.po_logo_path ?? null,
-            po_brand_color: body.settings.po_brand_color ?? null,
-            po_brand_color_secondary: body.settings.po_brand_color_secondary ?? null,
-            po_terms: body.settings.po_terms ?? null,
-            po_header: body.settings.po_header ?? null,
-            po_number_start: body.settings.po_number_start ?? null,
-            po_number_current: body.settings.po_number_current ?? null,
-            accounts_email: body.settings.accounts_email ?? null,
-            registered_address: body.settings.registered_address ?? null,
-            eori: body.settings.eori ?? null,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'tenant_id' }
-        )
+      const settings = body.settings
+      const payload: Record<string, unknown> = {
+        tenant_id: tenantId,
+        updated_at: new Date().toISOString(),
+      }
+      const setIfDefined = (key: string, value: unknown) => {
+        if (value !== undefined) payload[key] = value
+      }
+      const poStart = settings.po_start_number ?? settings.po_number_start
+      const poCurrent = settings.po_current_number ?? settings.po_number_current
+
+      setIfDefined('default_currency', settings.default_currency)
+      setIfDefined('margins_visible_to_brokers', settings.margins_visible_to_brokers)
+      setIfDefined('ops_can_edit_costs', settings.ops_can_edit_costs)
+      setIfDefined('require_finance_approval_for_award', settings.require_finance_approval_for_award)
+      setIfDefined('work_email_domain', settings.work_email_domain)
+      setIfDefined('discoverable', settings.discoverable)
+      setIfDefined('po_logo_path', settings.po_logo_path)
+      setIfDefined('po_brand_color', settings.po_brand_color)
+      setIfDefined('po_brand_color_secondary', settings.po_brand_color_secondary)
+      setIfDefined('po_terms', settings.po_terms)
+      setIfDefined('po_header', settings.po_header)
+      setIfDefined('po_start_number', poStart)
+      setIfDefined('po_current_number', poCurrent)
+      setIfDefined('accounts_email', settings.accounts_email)
+      setIfDefined('registered_address', settings.registered_address)
+      setIfDefined('eori', settings.eori)
+
+      const { error: setErr } = await supa.from('tenant_settings').upsert(payload, { onConflict: 'tenant_id' })
       if (setErr) throw setErr
     }
 
