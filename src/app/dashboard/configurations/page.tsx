@@ -23,6 +23,9 @@ type ComponentModel = {
   manufacturer: string | null
   model: string
   part_number: string | null
+  category?: string | null
+  oem?: string | null
+  description?: string | null
   tags: string[]
 }
 
@@ -354,15 +357,59 @@ export default function ConfigurationsPage() {
         if (!json.ok) throw new Error(json.message || 'Failed to load compatible parts')
         const mapped = (json.items ?? []).map((rec: unknown) => {
           const row = rec as Record<string, unknown>
-          const rawType = typeof row.component_type === 'string' ? row.component_type : 'other'
+          const typeSource =
+            typeof row.component_type === 'string' && row.component_type.trim()
+              ? row.component_type
+              : typeof row.category === 'string'
+                ? row.category
+                : ''
+          const rawType = typeSource.trim().toLowerCase()
+          let mappedType = rawType
+          if (!Object.prototype.hasOwnProperty.call(componentTypeLabels, mappedType)) {
+            if (mappedType.includes('cpu') || mappedType.includes('processor')) mappedType = 'cpu'
+            else if (mappedType.includes('mem') || mappedType.includes('dimm') || mappedType.includes('ram')) mappedType = 'memory'
+            else if (
+              mappedType.includes('drive') ||
+              mappedType.includes('disk') ||
+              mappedType.includes('storage') ||
+              mappedType.includes('ssd') ||
+              mappedType.includes('hdd')
+            )
+              mappedType = 'drive'
+            else if (mappedType.includes('nic') || mappedType.includes('network') || mappedType.includes('ethernet')) mappedType = 'nic'
+            else if (mappedType.includes('gpu') || mappedType.includes('graphics')) mappedType = 'gpu'
+            else if (mappedType.includes('controller') || mappedType.includes('raid')) mappedType = 'controller'
+            else if (mappedType.includes('transceiver') || mappedType.includes('optic') || mappedType.includes('sfp') || mappedType.includes('qsfp'))
+              mappedType = 'transceiver'
+            else if (mappedType.includes('module')) mappedType = 'module'
+            else if (mappedType.includes('power') || mappedType.includes('psu') || mappedType.includes('power supply')) mappedType = 'power'
+            else if (mappedType.includes('rail')) mappedType = 'rail'
+            else if (mappedType.includes('bezel')) mappedType = 'bezel'
+            else if (mappedType.includes('license') || mappedType.includes('remote') || mappedType.includes('idrac') || mappedType.includes('ilo'))
+              mappedType = 'remote_access'
+            else if (mappedType.includes('cable')) mappedType = 'cable'
+            else mappedType = 'other'
+          }
           const tags = Array.isArray(row.tags) ? row.tags.map((tag) => String(tag)) : []
+          const manufacturer =
+            typeof row.manufacturer === 'string' && row.manufacturer.trim()
+              ? row.manufacturer
+              : typeof row.oem === 'string'
+                ? row.oem
+                : null
+          const description = typeof row.description === 'string' ? row.description : null
+          const category = typeof row.category === 'string' ? row.category : null
+          const oem = typeof row.oem === 'string' ? row.oem : null
           return {
             id: String(row.id ?? ''),
             tenant_id: row.tenant_id ? String(row.tenant_id) : null,
-            component_type: rawType,
-            manufacturer: typeof row.manufacturer === 'string' ? row.manufacturer : null,
-            model: String(row.model ?? ''),
+            component_type: mappedType,
+            manufacturer,
+            model: String(row.model ?? row.description ?? ''),
             part_number: typeof row.part_number === 'string' ? row.part_number : null,
+            category,
+            oem,
+            description,
             tags,
           } satisfies ComponentModel
         })
@@ -580,7 +627,10 @@ export default function ConfigurationsPage() {
 
   const matchesComponentSearch = (component: ComponentModel, searchValue: string) => {
     if (!searchValue.trim()) return true
-    const haystack = `${component.manufacturer || ''} ${component.model} ${component.part_number || ''} ${component.tags.join(' ')}`.toLowerCase()
+    const haystack =
+      `${component.manufacturer || ''} ${component.oem || ''} ${component.category || ''} ${component.model} ${component.part_number || ''} ${
+        component.description || ''
+      } ${component.tags.join(' ')}`.toLowerCase()
     return haystack.includes(searchValue.trim().toLowerCase())
   }
 
