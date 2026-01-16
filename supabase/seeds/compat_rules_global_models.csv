@@ -1,14 +1,164 @@
 id,system_model_id,component_model_id,component_tag,note
-90000000-0000-0000-0000-000000000001,11111111-1111-1111-1111-111111111111,aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,,CPU compatibility
-90000000-0000-0000-0000-000000000002,11111111-1111-1111-1111-111111111111,bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,,Memory compatibility
-90000000-0000-0000-0000-000000000003,11111111-1111-1111-1111-111111111111,dddddddd-dddd-dddd-dddd-dddddddddddd,,Controller compatibility
-90000000-0000-0000-0000-000000000004,11111111-1111-1111-1111-111111111111,eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee,,NIC compatibility
-90000000-0000-0000-0000-000000000005,11111111-1111-1111-1111-111111111111,10101010-1010-1010-1010-101010101010,,GPU compatibility
-90000000-0000-0000-0000-000000000006,11111111-1111-1111-1111-111111111111,12121212-1212-1212-1212-121212121212,,Power compatibility
-90000000-0000-0000-0000-000000000007,11111111-1111-1111-1111-111111111111,cccccccc-cccc-cccc-cccc-cccccccccccc,,Drive compatibility
-90000000-0000-0000-0000-000000000008,22222222-2222-2222-2222-222222222222,aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,,CPU compatibility
-90000000-0000-0000-0000-000000000009,22222222-2222-2222-2222-222222222222,bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,,Memory compatibility
-90000000-0000-0000-0000-000000000010,33333333-3333-3333-3333-333333333333,,nvme,Tag fallback for NVMe drives
-90000000-0000-0000-0000-000000000011,44444444-4444-4444-4444-444444444444,,drive,Tag fallback for drive media
-90000000-0000-0000-0000-000000000012,55555555-5555-5555-5555-555555555555,,sfp28,Tag fallback for SFP28 optics
-90000000-0000-0000-0000-000000000013,66666666-6666-6666-6666-666666666666,,sfp28,Tag fallback for SFP28 optics
+b59277af-720c-433e-b3ae-42a528e3e9db,6c3ff318-9b63-4db0-b463-d4b53844ff65,c1b7b5a0-c37e-4b67-94cc-7b9c691f6152,,Supports Xeon Silver 4314
+5951ccfc-f453-445f-b415-0777fcca6d10,6c3ff318-9b63-4db0-b463-d4b53844ff65,de17da14-dc5a-4e2a-af29-a6b4ca3b5be0,,Supports Xeon Gold 6338
+88ef1a85-fec6-4d7e-93c9-686029b9e19c,6c3ff318-9b63-4db0-b463-d4b53844ff65,,ddr4,DDR4 memory only
+b1f96de2-f777-4b97-a445-15c2b7d9797c,6c3ff318-9b63-4db0-b463-d4b53844ff65,,sata,SATA drives supported
+4f76272b-6bc4-4cbc-bbb7-e8f35f4afcd2,6c3ff318-9b63-4db0-b463-d4b53844ff65,,sas,SAS drives supported
+690e0fe1-3a96-47c0-a477-219005597bb9,6c3ff318-9b63-4db0-b463-d4b53844ff65,d3a5b04a-2d82-4b2e-a279-b5a63a411d55,,RAID controller supported
+b2755bd5-5076-4b93-b2ea-66c8fbbaf3b3,6c3ff318-9b63-4db0-b463-d4b53844ff65,b41ec431-b502-4160-bdec-48d39db9ee2c,,10GbE SFP+ NIC supported
+278f7297-f79f-4f45-9f56-252f548c18a6,6c3ff318-9b63-4db0-b463-d4b53844ff65,,sfp_plus,SFP+ optics/cables compatible
+c83f2b44-f5f0-4d88-af17-daf365a2d4ff,6c3ff318-9b63-4db0-b463-d4b53844ff65,93e3c232-8789-4a8c-aac6-f358c2d96f09,,1100W PSU option
+15b54e43-e231-4682-9fe9-b26079f0b4c0,33bd4dcb-8a62-4eab-866d-7d2913fa1dc0,c1b7b5a0-c37e-4b67-94cc-7b9c691f6152,,Supports Xeon Silver 4314
+f75e4102-cc8f-45c1-aef5-5f4be84fa4d7,33bd4dcb-8a62-4eab-866d-7d2913fa1dc0,de17da14-dc5a-4e2a-af29-a6b4ca3b5be0,,Supports Xeon Gold 6338
+220698be-acde-4dd3-a62c-7e90960956bd,33bd4dcb-8a62-4eab-866d-7d2913fa1dc0,,ddr4,DDR4 memory only
+a7840e73-24c0-4c8d-93e6-fcc3835cc5d7,33bd4dcb-8a62-4eab-866d-7d2913fa1dc0,,sata,SATA drives supported
+a3d405e0-6bd5-400c-8422-40fa969e81f3,33bd4dcb-8a62-4eab-866d-7d2913fa1dc0,,sas,SAS drives supported
+d47c48ab-acde-4ed9-a2ec-3c43b3ff4a96,33bd4dcb-8a62-4eab-866d-7d2913fa1dc0,d3a5b04a-2d82-4b2e-a279-b5a63a411d55,,RAID controller supported
+e3a7c2ad-4f1b-4a2c-a079-8c59a57dfd4c,33bd4dcb-8a62-4eab-866d-7d2913fa1dc0,b41ec431-b502-4160-bdec-48d39db9ee2c,,10GbE SFP+ NIC supported
+11bde59e-2808-41b9-9a94-38526f3bb2f0,33bd4dcb-8a62-4eab-866d-7d2913fa1dc0,,sfp_plus,SFP+ optics/cables compatible
+1de0b277-93f0-417a-97a8-6284e3ac06d2,33bd4dcb-8a62-4eab-866d-7d2913fa1dc0,93e3c232-8789-4a8c-aac6-f358c2d96f09,,1100W PSU option
+1d792665-a6b4-43e2-a9a8-1fe8a41fb7e0,5cbf62bc-acde-4d26-82e2-f1d8608c9c8a,c1b7b5a0-c37e-4b67-94cc-7b9c691f6152,,Supports Xeon Silver 4314
+9b7e14bd-3dc0-4d1b-9099-79f4e76047d9,5cbf62bc-acde-4d26-82e2-f1d8608c9c8a,de17da14-dc5a-4e2a-af29-a6b4ca3b5be0,,Supports Xeon Gold 6338
+e8c71dbc-9eac-43b2-b703-2dbcfef5f8dd,5cbf62bc-acde-4d26-82e2-f1d8608c9c8a,,ddr4,DDR4 memory only
+f7b1d955-6376-437b-a9e1-49f7f6f55c39,5cbf62bc-acde-4d26-82e2-f1d8608c9c8a,,sata,SATA drives supported
+2bfe1a10-6f43-48b7-8f96-801bb8c18f7a,5cbf62bc-acde-4d26-82e2-f1d8608c9c8a,,sas,SAS drives supported
+b49df042-9e84-4ddd-80b6-0f9867d43b3c,5cbf62bc-acde-4d26-82e2-f1d8608c9c8a,,raid,RAID controller supported
+1536cd27-97aa-448b-8173-f2b08838546a,5cbf62bc-acde-4d26-82e2-f1d8608c9c8a,b41ec431-b502-4160-bdec-48d39db9ee2c,,10GbE SFP+ NIC supported
+ecdd8b3a-d612-4f83-8198-b5fc4d892218,5cbf62bc-acde-4d26-82e2-f1d8608c9c8a,,sfp_plus,SFP+ optics/cables compatible
+355c3c5e-fb68-4c7c-92f4-00b9b5e6f231,5cbf62bc-acde-4d26-82e2-f1d8608c9c8a,93e3c232-8789-4a8c-aac6-f358c2d96f09,,1100W PSU option
+2e63d6e4-c087-4797-ad05-d7df01d35305,a2d55b85-2d4c-43dd-99f1-808ac5f2d565,c1b7b5a0-c37e-4b67-94cc-7b9c691f6152,,Supports Xeon Silver 4314
+3cbe8f0e-21c8-43b5-acde-09fae93d28d6,a2d55b85-2d4c-43dd-99f1-808ac5f2d565,de17da14-dc5a-4e2a-af29-a6b4ca3b5be0,,Supports Xeon Gold 6338
+b93f3388-a491-4470-9ddd-8120b43e61f3,a2d55b85-2d4c-43dd-99f1-808ac5f2d565,,ddr4,DDR4 memory only
+6c0ce68a-2aac-4e33-934d-acdeef1822ff,a2d55b85-2d4c-43dd-99f1-808ac5f2d565,,sata,SATA drives supported
+d2e770d3-78ac-443d-9a6a-729f8862030b,a2d55b85-2d4c-43dd-99f1-808ac5f2d565,,sas,SAS drives supported
+b2d713a2-56bc-4ef3-a168-92b4dd3f4c63,a2d55b85-2d4c-43dd-99f1-808ac5f2d565,,raid,RAID controller supported
+d6c70220-c8c0-4dbb-8243-13e5db1f5bca,a2d55b85-2d4c-43dd-99f1-808ac5f2d565,b41ec431-b502-4160-bdec-48d39db9ee2c,,10GbE SFP+ NIC supported
+fe9d7a43-1cdc-4dfd-99b2-64f37b829e35,a2d55b85-2d4c-43dd-99f1-808ac5f2d565,,sfp_plus,SFP+ optics/cables compatible
+58f8244a-76d3-48f5-ab8b-06fbc9991c89,a2d55b85-2d4c-43dd-99f1-808ac5f2d565,93e3c232-8789-4a8c-aac6-f358c2d96f09,,1100W PSU option
+c2d766f3-2ce6-4c73-92aa-3d34c8d9f4f6,fbb298a1-33b5-40e0-95c8-7429bbac1ca1,c1b7b5a0-c37e-4b67-94cc-7b9c691f6152,,Supports Xeon Silver 4314
+0b984f57-fac4-4c04-92f5-e747b9a714b0,fbb298a1-33b5-40e0-95c8-7429bbac1ca1,de17da14-dc5a-4e2a-af29-a6b4ca3b5be0,,Supports Xeon Gold 6338
+6e580fce-5de3-452f-94fd-f0b9fe2d838b,fbb298a1-33b5-40e0-95c8-7429bbac1ca1,,ddr4,DDR4 memory only
+33268fb6-7e41-48e2-9b2d-acde169aa181,fbb298a1-33b5-40e0-95c8-7429bbac1ca1,,sata,SATA drives supported
+4f13df04-1273-45e2-a0d2-e123a31dd2dd,fbb298a1-33b5-40e0-95c8-7429bbac1ca1,,sas,SAS drives supported
+60a8bc93-8dff-495b-b303-4ab6f8421d88,fbb298a1-33b5-40e0-95c8-7429bbac1ca1,,raid,RAID controller supported
+b4473fa3-506e-4b36-acde-f8f7e3ffacbb,fbb298a1-33b5-40e0-95c8-7429bbac1ca1,b41ec431-b502-4160-bdec-48d39db9ee2c,,10GbE SFP+ NIC supported
+3f6a2148-40b6-4e6e-a0cc-9c2b6c7a54c7,fbb298a1-33b5-40e0-95c8-7429bbac1ca1,,sfp_plus,SFP+ optics/cables compatible
+ba9e7fb7-9cb7-4560-a6ab-76b92a5b0afe,fbb298a1-33b5-40e0-95c8-7429bbac1ca1,93e3c232-8789-4a8c-aac6-f358c2d96f09,,1100W PSU option
+8d0bb990-3325-47b2-a66f-bfa64ebc00cb,67c7a9bb-768b-45e2-8fe6-c9470f725d5f,c1b7b5a0-c37e-4b67-94cc-7b9c691f6152,,Supports Xeon Silver 4314
+97b7e544-601d-4f00-8c7a-ea52037d8c02,67c7a9bb-768b-45e2-8fe6-c9470f725d5f,de17da14-dc5a-4e2a-af29-a6b4ca3b5be0,,Supports Xeon Gold 6338
+103a0b74-4c9b-44de-ae72-6cbdf0950e63,67c7a9bb-768b-45e2-8fe6-c9470f725d5f,,ddr4,DDR4 memory only
+93e5565b-ac0b-4230-83cf-c8a86a5f6fe9,67c7a9bb-768b-45e2-8fe6-c9470f725d5f,,sata,SATA drives supported
+96290a8e-a63f-4c42-91c0-4b4b7a48fd2a,67c7a9bb-768b-45e2-8fe6-c9470f725d5f,,sas,SAS drives supported
+0a0f4dbe-370b-456b-a196-15b0baa1e356,67c7a9bb-768b-45e2-8fe6-c9470f725d5f,,raid,RAID controller supported
+c7b585cb-4942-4ea8-9548-0da77e17d6ac,67c7a9bb-768b-45e2-8fe6-c9470f725d5f,b41ec431-b502-4160-bdec-48d39db9ee2c,,10GbE SFP+ NIC supported
+e9f4ae0d-361f-4fb4-91d8-3de86568ea40,67c7a9bb-768b-45e2-8fe6-c9470f725d5f,,sfp_plus,SFP+ optics/cables compatible
+3b0bd90a-05b6-4e79-9a5c-7eff0a775ef4,67c7a9bb-768b-45e2-8fe6-c9470f725d5f,93e3c232-8789-4a8c-aac6-f358c2d96f09,,1100W PSU option
+03c5188f-ce8f-480f-98f0-bec2de0cfeab,4cc4c1f4-c69a-4ba0-845c-cc8b3847264d,a5645c42-8252-4c43-a7ee-c2885a002a71,,Supports Xeon Gold 6430
+d9fc862b-2cda-4531-8ee7-8e90d1056906,4cc4c1f4-c69a-4ba0-845c-cc8b3847264d,c14bb14b-220e-42fa-b94f-e14ce5ea29ad,,Supports Xeon Platinum 8480+
+4a3cf81c-4a15-4f91-a0d7-2fcda293ce01,4cc4c1f4-c69a-4ba0-845c-cc8b3847264d,,ddr5,DDR5 memory only
+73d6df0c-101f-4bc6-ac5d-fad8eeb2fe9e,4cc4c1f4-c69a-4ba0-845c-cc8b3847264d,,pcie5,PCIe Gen5 capable chassis
+f7ee03be-61b7-41b1-acde-611cf20306c0,4cc4c1f4-c69a-4ba0-845c-cc8b3847264d,c4a1171e-26ad-4b93-9ef8-3a3c2478fbb5,,25GbE SFP28 NIC supported
+bff0694e-1a0f-4820-936b-9f81000bb66d,4cc4c1f4-c69a-4ba0-845c-cc8b3847264d,,sfp28,SFP28 optics/cables compatible
+f6444c5e-9cd2-4cf0-96d8-7f3d18f4b10f,4cc4c1f4-c69a-4ba0-845c-cc8b3847264d,c681b801-8c67-4d54-8c6a-741ad2c50f54,,1600W PSU option
+8dfbfe87-5de2-4ef0-9ac0-0fe52a7c0a31,4cc4c1f4-c69a-4ba0-845c-cc8b3847264d,e2c1b13a-80a2-4c04-889d-a5b5b9e6da4e,,Supports high-power GPU
+b1e52f8a-90e0-4e4b-a289-9f6b4b68f9c0,2f96ab0f-a6fe-4b4e-b0c2-3bc0f8b0bf2a,a5645c42-8252-4c43-a7ee-c2885a002a71,,Supports Xeon Gold 6430
+1a0da52b-2d6c-4f89-a8fb-ec27fa19a24f,2f96ab0f-a6fe-4b4e-b0c2-3bc0f8b0bf2a,c14bb14b-220e-42fa-b94f-e14ce5ea29ad,,Supports Xeon Platinum 8480+
+c5a933cc-9a94-4408-8d33-bbb0b8f0a0f5,2f96ab0f-a6fe-4b4e-b0c2-3bc0f8b0bf2a,,ddr5,DDR5 memory only
+d92ed3a5-901d-4100-b0e0-2c3f1a5c2f9d,2f96ab0f-a6fe-4b4e-b0c2-3bc0f8b0bf2a,,pcie5,PCIe Gen5 capable chassis
+af7b1ac4-1f10-4a13-9fa1-7e5598260c8f,2f96ab0f-a6fe-4b4e-b0c2-3bc0f8b0bf2a,c4a1171e-26ad-4b93-9ef8-3a3c2478fbb5,,25GbE SFP28 NIC supported
+4eeb2a8d-5b80-4d22-8a2c-94a92c6b6a5a,2f96ab0f-a6fe-4b4e-b0c2-3bc0f8b0bf2a,,sfp28,SFP28 optics/cables compatible
+8b3c0a78-b342-4cf4-8b15-93c2d3198f78,2f96ab0f-a6fe-4b4e-b0c2-3bc0f8b0bf2a,c681b801-8c67-4d54-8c6a-741ad2c50f54,,1600W PSU option
+d64316d9-c25b-4d86-bc14-cc1ba2b6b6ea,2f96ab0f-a6fe-4b4e-b0c2-3bc0f8b0bf2a,e2c1b13a-80a2-4c04-889d-a5b5b9e6da4e,,Supports high-power GPU
+93c06ef4-c3bc-4115-81b0-8749d2252eb1,4961cf19-1bb3-48bd-a4b9-d27a3ca5cab5,a5645c42-8252-4c43-a7ee-c2885a002a71,,Supports Xeon Gold 6430
+abc2d1b9-8b2a-4b7f-9aef-8584497bba9d,4961cf19-1bb3-48bd-a4b9-d27a3ca5cab5,c14bb14b-220e-42fa-b94f-e14ce5ea29ad,,Supports Xeon Platinum 8480+
+1c3ed349-d9d0-4f05-98d8-168fb8d4553e,4961cf19-1bb3-48bd-a4b9-d27a3ca5cab5,,ddr5,DDR5 memory only
+d31b4855-f6ce-4619-b4b6-57db5f5523a0,4961cf19-1bb3-48bd-a4b9-d27a3ca5cab5,,pcie5,PCIe Gen5 capable chassis
+3ef7f1cf-3662-4dd4-a2fd-3c1f612ef13c,4961cf19-1bb3-48bd-a4b9-d27a3ca5cab5,c4a1171e-26ad-4b93-9ef8-3a3c2478fbb5,,25GbE SFP28 NIC supported
+4939bff6-9a37-4d8e-9a44-f6a8cc13b540,4961cf19-1bb3-48bd-a4b9-d27a3ca5cab5,,sfp28,SFP28 optics/cables compatible
+3395f25b-d705-4d55-a435-a4f7e1d280b2,4961cf19-1bb3-48bd-a4b9-d27a3ca5cab5,c681b801-8c67-4d54-8c6a-741ad2c50f54,,1600W PSU option
+4eb4eb1f-2e6d-4adb-8b61-396fd86dc40d,4961cf19-1bb3-48bd-a4b9-d27a3ca5cab5,e2c1b13a-80a2-4c04-889d-a5b5b9e6da4e,,Supports high-power GPU
+3b6da5c9-7a21-45cb-a8ab-3b1a94acdbba,3d0a98ef-c119-4e0c-a208-b585099fbaeb,a5645c42-8252-4c43-a7ee-c2885a002a71,,Supports Xeon Gold 6430
+f4e2997d-80db-44a9-b2e2-eed3a69768c8,3d0a98ef-c119-4e0c-a208-b585099fbaeb,c14bb14b-220e-42fa-b94f-e14ce5ea29ad,,Supports Xeon Platinum 8480+
+b37fba48-0d09-4674-b8ce-1071cd6571b1,3d0a98ef-c119-4e0c-a208-b585099fbaeb,,ddr5,DDR5 memory only
+a0d7140a-0dd9-4573-b3a8-6a02c68717ad,3d0a98ef-c119-4e0c-a208-b585099fbaeb,,pcie5,PCIe Gen5 capable chassis
+eeb4bb2c-ea18-4ce2-b2c8-5fe859ae09f8,3d0a98ef-c119-4e0c-a208-b585099fbaeb,c4a1171e-26ad-4b93-9ef8-3a3c2478fbb5,,25GbE SFP28 NIC supported
+c72e0c72-86a5-4c47-9c9f-7c3d615e5678,3d0a98ef-c119-4e0c-a208-b585099fbaeb,,sfp28,SFP28 optics/cables compatible
+f49c684f-7350-4cd8-a2af-b245d6dc02d7,3d0a98ef-c119-4e0c-a208-b585099fbaeb,c681b801-8c67-4d54-8c6a-741ad2c50f54,,1600W PSU option
+bce82a35-9a47-4c2a-87c1-4c454c1ed9b3,3d0a98ef-c119-4e0c-a208-b585099fbaeb,e2c1b13a-80a2-4c04-889d-a5b5b9e6da4e,,Supports high-power GPU
+61efae9b-fd44-4a58-91cd-376b257a048b,4312548c-2c8e-40c6-8f2d-dad438d30326,d742f0e4-2a74-48c1-9b38-b0ec27c3ce03,,Supports EPYC 7543
+4a0aebcd-970e-4b23-a5ef-71354d72d2d3,4312548c-2c8e-40c6-8f2d-dad438d30326,c52ae773-4a34-4be5-b0d7-58e1f6c55fd3,,Supports EPYC 9654 (platform dependent)
+3e02114b-07e0-4c4c-9f5d-c2f92f88e150,4312548c-2c8e-40c6-8f2d-dad438d30326,,ddr4,Memory generation constraint
+53ca5c62-2e30-42d5-9b30-946905e7b276,4312548c-2c8e-40c6-8f2d-dad438d30326,935b19c9-7e08-49f9-8fe6-2c449f1cab5c,,25GbE SFP28 NIC supported
+9e8c0dc0-1e3f-4b1c-8b6a-5a35d4ea2b98,4312548c-2c8e-40c6-8f2d-dad438d30326,,nvme,NVMe drives supported
+0fcd7d69-e4d4-423b-8702-9d6b4f98fdd0,97885725-2118-4e1f-8c9d-d4b273c1046c,d742f0e4-2a74-48c1-9b38-b0ec27c3ce03,,Supports EPYC 7543
+a0d5f600-b553-4b07-930b-31dd5fbd0385,97885725-2118-4e1f-8c9d-d4b273c1046c,c52ae773-4a34-4be5-b0d7-58e1f6c55fd3,,Supports EPYC 9654 (platform dependent)
+9a357d40-1008-4e53-84b9-5b011a9b52a2,97885725-2118-4e1f-8c9d-d4b273c1046c,,ddr5,Memory generation constraint
+335d614d-4d98-42d9-8fe1-88f3b4b193a2,97885725-2118-4e1f-8c9d-d4b273c1046c,935b19c9-7e08-49f9-8fe6-2c449f1cab5c,,25GbE SFP28 NIC supported
+27cbd594-6e74-40c9-9104-b7e18a7597c0,97885725-2118-4e1f-8c9d-d4b273c1046c,,nvme,NVMe drives supported
+3a30a465-e6ad-4609-8f65-d005acb62d40,9118b70d-ef8f-4b28-bf79-6569ae69a89b,,drive,Supports enterprise drives
+08c2d605-c482-41e8-91b1-80e3ae324c2d,9118b70d-ef8f-4b28-bf79-6569ae69a89b,,ssd,SSD tiers supported
+5a31f77a-47fb-4a4b-bcc8-90b2bfd801a8,9118b70d-ef8f-4b28-bf79-6569ae69a89b,,nvme,Primary backend media
+d25d1054-67d9-44e8-aeaf-9fe0d6cc6c1e,9118b70d-ef8f-4b28-bf79-6569ae69a89b,4a60ac1d-99c0-4d05-bf22-2ad13e1cfb09,,NVRAM module for HA
+a8a8b9fc-fc61-4ff6-9d74-1b4b69c11cb3,9118b70d-ef8f-4b28-bf79-6569ae69a89b,,sfp28,25GbE front-end supported (model dependent)
+d979c725-9ed4-4cdd-9949-2341a479f15a,a9174c2a-4d04-4e9a-8f69-7dddf60fa7c1,,drive,Supports enterprise drives
+45e4d450-7656-4576-8e06-65f6b48db6f5,a9174c2a-4d04-4e9a-8f69-7dddf60fa7c1,,ssd,SSD tiers supported
+c9f2b6b8-3fc7-4f05-9e7c-862c616f5d64,a9174c2a-4d04-4e9a-8f69-7dddf60fa7c1,,nvme,Primary backend media
+ca53924b-e15a-4a38-8d0f-e20e4a308fc4,a9174c2a-4d04-4e9a-8f69-7dddf60fa7c1,4a60ac1d-99c0-4d05-bf22-2ad13e1cfb09,,NVRAM module for HA
+1ae197c5-7ec8-4793-b2d7-ae5be1f3f890,a9174c2a-4d04-4e9a-8f69-7dddf60fa7c1,,sfp28,25GbE front-end supported (model dependent)
+197fd2d7-8dd4-4bbd-a3c4-a92d57ecf6dd,d2bf4bb5-3618-4d8d-8c7e-6bb5e1d6ebde,,drive,Supports enterprise drives
+254dc5c2-5fc5-46d6-a620-41f1b0a0ef4d,d2bf4bb5-3618-4d8d-8c7e-6bb5e1d6ebde,,ssd,SSD tiers supported
+9edb3b36-9d76-4cfa-87c8-7c4fedc269c0,d2bf4bb5-3618-4d8d-8c7e-6bb5e1d6ebde,,nvme,Primary backend media
+7f06ad0a-b8df-4cd1-ac62-a9a6d699f93e,d2bf4bb5-3618-4d8d-8c7e-6bb5e1d6ebde,4a60ac1d-99c0-4d05-bf22-2ad13e1cfb09,,NVRAM module for HA
+3a6fcb34-2d72-4fb5-90bf-acde17e322b1,d2bf4bb5-3618-4d8d-8c7e-6bb5e1d6ebde,,sfp28,25GbE front-end supported (model dependent)
+b8c2a1d0-1c93-48d6-a4a3-6a99f8584cf4,7661ac0b-cc51-4a74-8f84-2d79320717ce,,drive,Supports enterprise drives
+864db9b5-af6b-47bf-99d5-a9c0e7a86d55,7661ac0b-cc51-4a74-8f84-2d79320717ce,,ssd,SSD tiers supported
+8e0f98d4-38b2-420d-a3b5-2c52e607c6dd,7661ac0b-cc51-4a74-8f84-2d79320717ce,,nvme,Primary backend media
+6d51693c-76ce-4fe3-8d54-686ea74eb11c,7661ac0b-cc51-4a74-8f84-2d79320717ce,fd3ce5a7-40c0-4b1a-bc74-4c8d8c4eaa84,,NVMe U.2 SSD option
+1c38fca8-2913-4c7a-989f-8cbf2a1f1dfe,7661ac0b-cc51-4a74-8f84-2d79320717ce,,unified,Block and file protocols
+8c29382b-0fb6-4b95-917a-7d987b0e596e,8d3caa2d-2467-4d3e-bcb5-5f4cc3fa3c6a,,drive,Supports enterprise drives
+8a12b0a2-40f9-4c7d-8ae6-2a645f7fa8aa,8d3caa2d-2467-4d3e-bcb5-5f4cc3fa3c6a,,ssd,SSD tiers supported
+8b4c4db6-4d84-480b-93f4-d1739719a7ac,8d3caa2d-2467-4d3e-bcb5-5f4cc3fa3c6a,,sas,Primary backend media
+b0a3b3de-3ebf-43fd-98e1-b68fc9bfe113,8d3caa2d-2467-4d3e-bcb5-5f4cc3fa3c6a,5f28c971-8b71-4c5d-9abb-6e9c4c7f7684,,SAS SSD option
+7e93fa1a-5d56-4327-8f55-fb3d1c5cc2c3,14816ae3-fcd2-4d90-9dbe-45704ab0c85a,,drive,Supports enterprise drives
+b7f7761f-269e-47a3-8f1c-8b5d6be1dfca,14816ae3-fcd2-4d90-9dbe-45704ab0c85a,,ssd,SSD tiers supported
+af90cb74-acde-4579-94dd-2e8c0fd320b6,14816ae3-fcd2-4d90-9dbe-45704ab0c85a,,nvme,Primary backend media
+c9d6c530-6b8e-480a-89de-684b1db63848,81af9a3a-448c-4a30-b6be-0ac6326cd45b,,drive,Supports enterprise drives
+db1f4c40-0be7-4a41-b942-78b4cc763a15,81af9a3a-448c-4a30-b6be-0ac6326cd45b,,ssd,SSD tiers supported
+ac111d85-a7fa-4d88-b8c6-e63b3e62e08c,81af9a3a-448c-4a30-b6be-0ac6326cd45b,,sas,Primary backend media
+8c6ce6d0-082f-41f7-91bb-6555957ed820,bfeac7af-b266-49f4-8400-4626d4d15461,,drive,Supports enterprise drives
+0d1b220c-f5fd-4e63-877c-1ce85c47a65a,bfeac7af-b266-49f4-8400-4626d4d15461,,ssd,SSD tiers supported
+719c7f9a-9cb5-4b2a-866c-33c0a0c7704e,bfeac7af-b266-49f4-8400-4626d4d15461,,nvme,Primary backend media
+38b1f6ac-1d56-4019-b0be-117b1428bdc6,bfeac7af-b266-49f4-8400-4626d4d15461,d8417400-89de-4d8d-90f4-1410b8dc3f3f,,DirectFlash module
+3a63452f-5ddf-4f20-bf5f-4335cd9ba4d7,cf37d52b-99d7-4394-9b77-82b6760402c0,,drive,Supports enterprise drives
+0ec1714b-6f83-4eb0-b909-5ad7e9d3396d,cf37d52b-99d7-4394-9b77-82b6760402c0,,ssd,SSD tiers supported
+a89c0b25-2c45-4f64-8c8e-1f59db0b4bd1,cf37d52b-99d7-4394-9b77-82b6760402c0,,nvme,Primary backend media
+830375c9-0e1e-4e0f-a001-7c8d7cf413c0,cf37d52b-99d7-4394-9b77-82b6760402c0,4d14f0b9-b0e2-4ff9-a041-5a4bdf7c6ec2,,High capacity NVMe SSD option
+c75ac3c0-35a2-4c1c-a189-4ad4b6d1772c,f7da9fc0-36c7-409e-ab15-b56b7580cdd0,,drive,Supports enterprise drives
+f678a263-4ec8-4b21-892b-4a65b77609f7,f7da9fc0-36c7-409e-ab15-b56b7580cdd0,,ssd,SSD tiers supported
+7f69c803-8b6e-4fe6-983a-bacb51c1f545,f7da9fc0-36c7-409e-ab15-b56b7580cdd0,,sas,Primary backend media
+4c1a6a19-71c4-4331-9df4-acdebb7db90a,dd645a58-b17a-4fe2-a262-e28c6ef285f7,cc0c5ac9-bd25-4dfe-aad4-69a8bb692ae8,,10G SFP+ uplink module
+5ecbdc2f-94f5-4c55-8c27-0f15f824fc2d,dd645a58-b17a-4fe2-a262-e28c6ef285f7,06b7f1d0-df63-44a0-9455-9bce64fe3cb2,,40G QSFP+ uplink module
+bb4c54c2-82f4-4f6e-b4b7-e56a2b7d0cfd,dd645a58-b17a-4fe2-a262-e28c6ef285f7,,sfp_plus,SFP+ optics supported
+f75f07b7-b2d4-4f77-8b0a-9fbe28028fdf,dd645a58-b17a-4fe2-a262-e28c6ef285f7,,qsfp_plus,QSFP+ optics supported
+5cbd35a4-3d98-4a9e-9a85-2f34e2c18a3d,b9e76c5e-259b-420c-b32f-c18e46f24f07,,sfp28,25G SFP28 optics supported
+8d56db29-1b52-431d-acde-c1dc69c4a188,b9e76c5e-259b-420c-b32f-c18e46f24f07,,qsfp28,100G QSFP28 optics supported
+c0ee2365-10ba-4b30-a3b3-903ece1ebfd0,b9e76c5e-259b-420c-b32f-c18e46f24f07,fd72f0c7-bb7f-433c-9175-1888f929c39e,,100G SR4 optic
+f3ab3a05-87ce-4660-858d-a56f4d60df2b,b9e76c5e-259b-420c-b32f-c18e46f24f07,0aaec86b-82d1-40d5-a682-c7c21c28b2b6,,100G QSFP28 DAC cable
+ad9fb87f-4791-4a1c-9b8d-49f5b3e9f28b,b9e76c5e-259b-420c-b32f-c18e46f24f07,0c3a3e79-5844-4fb0-a7a5-d71a8a2d0d51,,25G SR optic
+de0a26e8-a00e-4096-b3fb-123c2f6c86a5,ec6f082a-f080-4ade-91b6-3d809f1c3c6a,,sfp_plus,10G SFP+ supported
+7e9c11d0-b7b1-4f4b-bb50-4039bd4a645d,ec6f082a-f080-4ade-91b6-3d809f1c3c6a,4083f61e-4efb-4f9a-8d5c-2386f96cc269,,10G LR optic option
+7213af0d-8b18-4f06-bb91-5314efb2f1cd,a5ca8888-fcd5-4f43-9cde-35b1a14ee5fa,,sfp28,25G SFP28 optics supported
+dd7fa7e5-1d0c-4e1e-9193-fb0a29b19489,a5ca8888-fcd5-4f43-9cde-35b1a14ee5fa,,qsfp28,100G QSFP28 uplinks supported
+a0a51f72-2440-4e4a-8bf8-585d269d4257,a5ca8888-fcd5-4f43-9cde-35b1a14ee5fa,e2fa8dbd-1f47-4ea6-b6a7-8c270339f4cf,,100G to 4x25G breakout
+5e62f0cd-02cd-4a5a-9aa2-1c0309ebc7fd,24789144-815b-4ec4-b566-7769b3b8a472,,qsfp28,100G QSFP28 optics supported
+f1f99278-48a2-4b18-b3e9-5bd220cbf033,24789144-815b-4ec4-b566-7769b3b8a472,0b0c86cf-509b-47e0-a874-2b4f0ce8cfd5,,100G LR4 optic option
+49e5daba-4c11-43d3-8be7-36b5cbbf8e17,24789144-815b-4ec4-b566-7769b3b8a472,8b83e09a-6a65-4af9-96f4-6a437bb72f29,,100G AOC option
+5aef5a34-03fe-4f08-b691-1f14c86b0fb6,a5b9d4a9-d725-4b13-a9c3-4b60b9ef68f8,,sfp28,25G SFP28 optics supported
+0db06c16-2c9b-4d9b-8b38-44d90b6f4b0d,a5b9d4a9-d725-4b13-a9c3-4b60b9ef68f8,f922212e-bc5c-4ed7-9dd8-3e1a9ac0fbe4,,100G uplink module
+6d2d3a49-74a9-48e5-a9f0-2481f0b2322e,a5b9d4a9-d725-4b13-a9c3-4b60b9ef68f8,,qsfp28,100G QSFP28 optics supported
+3e0bc67a-0e0c-4b5a-99ce-0d42b88c0e17,2fe34340-2d3f-4616-acfc-4223eecb7575,e6e917d4-2d9e-449b-ac72-9a7e5fce9ed6,,Standard power cord
+02093d20-c78c-493b-8239-42eff49c486b,2fe34340-2d3f-4616-acfc-4223eecb7575,ab27a2a0-8a2e-42b0-99aa-aed1e05b0d21,,IPS subscription
+6d55a4f7-a4e5-43ab-a1c7-66fe1b0ec592,2fe34340-2d3f-4616-acfc-4223eecb7575,f034b8ad-e285-4c48-bdf1-541a6a5fb7af,,URL filtering subscription
+f812a9a6-d4ef-4a2e-87b9-2a23895c2f86,55d9b0d8-e378-41dd-801e-822d4cc573fc,e6e917d4-2d9e-449b-ac72-9a7e5fce9ed6,,Standard power cord
+b79369df-5e82-4824-acde-1d10706f329b,55d9b0d8-e378-41dd-801e-822d4cc573fc,ab27a2a0-8a2e-42b0-99aa-aed1e05b0d21,,Threat prevention subscription
+23b4fbe3-9b3d-4e09-9b5e-92d6759acb0d,55d9b0d8-e378-41dd-801e-822d4cc573fc,,10g,10GbE interfaces supported

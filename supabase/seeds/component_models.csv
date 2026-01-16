@@ -1,9 +1,65 @@
 id,tenant_id,component_type,manufacturer,model,part_number,tags,meta
-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,,cpu,Intel,Xeon Gold 6244,SRF8Y,"{intel,xeon,6244,lga3647}","{}"
-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,,memory,Micron,16GB DDR4 RDIMM,MTA18ASF2G72PDZ,"{memory,ddr4,rdimm,16gb}","{}"
-cccccccc-cccc-cccc-cccc-cccccccccccc,,drive,Samsung,PM983 3.84TB,MZ1LB3T8HALS,"{drive,nvme,3_84tb}","{}"
-dddddddd-dddd-dddd-dddd-dddddddddddd,,controller,Dell,PERC H740,405-AAUP,"{controller,raid,sas}","{}"
-eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee,,nic,Intel,X710-DA2,XXV710DA2,"{nic,10gbe,sfp_plus}","{}"
-ffffffff-ffff-ffff-ffff-ffffffffffff,,transceiver,Generic,SFP28 SR,SFP28-SR,"{transceiver,sfp28,25gbe}","{}"
-10101010-1010-1010-1010-101010101010,,gpu,NVIDIA,RTX A4000,VCNRTXA4000,"{gpu}","{}"
-12121212-1212-1212-1212-121212121212,,power,Dell,1100W PSU,0HU2M8,"{power,1100w}","{}"
+c1b7b5a0-c37e-4b67-94cc-7b9c691f6152,,cpu,Intel,Xeon Silver 4314,INT-4314,"{cpu,intel,xeon,3rd_gen,ddr4}",{}
+de17da14-dc5a-4e2a-af29-a6b4ca3b5be0,,cpu,Intel,Xeon Gold 6338,INT-6338,"{cpu,intel,xeon,3rd_gen,ddr4}",{}
+a5645c42-8252-4c43-a7ee-c2885a002a71,,cpu,Intel,Xeon Gold 6430,INT-6430,"{cpu,intel,xeon,4th_gen,ddr5}",{}
+c14bb14b-220e-42fa-b94f-e14ce5ea29ad,,cpu,Intel,Xeon Platinum 8480+,INT-8480P,"{cpu,intel,xeon,4th_gen,ddr5}",{}
+d742f0e4-2a74-48c1-9b38-b0ec27c3ce03,,cpu,AMD,EPYC 7543,AMD-7543,"{cpu,amd,epyc,7003,ddr4}",{}
+f67c4c15-e86c-47c2-8e57-b2a9cd654cf5,,cpu,AMD,EPYC 7643,AMD-7643,"{cpu,amd,epyc,7003,ddr4}",{}
+c52ae773-4a34-4be5-b0d7-58e1f6c55fd3,,cpu,AMD,EPYC 9654,AMD-9654,"{cpu,amd,epyc,9004,ddr5}",{}
+c6b47ae8-efcf-4c6a-a437-3c3b9dc9b155,,memory,Samsung,32GB DDR4-3200 RDIMM,MEM-32G-D4-3200,"{memory,ddr4,rdimm,32gb}",{}
+57ba8a03-b5fb-4cc4-878e-fb040ae593a0,,memory,Samsung,64GB DDR4-3200 RDIMM,MEM-64G-D4-3200,"{memory,ddr4,rdimm,64gb}",{}
+c3de4f60-7369-4c70-a5b2-8df7210aeab4,,memory,Micron,128GB DDR4-3200 LRDIMM,MEM-128G-D4-3200,"{memory,ddr4,lrdimm,128gb}",{}
+ffcb97d1-4f8a-4f43-915c-3174b8f79b30,,memory,Samsung,32GB DDR5-4800 RDIMM,MEM-32G-D5-4800,"{memory,ddr5,rdimm,32gb}",{}
+5ddc46e1-d53c-4c3a-8ea6-cb496e8a32c6,,memory,Samsung,64GB DDR5-4800 RDIMM,MEM-64G-D5-4800,"{memory,ddr5,rdimm,64gb}",{}
+93d4e664-acde-4073-96fe-7f21f379a40d,,memory,Micron,128GB DDR5-4800 RDIMM,MEM-128G-D5-4800,"{memory,ddr5,rdimm,128gb}",{}
+6c7387f8-7644-47dc-b3cc-0d8d4d60228c,,drive,Samsung,1.92TB SATA SSD 2.5in,DRV-1920-SATA-25,"{drive,ssd,sata,2_5}",{}
+5f28c971-8b71-4c5d-9abb-6e9c4c7f7684,,drive,Samsung,3.84TB SAS SSD 2.5in,DRV-3840-SAS-25,"{drive,ssd,sas,2_5}",{}
+fd3ce5a7-40c0-4b1a-bc74-4c8d8c4eaa84,,drive,Kioxia,7.68TB NVMe SSD U.2,DRV-7680-NVME-U2,"{drive,ssd,nvme,u2,2_5}",{}
+4d14f0b9-b0e2-4ff9-a041-5a4bdf7c6ec2,,drive,Solidigm,15.36TB NVMe SSD U.2,DRV-15360-NVME-U2,"{drive,ssd,nvme,u2,2_5}",{}
+3fb37614-c1a8-4ddb-a918-4f3a3c3b6cbe,,drive,Seagate,8TB 7.2K SAS HDD 3.5in,DRV-8T-SAS-35,"{drive,hdd,sas,3_5}",{}
+0cf143ef-59d3-4b8e-ac48-40553e7c0f4f,,drive,Seagate,16TB 7.2K SATA HDD 3.5in,DRV-16T-SATA-35,"{drive,hdd,sata,3_5}",{}
+d3a5b04a-2d82-4b2e-a279-b5a63a411d55,,controller,Dell,PERC H755,DELL-H755,"{controller,raid,sas,pcie4}",{}
+df68ec6e-b06f-43a4-95a8-92be8f8a0073,,controller,Dell,HBA330,DELL-HBA330,"{controller,hba,sas,pcie3}",{}
+e9d41d64-9d2f-4a4b-8b39-607107b8dc6a,,controller,Broadcom,MegaRAID 9560-16i,BRCM-9560-16I,"{controller,raid,sas,pcie4}",{}
+bb46ebda-814b-4b12-9f6e-2dded52fbf90,,controller,Broadcom,Tri-Mode HBA 9500-16i,BRCM-9500-16I,"{controller,hba,trimode,sas,nvme,pcie4}",{}
+70e4a5e3-0618-4c24-8d7c-0bdf0d3ce54c,,other,Dell,BOSS-S2 with 2x M.2 480GB,DELL-BOSS-S2-480,"{boss,boot,raid1}",{}
+4a60ac1d-99c0-4d05-bf22-2ad13e1cfb09,,controller,NetApp,NVRAM Module 32GB,NTAP-NVRAM-32,"{controller,nvram,ha}",{}
+d8417400-89de-4d8d-90f4-1410b8dc3f3f,,controller,Pure Storage,DirectFlash Module 24TB,PURE-DFM-24T,"{controller,flash_module,nvme}",{}
+b41ec431-b502-4160-bdec-48d39db9ee2c,,nic,Intel,X710-DA2 10GbE SFP+,NIC-X710-DA2,"{nic,10gbe,sfp_plus,pcie3}",{}
+c4a1171e-26ad-4b93-9ef8-3a3c2478fbb5,,nic,Intel,E810-XXVDA2 25GbE SFP28,NIC-E810-25G,"{nic,25gbe,sfp28,pcie4}",{}
+935b19c9-7e08-49f9-8fe6-2c449f1cab5c,,nic,NVIDIA,ConnectX-6 Dx 25GbE SFP28,NIC-CX6DX-25G,"{nic,25gbe,sfp28,pcie4}",{}
+2f5888cc-dfe4-4bcf-9e12-2e4fb44f6a9e,,nic,Broadcom,57414 25GbE SFP28 OCP,NIC-57414-OCP,"{nic,25gbe,sfp28,ocp}",{}
+91b031b9-0f2d-4f15-99cd-438a6d4dc4a7,,nic,Cisco,UCS VIC 1457 40GbE,NIC-VIC-1457,"{nic,40gbe,qsfp_plus,mezzanine}",{}
+b033b3a3-3adb-4d21-8a0a-9ac4db1b95c6,,nic,Intel,I350-T4 1GbE RJ45,NIC-I350-T4,"{nic,1gbe,rj45,pcie2}",{}
+72fdc505-7708-4f13-b99b-0cf969b5acb7,,gpu,NVIDIA,Tesla T4 16GB,GPU-T4-16G,"{gpu,nvidia,compute,low_power}",{}
+75640e9a-8d88-4b58-85dc-bd66eae69571,,gpu,NVIDIA,A10 24GB,GPU-A10-24G,"{gpu,nvidia,vdi,compute}",{}
+e2c1b13a-80a2-4c04-889d-a5b5b9e6da4e,,gpu,NVIDIA,L40S 48GB,GPU-L40S-48G,"{gpu,nvidia,ai,pcie4}",{}
+4bce7ad4-df31-4b45-925c-9c3f4b5cc9c2,,power,Delta,800W Platinum PSU,PSU-800W-PLAT,"{power,800w,ac,platinum}",{}
+93e3c232-8789-4a8c-aac6-f358c2d96f09,,power,Delta,1100W Platinum PSU,PSU-1100W-PLAT,"{power,1100w,ac,platinum}",{}
+c681b801-8c67-4d54-8c6a-741ad2c50f54,,power,Delta,1600W Titanium PSU,PSU-1600W-TI,"{power,1600w,ac,titanium}",{}
+2b5e65c5-0a09-4e3c-b3a7-b6b2f4f1c92c,,power,Delta,1200W DC PSU,PSU-1200W-DC,"{power,1200w,dc}",{}
+85867708-5200-449a-aa36-f2c3f15ef0ff,,transceiver,Generic,10G SFP+ SR (850nm),XCVR-SFP10G-SR,"{transceiver,10g,sfp_plus,sr,mmf}",{}
+4083f61e-4efb-4f9a-8d5c-2386f96cc269,,transceiver,Generic,10G SFP+ LR (1310nm),XCVR-SFP10G-LR,"{transceiver,10g,sfp_plus,lr,smf}",{}
+0c3a3e79-5844-4fb0-a7a5-d71a8a2d0d51,,transceiver,Generic,25G SFP28 SR (850nm),XCVR-SFP28-25G-SR,"{transceiver,25g,sfp28,sr,mmf}",{}
+b8d91d9a-1a69-4978-bb2f-f0c267b32d4c,,transceiver,Generic,25G SFP28 LR (1310nm),XCVR-SFP28-25G-LR,"{transceiver,25g,sfp28,lr,smf}",{}
+fd72f0c7-bb7f-433c-9175-1888f929c39e,,transceiver,Generic,100G QSFP28 SR4,XCVR-QSFP28-100G-SR4,"{transceiver,100g,qsfp28,sr4,mmf}",{}
+0b0c86cf-509b-47e0-a874-2b4f0ce8cfd5,,transceiver,Generic,100G QSFP28 LR4,XCVR-QSFP28-100G-LR4,"{transceiver,100g,qsfp28,lr4,smf}",{}
+4b454007-4bcb-49db-9d9b-6d2e3d7a4d1e,,cable,Generic,25G SFP28 Passive DAC 3m,CABLE-SFP28-DAC-3M,"{cable,25g,sfp28,dac,3m}",{}
+0aaec86b-82d1-40d5-a682-c7c21c28b2b6,,cable,Generic,100G QSFP28 Passive DAC 3m,CABLE-QSFP28-DAC-3M,"{cable,100g,qsfp28,dac,3m}",{}
+8b83e09a-6a65-4af9-96f4-6a437bb72f29,,cable,Generic,100G QSFP28 AOC 10m,CABLE-QSFP28-AOC-10M,"{cable,100g,qsfp28,aoc,10m}",{}
+34d438eb-2a69-4f63-9d83-2d8a1b4e7ab2,,cable,Generic,LC-LC OM4 Fiber 10m,CABLE-LCLC-OM4-10M,"{cable,fiber,lc_lc,om4,10m}",{}
+e6e917d4-2d9e-449b-ac72-9a7e5fce9ed6,,cable,Generic,IEC C13 to C14 Power Cord 2m,CABLE-C13-C14-2M,"{cable,power,c13_c14,2m}",{}
+e5d7efef-7d62-4b4a-bfe3-3d957824b596,,cable,Generic,IEC C19 to C20 Power Cord 2m,CABLE-C19-C20-2M,"{cable,power,c19_c20,2m}",{}
+cc0c5ac9-bd25-4dfe-aad4-69a8bb692ae8,,module,Cisco,Catalyst 9300 Network Module 8x10G SFP+,C9300-NM-8X,"{module,10g,sfp_plus,catalyst9300}",{}
+06b7f1d0-df63-44a0-9455-9bce64fe3cb2,,module,Cisco,Catalyst 9300 Network Module 2x40G QSFP+,C9300-NM-2Q,"{module,40g,qsfp_plus,catalyst9300}",{}
+a68b4c33-3ac8-4fa4-b0d3-127e7535c5e6,,module,Cisco,Nexus 9K 12p 40/100G QSFP Module,N9K-M12PQ,"{module,100g,qsfp28,nexus9k}",{}
+e2fa8dbd-1f47-4ea6-b6a7-8c270339f4cf,,module,Arista,100G QSFP28 to 4x25G Breakout,ARISTA-BRK-4X25,"{module,breakout,100g,qsfp28,4x25g}",{}
+f922212e-bc5c-4ed7-9dd8-3e1a9ac0fbe4,,module,Juniper,QFX 100G QSFP28 Uplink Module,JUN-QFX-100G-MOD,"{module,100g,qsfp28,qfx}",{}
+eb44d3409-c62e-4cda-b6a7-07ce1a1c0df0,,other,Generic,TPM 2.0 Module,TPM-2-0,"{tpm,security}",{}
+f740d370-e563-4b6d-a4c8-acde8df3d7c1,,other,Generic,1U Sliding Rail Kit,RAIL-1U-SLIDE,"{rails,1u}",{}
+9d5ab4c7-6344-4d2a-aaf7-1a71ef70c290,,other,Generic,2U Sliding Rail Kit,RAIL-2U-SLIDE,"{rails,2u}",{}
+7d83bf1d-39e5-4c5c-9db9-34ca4fe3e25f,,other,Generic,1U Locking Bezel,BEZEL-1U-LOCK,"{bezel,1u}",{}
+5f2ff131-86f0-42aa-81d4-46cdbc9ac6f9,,other,Dell,iDRAC Enterprise License,DELL-IDRAC-ENT,"{remote_access,dell,license}",{}
+1a0b6937-d269-4ea1-87c4-5ad8f613716a,,other,HPE,iLO Advanced License,HPE-ILO-ADV,"{remote_access,hpe,license}",{}
+ab27a2a0-8a2e-42b0-99aa-aed1e05b0d21,,other,Generic,Next-Gen Firewall IPS Subscription 1Y,LIC-NGFW-IPS-1Y,"{license,security,ips,1y}",{}
+f034b8ad-e285-4c48-bdf1-541a6a5fb7af,,other,Generic,Next-Gen Firewall URL Filtering 1Y,LIC-NGFW-URL-1Y,"{license,security,url_filter,1y}",{}

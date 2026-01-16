@@ -1,7 +1,31 @@
 id,tenant_id,machine_type,manufacturer,family,model,form_factor,tags,meta
-11111111-1111-1111-1111-111111111111,,server,Dell,PowerEdge,R740,2U,"{server,dual_socket}","{}"
-22222222-2222-2222-2222-222222222222,,server,HPE,ProLiant,DL380 Gen10,2U,"{server,dual_socket}","{}"
-33333333-3333-3333-3333-333333333333,,storage,Dell EMC,Unity,Unity 380F,2U,"{storage,all_flash}","{}"
-44444444-4444-4444-4444-444444444444,,storage,NetApp,FAS,FAS2750,2U,"{storage,hybrid}","{}"
-55555555-5555-5555-5555-555555555555,,network,Cisco,Nexus,Nexus 9000,1U,"{network,switch}","{}"
-66666666-6666-6666-6666-666666666666,,network,Arista,7000,7050X3,1U,"{network,switch}","{}"
+6c3ff318-9b63-4db0-b463-d4b53844ff65,,server,Dell,PowerEdge,R650,1U,"{server,1u,dual_socket,xeon,ddr4,pcie4}",{}
+33bd4dcb-8a62-4eab-866d-7d2913fa1dc0,,server,Dell,PowerEdge,R750,2U,"{server,2u,dual_socket,xeon,ddr4,pcie4}",{}
+4cc4c1f4-c69a-4ba0-845c-cc8b3847264d,,server,Dell,PowerEdge,R760,2U,"{server,2u,dual_socket,xeon,ddr5,pcie5}",{}
+2f96ab0f-a6fe-4b4e-b0c2-3bc0f8b0bf2a,,server,Dell,PowerEdge,R660,1U,"{server,1u,dual_socket,xeon,ddr5,pcie5}",{}
+fbb298a1-33b5-40e0-95c8-7429bbac1ca1,,server,HPE,ProLiant,DL360 Gen10,1U,"{server,1u,dual_socket,xeon,ddr4,pcie3}",{}
+67c7a9bb-768b-45e2-8fe6-c9470f725d5f,,server,HPE,ProLiant,DL380 Gen10,2U,"{server,2u,dual_socket,xeon,ddr4,pcie3}",{}
+4961cf19-1bb3-48bd-a4b9-d27a3ca5cab5,,server,HPE,ProLiant,DL360 Gen11,1U,"{server,1u,dual_socket,xeon,ddr5,pcie5}",{}
+3d0a98ef-c119-4e0c-a208-b585099fbaeb,,server,HPE,ProLiant,DL380 Gen11,2U,"{server,2u,dual_socket,xeon,ddr5,pcie5}",{}
+5cbf62bc-acde-4d26-82e2-f1d8608c9c8a,,server,Lenovo,ThinkSystem,SR630 V2,1U,"{server,1u,dual_socket,xeon,ddr4,pcie4}",{}
+a2d55b85-2d4c-43dd-99f1-808ac5f2d565,,server,Lenovo,ThinkSystem,SR650 V2,2U,"{server,2u,dual_socket,xeon,ddr4,pcie4}",{}
+4312548c-2c8e-40c6-8f2d-dad438d30326,,server,Lenovo,ThinkSystem,SR665,2U,"{server,2u,dual_socket,epyc,ddr4,pcie4}",{}
+97885725-2118-4e1f-8c9d-d4b273c1046c,,server,Dell,PowerEdge,R6625,1U,"{server,1u,dual_socket,epyc,ddr5,pcie5}",{}
+9118b70d-ef8f-4b28-bf79-6569ae69a89b,,storage,NetApp,AFF,A250,2U,"{storage,all_flash,dual_controller,ha,nvme,san,nas}",{}
+a9174c2a-4d04-4e9a-8f69-7dddf60fa7c1,,storage,NetApp,AFF,A400,4U,"{storage,all_flash,dual_controller,ha,nvme,san,nas}",{}
+d2bf4bb5-3618-4d8d-8c7e-6bb5e1d6ebde,,storage,NetApp,AFF,A800,4U,"{storage,all_flash,dual_controller,ha,nvme,san,nas}",{}
+7661ac0b-cc51-4a74-8f84-2d79320717ce,,storage,Dell,PowerStore,500T,2U,"{storage,unified,dual_controller,ha,nvme,san,nas}",{}
+8d3caa2d-2467-4d3e-bcb5-5f4cc3fa3c6a,,storage,Dell,Unity XT,480F,2U,"{storage,unified,dual_controller,ha,sas,ssd,san,nas}",{}
+14816ae3-fcd2-4d90-9dbe-45704ab0c85a,,storage,HPE,Alletra,6000,2U,"{storage,all_flash,dual_controller,ha,nvme,san}",{}
+81af9a3a-448c-4a30-b6be-0ac6326cd45b,,storage,HPE,Primera,A670,4U,"{storage,all_flash,dual_controller,ha,sas,san}",{}
+bfeac7af-b266-49f4-8400-4626d4d15461,,storage,Pure Storage,FlashArray,X20,3U,"{storage,all_flash,dual_controller,ha,nvme,san}",{}
+cf37d52b-99d7-4394-9b77-82b6760402c0,,storage,IBM,FlashSystem,5200,2U,"{storage,all_flash,dual_controller,ha,nvme,san}",{}
+f7da9fc0-36c7-409e-ab15-b56b7580cdd0,,storage,Lenovo,ThinkSystem,DE4000H,2U,"{storage,hybrid,dual_controller,ha,sas,san}",{}
+dd645a58-b17a-4fe2-a262-e28c6ef285f7,,network,Cisco,Catalyst,C9300-48T,1U,"{network,switch,access,1gbase_t,uplink_modules}",{}
+b9e76c5e-259b-420c-b32f-c18e46f24f07,,network,Cisco,Nexus,N9K-C93180YC-FX,1U,"{network,switch,datacenter,10g,25g,sfp28,100g}",{}
+ec6f082a-f080-4ade-91b6-3d809f1c3c6a,,network,Cisco,ASR,ASR1001-X,1U,"{network,router,wan,10g,throughput_license}",{}
+a5ca8888-fcd5-4f43-9cde-35b1a14ee5fa,,network,Arista,7000 Series,7050SX3-48YC8,1U,"{network,switch,datacenter,attachment,25g,sfp28,100g}",{}
+24789144-815b-4ec4-b566-7769b3b8a472,,network,Arista,7000 Series,7060X4-32,1U,"{network,switch,datacenter,100g,qsfp28}",{}
+a5b9d4a9-d725-4b13-a9c3-4b60b9ef68f8,,network,Juniper,QFX,QFX5120-48Y,1U,"{network,switch,datacenter,25g,sfp28,100g}",{}
+2fe34340-2d3f-4616-acfc-4223eecb7575,,network,Fortinet,FortiGate,200F,1U,"{network,firewall,security,10g}",{}
+55d9b0d8-e378-41dd-801e-822d4cc573fc,,network,Palo Alto Networks,PA Series,PA-3220,1U,"{network,firewall,security,10g}",{}

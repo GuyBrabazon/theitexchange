@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { ensureProfile } from '@/lib/bootstrap'
 
 type FieldKind = 'text' | 'number' | 'select' | 'toggle' | 'readonly' | 'textarea'
 
@@ -46,6 +45,18 @@ type ComponentModel = {
   model: string
   part_number: string | null
   tags: string[]
+}
+
+type SystemModelsResp = {
+  ok: boolean
+  items?: SystemModel[]
+  message?: string
+}
+
+type CompatibleResp = {
+  ok: boolean
+  items?: ComponentModel[]
+  message?: string
 }
 
 const yesNo = ['Yes', 'No']
@@ -421,7 +432,6 @@ export default function ConfigurationsPage() {
   const [values, setValues] = useState<Record<string, string | boolean>>({})
   const [catalogLoading, setCatalogLoading] = useState(false)
   const [catalogError, setCatalogError] = useState<string>('')
-  const [tenantId, setTenantId] = useState<string>('')
   const [systemModels, setSystemModels] = useState<SystemModel[]>([])
   const [selectedManufacturer, setSelectedManufacturer] = useState<string>('')
   const [selectedFamily, setSelectedFamily] = useState<string>('')
@@ -441,19 +451,18 @@ export default function ConfigurationsPage() {
       setCatalogLoading(true)
       setCatalogError('')
       try {
-        const profile = await ensureProfile()
-        const tenantId = profile?.tenant_id ? String(profile.tenant_id) : ''
-        setTenantId(tenantId)
+        const { data: sessionData } = await supabase.auth.getSession()
+        const token = sessionData.session?.access_token
+        const headers = token ? { Authorization: `Bearer ${token}` } : undefined
+        const params = new URLSearchParams()
+        params.set('machine_type', machineType)
 
-        const { data, error } = await supabase
-          .from('system_models')
-          .select('id,tenant_id,machine_type,manufacturer,family,model,form_factor,tags')
-          .order('manufacturer', { ascending: true })
-          .order('model', { ascending: true })
-        if (error) throw error
+        const res = await fetch(`/api/catalog/system-models?${params.toString()}`, { headers })
+        const json = (await res.json()) as SystemModelsResp
+        if (!json.ok) throw new Error(json.message || 'Failed to load catalog')
 
-        const mapped = (data ?? [])
-          .map((rec: unknown) => {
+        const mapped = (json.items ?? [])
+          .map((rec) => {
             const row = rec as Record<string, unknown>
             const machineTypeRaw = typeof row.machine_type === 'string' ? row.machine_type : ''
             if (machineTypeRaw !== 'server' && machineTypeRaw !== 'storage' && machineTypeRaw !== 'network') return null
@@ -470,7 +479,6 @@ export default function ConfigurationsPage() {
             } satisfies SystemModel
           })
           .filter((item): item is SystemModel => Boolean(item))
-          .filter((item) => !item.tenant_id || item.tenant_id === tenantId)
         setSystemModels(mapped)
       } catch (e) {
         console.error(e)
@@ -481,7 +489,7 @@ export default function ConfigurationsPage() {
       }
     }
     loadCatalog()
-  }, [])
+  }, [machineType])
 
   useEffect(() => {
     setSelectedManufacturer('')
@@ -534,12 +542,15 @@ export default function ConfigurationsPage() {
       setCompatLoading(true)
       setCompatError('')
       try {
-        const { data, error } = await supabase.rpc('get_compatible_components', {
-          p_system_model_id: selectedModelId,
-          p_tenant_id: tenantId || null,
-        })
-        if (error) throw error
-        const mapped = (data ?? []).map((rec: unknown) => {
+        const { data: sessionData } = await supabase.auth.getSession()
+        const token = sessionData.session?.access_token
+        const headers = token ? { Authorization: `Bearer ${token}` } : undefined
+        const params = new URLSearchParams({ system_model_id: selectedModelId })
+        const res = await fetch(`/api/catalog/compatible-components?${params.toString()}`, { headers })
+        const json = (await res.json()) as CompatibleResp
+        if (!json.ok) throw new Error(json.message || 'Failed to load compatible parts')
+
+        const mapped = (json.items ?? []).map((rec: unknown) => {
           const row = rec as Record<string, unknown>
           const rawType = typeof row.component_type === 'string' ? row.component_type : 'other'
           const componentType = componentTypeOrder.includes(rawType) ? rawType : 'other'
@@ -564,7 +575,7 @@ export default function ConfigurationsPage() {
       }
     }
     loadCompat()
-  }, [selectedModelId, tenantId])
+  }, [selectedModelId])
 
   const compatibleByType = useMemo(() => {
     const groups: Record<string, ComponentModel[]> = {}
