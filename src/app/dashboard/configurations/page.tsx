@@ -3,33 +3,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
-type FieldKind = 'text' | 'number' | 'select' | 'toggle' | 'readonly' | 'textarea'
+type MachineType = 'server' | 'storage' | 'network'
 
-type Field = {
-  key: string
-  label: string
-  kind: FieldKind
-  options?: string[]
-  placeholder?: string
-  help?: string
-  readOnlyValue?: string
-}
-
-type Section = {
-  title: string
-  description?: string
-  fields: Field[]
-}
-
-type MachineConfig = {
-  label: string
-  sections: Section[]
-}
+type Step = 1 | 2 | 3 | 4
 
 type SystemModel = {
   id: string
   tenant_id: string | null
-  machine_type: 'server' | 'storage' | 'network'
+  machine_type: MachineType
   manufacturer: string
   family: string | null
   model: string
@@ -59,16 +40,39 @@ type CompatibleResp = {
   message?: string
 }
 
-const yesNo = ['Yes', 'No']
+type ComponentSelection = {
+  componentId: string
+  qty: string
+}
 
-const componentTypeOrder = ['cpu', 'memory', 'drive', 'gpu', 'nic', 'controller', 'transceiver', 'module', 'power', 'cable', 'other']
+type ManualEntry = {
+  enabled: boolean
+  label: string
+  qty: string
+  notes: string
+}
+
+type AdvancedField = {
+  key: string
+  label: string
+  kind: 'text' | 'number' | 'select' | 'readonly'
+  options?: string[]
+  placeholder?: string
+}
+
+const machineOptions = [
+  { value: 'server', label: 'Server' },
+  { value: 'storage', label: 'Storage' },
+  { value: 'network', label: 'Network device' },
+] as const
+
 const componentTypeLabels: Record<string, string> = {
   cpu: 'CPU',
   memory: 'Memory',
   drive: 'Drives',
   gpu: 'GPU',
   nic: 'Network card',
-  controller: 'Storage controller',
+  controller: 'Controller',
   transceiver: 'Transceiver',
   module: 'Module',
   power: 'Power',
@@ -76,375 +80,136 @@ const componentTypeLabels: Record<string, string> = {
   other: 'Other',
 }
 
-const serverConfig: MachineConfig = {
-  label: 'Server',
-  sections: [
-    {
-      title: 'Chassis Model',
-      description: 'Defines physical form factor and expansion limits.',
-      fields: [
-        { key: 'server_manufacturer', label: 'Manufacturer', kind: 'select', options: ['Dell', 'HPE', 'Lenovo', 'Cisco', 'Other'] },
-        { key: 'server_model', label: 'Model', kind: 'text', placeholder: 'e.g. R740' },
-        { key: 'server_form_factor', label: 'Form factor', kind: 'select', options: ['Rack', 'Tower'] },
-        { key: 'server_rack_units', label: 'Rack units', kind: 'select', options: ['1U', '2U', '4U'] },
-        { key: 'server_bays_25', label: '2.5 inch bays', kind: 'number', placeholder: '0' },
-        { key: 'server_bays_35', label: '3.5 inch bays', kind: 'number', placeholder: '0' },
-        { key: 'server_max_cpus', label: 'Max CPUs supported', kind: 'number', placeholder: '2' },
-        { key: 'server_max_memory', label: 'Max memory capacity', kind: 'text', placeholder: 'e.g. 3TB' },
-        { key: 'server_cpu_families', label: 'Supported CPU families', kind: 'text', placeholder: 'e.g. Xeon Scalable' },
-        { key: 'server_storage_types', label: 'Supported storage types', kind: 'text', placeholder: 'SATA, SAS, NVMe' },
-        { key: 'server_pcie_slots', label: 'PCIe slots (count/gen)', kind: 'text', placeholder: 'e.g. 6 x Gen3' },
-      ],
-    },
-    {
-      title: 'Processors',
-      description: 'Compute capability and socket usage.',
-      fields: [
-        { key: 'cpu_vendor', label: 'CPU manufacturer', kind: 'select', options: ['Intel', 'AMD'] },
-        { key: 'cpu_family', label: 'CPU family', kind: 'text', placeholder: 'e.g. Xeon' },
-        { key: 'cpu_model', label: 'CPU model', kind: 'text', placeholder: 'e.g. 6244' },
-        { key: 'cpu_count', label: 'Number of CPUs', kind: 'select', options: ['1', '2'] },
-        { key: 'cpu_cores', label: 'Cores per CPU', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'cpu_freq', label: 'Base / Boost (GHz)', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'cpu_tdp', label: 'TDP', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'cpu_socket', label: 'Socket type', kind: 'readonly', readOnlyValue: 'Auto' },
-      ],
-    },
-    {
-      title: 'Memory',
-      description: 'RAM configuration and performance.',
-      fields: [
-        { key: 'mem_type', label: 'Memory type', kind: 'select', options: ['DDR4', 'DDR5'] },
-        { key: 'mem_dimm_size', label: 'DIMM size', kind: 'select', options: ['16GB', '32GB', '64GB', '128GB'] },
-        { key: 'mem_dimms', label: 'Number of DIMMs', kind: 'number', placeholder: '0' },
-        { key: 'mem_total', label: 'Total memory', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'mem_speed', label: 'Speed (MHz)', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'mem_rank', label: 'Rank (optional)', kind: 'select', options: ['Single', 'Dual', 'Quad'] },
-        { key: 'mem_ecc', label: 'ECC', kind: 'readonly', readOnlyValue: 'Yes' },
-      ],
-    },
-    {
-      title: 'Storage Controller',
-      description: 'RAID / HBA capability.',
-      fields: [
-        { key: 'ctrl_type', label: 'Controller type', kind: 'select', options: ['Software RAID', 'Hardware RAID', 'HBA'] },
-        { key: 'ctrl_model', label: 'Controller model', kind: 'text', placeholder: 'e.g. H740' },
-        { key: 'ctrl_raid_levels', label: 'RAID levels', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'ctrl_cache', label: 'Cache size', kind: 'text', placeholder: 'e.g. 2GB' },
-        { key: 'ctrl_cache_protect', label: 'Cache protection', kind: 'select', options: ['Battery', 'SuperCap', 'None'] },
-        { key: 'ctrl_interface', label: 'Interface', kind: 'select', options: ['SATA', 'SAS', 'NVMe'] },
-      ],
-    },
-    {
-      title: 'Hard Drives',
-      description: 'Drive mix and RAID.',
-      fields: [
-        { key: 'drive_type', label: 'Drive type', kind: 'select', options: ['SATA HDD', 'SATA SSD', 'SAS HDD', 'SAS SSD', 'NVMe SSD'] },
-        { key: 'drive_size', label: 'Drive size', kind: 'text', placeholder: 'e.g. 3.84TB' },
-        { key: 'drive_speed', label: 'Drive speed (RPM)', kind: 'text', placeholder: 'HDD only' },
-        { key: 'drive_count', label: 'Drive count', kind: 'number', placeholder: '0' },
-        { key: 'drive_hotplug', label: 'Hot-plug', kind: 'select', options: yesNo },
-        { key: 'drive_raid', label: 'RAID config', kind: 'select', options: ['RAID 0', 'RAID 1', 'RAID 5', 'RAID 6', 'RAID 10'] },
-        { key: 'drive_usable', label: 'Usable capacity', kind: 'readonly', readOnlyValue: 'Auto' },
-      ],
-    },
-    {
-      title: 'Boot (BOSS / OS)',
-      fields: [
-        { key: 'boss_included', label: 'BOSS included', kind: 'select', options: yesNo },
-        { key: 'boss_model', label: 'BOSS model', kind: 'text', placeholder: 'Optional' },
-        { key: 'boss_drive_type', label: 'Drive type', kind: 'select', options: ['M.2 SATA', 'M.2 NVMe'] },
-        { key: 'boss_drive_size', label: 'Drive size', kind: 'text', placeholder: 'e.g. 480GB' },
-        { key: 'boss_raid', label: 'BOSS RAID', kind: 'select', options: ['None', 'RAID 1'] },
-      ],
-    },
-    {
-      title: 'Graphics Cards',
-      fields: [
-        { key: 'gpu_vendor', label: 'GPU manufacturer', kind: 'select', options: ['NVIDIA', 'AMD', 'Other'] },
-        { key: 'gpu_model', label: 'GPU model', kind: 'text', placeholder: 'e.g. A4000' },
-        { key: 'gpu_mem', label: 'GPU memory', kind: 'text', placeholder: 'e.g. 16GB' },
-        { key: 'gpu_count', label: 'GPU count', kind: 'number', placeholder: '0' },
-        { key: 'gpu_form', label: 'GPU form factor', kind: 'select', options: ['Full height', 'Low profile'] },
-        { key: 'gpu_power', label: 'Power per GPU', kind: 'text', placeholder: 'e.g. 250W' },
-      ],
-    },
-    {
-      title: 'Network Card',
-      fields: [
-        { key: 'nic_integrated', label: 'Integrated NIC', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'nic_addon', label: 'Add-on NIC', kind: 'select', options: yesNo },
-        { key: 'nic_type', label: 'NIC speed', kind: 'select', options: ['1GbE', '10GbE', '25GbE', '40GbE', '100GbE'] },
-        { key: 'nic_ports', label: 'Port count', kind: 'number', placeholder: '2' },
-        { key: 'nic_media', label: 'Media type', kind: 'select', options: ['RJ45', 'SFP+', 'SFP28', 'QSFP28'] },
-        { key: 'nic_pcie', label: 'PCIe slot required', kind: 'select', options: yesNo },
-      ],
-    },
-    {
-      title: 'Power Supplies',
-      fields: [
-        { key: 'psu_watt', label: 'PSU wattage', kind: 'select', options: ['750W', '1100W', '1600W'] },
-        { key: 'psu_count', label: 'PSU count', kind: 'select', options: ['1', '2'] },
-        { key: 'psu_redundancy', label: 'Redundancy', kind: 'select', options: ['N', 'N+1'] },
-        { key: 'psu_eff', label: 'Efficiency rating', kind: 'select', options: ['Platinum', 'Titanium'] },
-      ],
-    },
-    {
-      title: 'Remote Access',
-      fields: [
-        { key: 'remote_included', label: 'Remote management included', kind: 'select', options: yesNo },
-        { key: 'remote_license', label: 'License level', kind: 'select', options: ['Basic', 'Enterprise'] },
-        { key: 'remote_features', label: 'Features enabled', kind: 'readonly', readOnlyValue: 'Auto' },
-      ],
-    },
-    {
-      title: 'Security',
-      fields: [
-        { key: 'tpm_included', label: 'TPM included', kind: 'select', options: yesNo },
-        { key: 'tpm_version', label: 'TPM version', kind: 'readonly', readOnlyValue: '2.0' },
-      ],
-    },
-    {
-      title: 'Rail Kit / Bezel',
-      fields: [
-        { key: 'rail_type', label: 'Rail type', kind: 'select', options: ['Static', 'Sliding'] },
-        { key: 'rail_included', label: 'Rails included', kind: 'select', options: yesNo },
-        { key: 'bezel_included', label: 'Bezel included', kind: 'select', options: yesNo },
-        { key: 'bezel_type', label: 'Bezel type', kind: 'select', options: ['Standard', 'Locking'] },
-      ],
-    },
-    {
-      title: 'Summary (Auto)',
-      fields: [
-        { key: 'sum_power', label: 'Estimated power draw', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'sum_storage', label: 'Usable storage', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'sum_memory', label: 'Total memory', kind: 'readonly', readOnlyValue: 'Auto' },
-      ],
-    },
+const componentOrderByMachine: Record<MachineType, string[]> = {
+  server: ['cpu', 'memory', 'drive', 'controller', 'nic', 'power', 'gpu', 'transceiver', 'module', 'cable', 'other'],
+  storage: ['drive', 'controller', 'nic', 'transceiver', 'module', 'power', 'cable', 'other'],
+  network: ['nic', 'transceiver', 'module', 'power', 'cable', 'other'],
+}
+
+const requiredTypesByMachine: Record<MachineType, string[]> = {
+  server: ['cpu', 'memory', 'drive'],
+  storage: ['drive', 'controller'],
+  network: ['nic'],
+}
+
+const advancedFieldsByMachine: Record<MachineType, AdvancedField[]> = {
+  server: [
+    { key: 'server_bays_25', label: '2.5 inch bays', kind: 'number', placeholder: '0' },
+    { key: 'server_bays_35', label: '3.5 inch bays', kind: 'number', placeholder: '0' },
+    { key: 'server_pcie', label: 'PCIe slots (count/gen)', kind: 'text', placeholder: 'e.g. 6 x Gen4' },
+    { key: 'server_raid', label: 'Default RAID level', kind: 'select', options: ['RAID 0', 'RAID 1', 'RAID 5', 'RAID 6', 'RAID 10'] },
+    { key: 'server_remote', label: 'Remote access tier', kind: 'select', options: ['Basic', 'Enterprise'] },
+    { key: 'server_auto', label: 'Form factor', kind: 'readonly' },
+  ],
+  storage: [
+    { key: 'storage_array_type', label: 'Array type', kind: 'select', options: ['Block (SAN)', 'File (NAS)', 'Unified'] },
+    { key: 'storage_cache', label: 'Cache size', kind: 'text', placeholder: 'e.g. 64GB' },
+    { key: 'storage_shelves', label: 'Shelf count', kind: 'number', placeholder: '0' },
+    { key: 'storage_protect', label: 'Protection scheme', kind: 'select', options: ['RAID', 'Erasure coding', 'Distributed parity'] },
+    { key: 'storage_auto', label: 'Back-end type', kind: 'readonly' },
+  ],
+  network: [
+    { key: 'net_role', label: 'Deployment role', kind: 'select', options: ['Access', 'Aggregation', 'Core', 'Edge', 'Data Center'] },
+    { key: 'net_ports', label: 'Port profile', kind: 'select', options: ['1GbE', '10GbE', '25GbE', '40GbE', '100GbE'] },
+    { key: 'net_ha', label: 'HA mode', kind: 'select', options: ['Standalone', 'Active/Active', 'Active/Passive', 'Stack'] },
+    { key: 'net_license', label: 'License tier', kind: 'select', options: ['Base', 'Advanced', 'Security', 'Enterprise'] },
+    { key: 'net_auto', label: 'Form factor', kind: 'readonly' },
   ],
 }
 
-const storageConfig: MachineConfig = {
-  label: 'Storage',
-  sections: [
-    {
-      title: 'Storage Platform',
-      fields: [
-        { key: 'storage_oem', label: 'OEM / Vendor', kind: 'select', options: ['Dell', 'HPE', 'NetApp', 'IBM', 'Other'] },
-        { key: 'storage_family', label: 'Product family', kind: 'text', placeholder: 'e.g. Unity' },
-        { key: 'storage_model', label: 'Platform model', kind: 'text', placeholder: 'e.g. 380F' },
-        { key: 'storage_type', label: 'Array type', kind: 'select', options: ['Block (SAN)', 'File (NAS)', 'Unified', 'Object'] },
-        { key: 'storage_deploy', label: 'Deployment', kind: 'select', options: ['All-Flash', 'Hybrid', 'HDD'] },
-        { key: 'storage_form', label: 'Form factor', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'storage_scale', label: 'Max scale', kind: 'readonly', readOnlyValue: 'Auto' },
-      ],
-    },
-    {
-      title: 'Base Enclosure',
-      fields: [
-        { key: 'base_type', label: 'Base enclosure type', kind: 'text', placeholder: 'Controller enclosure' },
-        { key: 'base_bay_type', label: 'Drive bay type', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'base_bay_count', label: 'Base bay count', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'base_midplane', label: 'Midplane type', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'base_exp_ports', label: 'Expansion ports', kind: 'readonly', readOnlyValue: 'Auto' },
-      ],
-    },
-    {
-      title: 'Controller Configuration',
-      fields: [
-        { key: 'ctrl_count', label: 'Controller count', kind: 'select', options: ['1', '2', 'Cluster'] },
-        { key: 'ctrl_mode', label: 'Controller mode', kind: 'select', options: ['Active/Active', 'Active/Passive', 'Scale-out'] },
-        { key: 'ctrl_cpu', label: 'Controller CPU', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'ctrl_mem', label: 'Controller memory', kind: 'readonly', readOnlyValue: 'Auto' },
-      ],
-    },
-    {
-      title: 'Cache & Data Services',
-      fields: [
-        { key: 'cache_type', label: 'Cache type', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'cache_size', label: 'Cache size', kind: 'text', placeholder: 'e.g. 64GB' },
-        { key: 'cache_protect', label: 'Cache protection', kind: 'select', options: ['Battery', 'SuperCap'] },
-        { key: 'cache_read', label: 'Read cache', kind: 'select', options: yesNo },
-        { key: 'cache_write', label: 'Write cache', kind: 'select', options: yesNo },
-      ],
-    },
-    {
-      title: 'Drive Media',
-      fields: [
-        { key: 'drive_iface', label: 'Drive interface', kind: 'select', options: ['SAS', 'SATA', 'NVMe'] },
-        { key: 'drive_type', label: 'Drive type', kind: 'select', options: ['HDD', 'SSD', 'SCM'] },
-        { key: 'drive_form', label: 'Drive form factor', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'drive_capacity', label: 'Drive capacity', kind: 'text', placeholder: 'e.g. 15.36TB' },
-        { key: 'drive_speed', label: 'Drive speed', kind: 'text', placeholder: 'RPM for HDD' },
-        { key: 'drive_count', label: 'Drive count', kind: 'number', placeholder: '0' },
-        { key: 'drive_sed', label: 'SED', kind: 'select', options: yesNo },
-        { key: 'drive_fips', label: 'FIPS', kind: 'select', options: yesNo },
-      ],
-    },
-    {
-      title: 'Protection Scheme',
-      fields: [
-        { key: 'prot_type', label: 'Protection type', kind: 'select', options: ['RAID', 'Erasure coding', 'Distributed parity'] },
-        { key: 'prot_level', label: 'Protection level', kind: 'text', placeholder: 'e.g. dual parity' },
-        { key: 'prot_spares', label: 'Hot spares / spare capacity', kind: 'text', placeholder: 'e.g. 1 or 10%' },
-      ],
-    },
-    {
-      title: 'Shelves / Expansion',
-      fields: [
-        { key: 'shelves_add', label: 'Add shelves', kind: 'select', options: yesNo },
-        { key: 'shelf_type', label: 'Shelf type', kind: 'text', placeholder: 'SAS shelf / NVMe shelf' },
-        { key: 'shelf_form', label: 'Shelf form factor', kind: 'select', options: ['2U', '4U'] },
-        { key: 'shelf_bays', label: 'Bays per shelf', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'shelf_count', label: 'Number of shelves', kind: 'number', placeholder: '0' },
-      ],
-    },
-    {
-      title: 'Host Connectivity',
-      fields: [
-        { key: 'host_protocol', label: 'Protocol', kind: 'select', options: ['FC', 'iSCSI', 'NVMe/FC', 'NVMe/TCP', 'NFS', 'SMB'] },
-        { key: 'host_speed', label: 'Port speed', kind: 'select', options: ['10GbE', '25GbE', '40GbE', '100GbE', '16G FC', '32G FC', '64G FC'] },
-        { key: 'host_ports', label: 'Port count', kind: 'number', placeholder: '0' },
-        { key: 'host_media', label: 'Transceiver type', kind: 'select', options: ['RJ45', 'SFP+', 'SFP28', 'QSFP28'] },
-      ],
-    },
-    {
-      title: 'Power & Support',
-      fields: [
-        { key: 'psu_count', label: 'PSU count', kind: 'select', options: ['1', '2'] },
-        { key: 'psu_watt', label: 'PSU wattage', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'support_term', label: 'Support term', kind: 'select', options: ['1 year', '3 years', '5 years'] },
-        { key: 'support_level', label: 'Support level', kind: 'select', options: ['Business hours', '24x7', '4hr replacement'] },
-      ],
-    },
-    {
-      title: 'Outputs (Auto)',
-      fields: [
-        { key: 'out_raw', label: 'Raw capacity', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'out_usable', label: 'Usable capacity', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'out_rack', label: 'Rack units', kind: 'readonly', readOnlyValue: 'Auto' },
-      ],
-    },
-  ],
+const autoPillStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  padding: '4px 10px',
+  borderRadius: 999,
+  border: '1px solid var(--border)',
+  background: 'rgba(255,255,255,0.06)',
+  color: 'var(--muted)',
+  fontSize: 11,
 }
 
-const networkConfig: MachineConfig = {
-  label: 'Network device',
-  sections: [
-    {
-      title: 'Platform',
-      fields: [
-        { key: 'net_oem', label: 'OEM / Vendor', kind: 'select', options: ['Cisco', 'Juniper', 'Arista', 'HPE', 'Other'] },
-        { key: 'net_family', label: 'Product family', kind: 'text', placeholder: 'e.g. Nexus' },
-        { key: 'net_model', label: 'Platform model', kind: 'text', placeholder: 'e.g. N9K' },
-        { key: 'net_category', label: 'Device category', kind: 'select', options: ['Switch', 'Router', 'Firewall', 'Load balancer'] },
-        { key: 'net_role', label: 'Deployment role', kind: 'select', options: ['Access', 'Aggregation', 'Core', 'Edge / WAN', 'Data Center'] },
-        { key: 'net_form', label: 'Form factor', kind: 'readonly', readOnlyValue: 'Auto' },
-      ],
-    },
-    {
-      title: 'Chassis / Architecture',
-      fields: [
-        { key: 'arch_type', label: 'Architecture type', kind: 'select', options: ['Fixed', 'Modular'] },
-        { key: 'arch_slots', label: 'Total slots', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'arch_fabric', label: 'Switching fabric', kind: 'readonly', readOnlyValue: 'Auto' },
-      ],
-    },
-    {
-      title: 'Performance',
-      fields: [
-        { key: 'perf_throughput', label: 'Max throughput', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'perf_pps', label: 'Packet rate', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'perf_latency', label: 'Latency class', kind: 'readonly', readOnlyValue: 'Auto' },
-      ],
-    },
-    {
-      title: 'Port Configuration',
-      fields: [
-        { key: 'ports_fixed', label: 'Fixed port types', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'ports_count', label: 'Fixed port count', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'ports_breakout', label: 'Breakout support', kind: 'select', options: yesNo },
-      ],
-    },
-    {
-      title: 'Transceivers & Cabling',
-      fields: [
-        { key: 'trx_type', label: 'Transceiver type', kind: 'select', options: ['SFP', 'SFP+', 'SFP28', 'QSFP+', 'QSFP28'] },
-        { key: 'trx_media', label: 'Media type', kind: 'select', options: ['Copper (DAC)', 'Fiber (SR)', 'Fiber (LR)', 'Fiber (ER)'] },
-        { key: 'trx_reach', label: 'Reach', kind: 'select', options: ['1m', '3m', '10m', '100m', '10km', '40km'] },
-        { key: 'trx_qty', label: 'Transceiver quantity', kind: 'number', placeholder: '0' },
-        { key: 'trx_oem', label: 'OEM optics', kind: 'select', options: yesNo },
-      ],
-    },
-    {
-      title: 'Services & Protocols',
-      fields: [
-        { key: 'svc_layer', label: 'Layer support', kind: 'select', options: ['L2', 'L2 + L3'] },
-        { key: 'svc_vlan', label: 'VLAN capacity', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'svc_routing', label: 'Routing protocols', kind: 'text', placeholder: 'OSPF, BGP, IS-IS' },
-        { key: 'svc_security', label: 'Security features', kind: 'text', placeholder: 'IPS, SSL, VPN' },
-      ],
-    },
-    {
-      title: 'High Availability',
-      fields: [
-        { key: 'ha_mode', label: 'HA mode', kind: 'select', options: ['Standalone', 'Active/Active', 'Active/Passive', 'Stack'] },
-        { key: 'ha_pair', label: 'HA pairing', kind: 'select', options: yesNo },
-        { key: 'ha_stateful', label: 'Stateful failover', kind: 'readonly', readOnlyValue: 'Auto' },
-      ],
-    },
-    {
-      title: 'Power / PoE',
-      fields: [
-        { key: 'psu_count', label: 'PSU count', kind: 'select', options: ['1', '2'] },
-        { key: 'psu_watt', label: 'PSU wattage', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'poe', label: 'PoE support', kind: 'select', options: yesNo },
-        { key: 'poe_budget', label: 'PoE budget', kind: 'readonly', readOnlyValue: 'Auto' },
-      ],
-    },
-    {
-      title: 'Management & Licensing',
-      fields: [
-        { key: 'mgmt_iface', label: 'Management interface', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'license_tier', label: 'License tier', kind: 'select', options: ['Base', 'Advanced', 'Security', 'Enterprise'] },
-        { key: 'support_term', label: 'Support term', kind: 'select', options: ['1 year', '3 years', '5 years'] },
-      ],
-    },
-    {
-      title: 'Outputs (Auto)',
-      fields: [
-        { key: 'out_ports', label: 'Total port count', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'out_throughput', label: 'Throughput class', kind: 'readonly', readOnlyValue: 'Auto' },
-        { key: 'out_rack', label: 'Rack units', kind: 'readonly', readOnlyValue: 'Auto' },
-      ],
-    },
-  ],
+const controlStyle = {
+  padding: '10px 12px',
+  borderRadius: 10,
+  border: '1px solid var(--border)',
+  background: 'var(--panel-2)',
+  color: 'var(--text)',
 }
-
-const machineOptions = [
-  { value: 'server', label: 'Server', config: serverConfig },
-  { value: 'storage', label: 'Storage', config: storageConfig },
-  { value: 'network', label: 'Network device', config: networkConfig },
-] as const
 
 export default function ConfigurationsPage() {
-  const [machineType, setMachineType] = useState<string>('server')
-  const [values, setValues] = useState<Record<string, string | boolean>>({})
+  const [step, setStep] = useState<Step>(1)
+  const [machineType, setMachineType] = useState<MachineType>('server')
   const [catalogLoading, setCatalogLoading] = useState(false)
-  const [catalogError, setCatalogError] = useState<string>('')
+  const [catalogError, setCatalogError] = useState('')
   const [systemModels, setSystemModels] = useState<SystemModel[]>([])
-  const [selectedManufacturer, setSelectedManufacturer] = useState<string>('')
-  const [selectedFamily, setSelectedFamily] = useState<string>('')
-  const [selectedModelId, setSelectedModelId] = useState<string>('')
+
+  const [platformSearch, setPlatformSearch] = useState('')
+  const [filterManufacturer, setFilterManufacturer] = useState('')
+  const [filterFormFactor, setFilterFormFactor] = useState('')
+  const [filterTags, setFilterTags] = useState<string[]>([])
+  const [selectedModelId, setSelectedModelId] = useState('')
+
   const [compatibleComponents, setCompatibleComponents] = useState<ComponentModel[]>([])
   const [compatLoading, setCompatLoading] = useState(false)
-  const [compatError, setCompatError] = useState<string>('')
+  const [compatError, setCompatError] = useState('')
 
-  const selected = useMemo(() => machineOptions.find((m) => m.value === machineType)?.config, [machineType])
+  const [selectedComponents, setSelectedComponents] = useState<Record<string, ComponentSelection>>({})
+  const [manualOverrides, setManualOverrides] = useState<Record<string, ManualEntry>>({})
+  const [componentSearch, setComponentSearch] = useState<Record<string, string>>({})
+  const [advancedValues, setAdvancedValues] = useState<Record<string, string>>({})
+  const [allowOverride, setAllowOverride] = useState(false)
 
-  const setValue = (key: string, value: string | boolean) => {
-    setValues((prev) => ({ ...prev, [key]: value }))
+  const filteredModels = useMemo(() => systemModels.filter((m) => m.machine_type === machineType), [systemModels, machineType])
+
+  const manufacturerOptions = useMemo(() => {
+    const set = new Set(filteredModels.map((m) => m.manufacturer).filter(Boolean))
+    return Array.from(set).sort()
+  }, [filteredModels])
+
+  const formFactorOptions = useMemo(() => {
+    const set = new Set(filteredModels.map((m) => m.form_factor).filter(Boolean) as string[])
+    return Array.from(set).sort()
+  }, [filteredModels])
+
+  const tagOptions = useMemo(() => {
+    const counts = new Map<string, number>()
+    filteredModels.forEach((model) => {
+      model.tags.forEach((tag) => counts.set(tag, (counts.get(tag) || 0) + 1))
+    })
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([tag]) => tag)
+  }, [filteredModels])
+
+  const formatPlatformLabel = (model: SystemModel) => {
+    const family = model.family ? `${model.family} / ` : ''
+    const form = model.form_factor ? ` (${model.form_factor})` : ''
+    return `${model.manufacturer} / ${family}${model.model}${form}`
   }
+
+  const platformResults = useMemo(() => {
+    const query = platformSearch.trim().toLowerCase()
+    return filteredModels
+      .filter((model) => {
+        if (filterManufacturer && model.manufacturer !== filterManufacturer) return false
+        if (filterFormFactor && model.form_factor !== filterFormFactor) return false
+        if (filterTags.length && !filterTags.every((tag) => model.tags.includes(tag))) return false
+        if (!query) return true
+        const haystack = [model.manufacturer, model.family || '', model.model, model.form_factor || '', model.tags.join(' ')].join(' ').toLowerCase()
+        return haystack.includes(query)
+      })
+      .sort((a, b) => {
+        const maker = a.manufacturer.localeCompare(b.manufacturer)
+        if (maker !== 0) return maker
+        const family = (a.family || '').localeCompare(b.family || '')
+        if (family !== 0) return family
+        return a.model.localeCompare(b.model)
+      })
+  }, [filteredModels, filterManufacturer, filterFormFactor, filterTags, platformSearch])
+
+  const selectedModel = useMemo(() => filteredModels.find((m) => m.id === selectedModelId) || null, [filteredModels, selectedModelId])
 
   useEffect(() => {
     const loadCatalog = async () => {
@@ -454,13 +219,10 @@ export default function ConfigurationsPage() {
         const { data: sessionData } = await supabase.auth.getSession()
         const token = sessionData.session?.access_token
         const headers = token ? { Authorization: `Bearer ${token}` } : undefined
-        const params = new URLSearchParams()
-        params.set('machine_type', machineType)
-
+        const params = new URLSearchParams({ machine_type: machineType })
         const res = await fetch(`/api/catalog/system-models?${params.toString()}`, { headers })
         const json = (await res.json()) as SystemModelsResp
         if (!json.ok) throw new Error(json.message || 'Failed to load catalog')
-
         const mapped = (json.items ?? [])
           .map((rec) => {
             const row = rec as Record<string, unknown>
@@ -470,7 +232,7 @@ export default function ConfigurationsPage() {
             return {
               id: String(row.id ?? ''),
               tenant_id: row.tenant_id ? String(row.tenant_id) : null,
-              machine_type: machineTypeRaw as SystemModel['machine_type'],
+              machine_type: machineTypeRaw as MachineType,
               manufacturer: String(row.manufacturer ?? ''),
               family: typeof row.family === 'string' && row.family.trim() ? row.family : null,
               model: String(row.model ?? ''),
@@ -492,46 +254,29 @@ export default function ConfigurationsPage() {
   }, [machineType])
 
   useEffect(() => {
-    setSelectedManufacturer('')
-    setSelectedFamily('')
     setSelectedModelId('')
-    setCompatibleComponents([])
+    setPlatformSearch('')
+    setFilterManufacturer('')
+    setFilterFormFactor('')
+    setFilterTags([])
+    setSelectedComponents({})
+    setManualOverrides({})
+    setComponentSearch({})
+    setAdvancedValues({})
+    setAllowOverride(false)
     setCompatError('')
+    setCompatibleComponents([])
+    setStep(1)
   }, [machineType])
 
   useEffect(() => {
-    setSelectedFamily('')
-    setSelectedModelId('')
-  }, [selectedManufacturer])
-
-  useEffect(() => {
-    setSelectedModelId('')
-  }, [selectedFamily])
-
-  const filteredModels = useMemo(() => systemModels.filter((m) => m.machine_type === machineType), [systemModels, machineType])
-
-  const manufacturerOptions = useMemo(() => {
-    const set = new Set(filteredModels.map((m) => m.manufacturer).filter(Boolean))
-    return Array.from(set).sort()
-  }, [filteredModels])
-
-  const familyOptions = useMemo(() => {
-    const set = new Set(
-      filteredModels
-        .filter((m) => !selectedManufacturer || m.manufacturer === selectedManufacturer)
-        .map((m) => m.family || '')
-        .filter(Boolean)
-    )
-    return Array.from(set).sort()
-  }, [filteredModels, selectedManufacturer])
-
-  const modelOptions = useMemo(() => {
-    return filteredModels
-      .filter((m) => (!selectedManufacturer || m.manufacturer === selectedManufacturer) && (!selectedFamily || (m.family || '') === selectedFamily))
-      .sort((a, b) => a.model.localeCompare(b.model))
-  }, [filteredModels, selectedManufacturer, selectedFamily])
-
-  const selectedModel = useMemo(() => modelOptions.find((m) => m.id === selectedModelId) || null, [modelOptions, selectedModelId])
+    setSelectedComponents({})
+    setManualOverrides({})
+    setComponentSearch({})
+    setAdvancedValues({})
+    setAllowOverride(false)
+    setCompatError('')
+  }, [selectedModelId])
 
   useEffect(() => {
     const loadCompat = async () => {
@@ -549,16 +294,14 @@ export default function ConfigurationsPage() {
         const res = await fetch(`/api/catalog/compatible-components?${params.toString()}`, { headers })
         const json = (await res.json()) as CompatibleResp
         if (!json.ok) throw new Error(json.message || 'Failed to load compatible parts')
-
         const mapped = (json.items ?? []).map((rec: unknown) => {
           const row = rec as Record<string, unknown>
           const rawType = typeof row.component_type === 'string' ? row.component_type : 'other'
-          const componentType = componentTypeOrder.includes(rawType) ? rawType : 'other'
           const tags = Array.isArray(row.tags) ? row.tags.map((tag) => String(tag)) : []
           return {
             id: String(row.id ?? ''),
             tenant_id: row.tenant_id ? String(row.tenant_id) : null,
-            component_type: componentType,
+            component_type: rawType,
             manufacturer: typeof row.manufacturer === 'string' ? row.manufacturer : null,
             model: String(row.model ?? ''),
             part_number: typeof row.part_number === 'string' ? row.part_number : null,
@@ -579,292 +322,818 @@ export default function ConfigurationsPage() {
 
   const compatibleByType = useMemo(() => {
     const groups: Record<string, ComponentModel[]> = {}
-    for (const component of compatibleComponents) {
+    compatibleComponents.forEach((component) => {
       const key = component.component_type || 'other'
       if (!groups[key]) groups[key] = []
       groups[key].push(component)
-    }
+    })
+    Object.values(groups).forEach((list) => list.sort((a, b) => a.model.localeCompare(b.model)))
     return groups
   }, [compatibleComponents])
 
-  const compatibleTypes = useMemo(() => {
-    const keys = Object.keys(compatibleByType)
-    const ordered = componentTypeOrder.filter((type) => keys.includes(type))
-    const extra = keys.filter((type) => !ordered.includes(type)).sort()
-    return [...ordered, ...extra]
-  }, [compatibleByType])
+  const componentOrder = componentOrderByMachine[machineType]
+  const primaryComponentTypes = componentOrder.filter((type) => (compatibleByType[type] || []).length > 0)
+  const secondaryComponentTypes = componentOrder.filter((type) => !primaryComponentTypes.includes(type))
+
+  const componentLookup = useMemo(() => {
+    const map = new Map<string, ComponentModel>()
+    compatibleComponents.forEach((component) => map.set(component.id, component))
+    return map
+  }, [compatibleComponents])
+
+  const updateComponentSelection = (type: string, componentId: string) => {
+    setSelectedComponents((prev) => {
+      if (!componentId) {
+        const next = { ...prev }
+        delete next[type]
+        return next
+      }
+      const existing = prev[type]
+      return {
+        ...prev,
+        [type]: { componentId, qty: existing?.qty || '1' },
+      }
+    })
+  }
+
+  const updateComponentQty = (type: string, qty: string) => {
+    setSelectedComponents((prev) => {
+      const existing = prev[type]
+      if (!existing) return prev
+      return { ...prev, [type]: { ...existing, qty } }
+    })
+  }
+
+  const updateManualOverride = (type: string, updates: Partial<ManualEntry>) => {
+    setManualOverrides((prev) => {
+      const current = prev[type] || { enabled: false, label: '', qty: '1', notes: '' }
+      return { ...prev, [type]: { ...current, ...updates } }
+    })
+  }
+
+  const toggleTagFilter = (tag: string) => {
+    setFilterTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
+  }
+
+  const requiredTypes = requiredTypesByMachine[machineType]
+  const missingRequired = requiredTypes.filter((type) => {
+    const selection = selectedComponents[type]
+    const manual = manualOverrides[type]
+    if (selection?.componentId) return false
+    if (manual?.enabled && manual.label.trim()) return false
+    return true
+  })
+
+  const manualUsed = Object.values(manualOverrides).some((entry) => entry.enabled && entry.label.trim())
+  const noCompatTypes = componentOrder.filter((type) => (compatibleByType[type] || []).length === 0)
+
+  const compatLevel = missingRequired.length > 0 ? 'blocked' : manualUsed ? 'blocked' : noCompatTypes.length ? 'warning' : 'ok'
+  const canSave = missingRequired.length === 0 && (!manualUsed || allowOverride)
+
+  const summaryItems = componentOrder
+    .map((type) => {
+      const selection = selectedComponents[type]
+      if (selection?.componentId) {
+        const component = componentLookup.get(selection.componentId)
+        if (!component) return null
+        const label = `${component.manufacturer ? `${component.manufacturer} ` : ''}${component.model}${component.part_number ? ` (${component.part_number})` : ''}`
+        return { type, label, qty: selection.qty || '1', source: 'catalog' }
+      }
+      const manual = manualOverrides[type]
+      if (manual?.enabled && manual.label.trim()) {
+        return { type, label: manual.label, qty: manual.qty || '1', source: 'manual' }
+      }
+      return null
+    })
+    .filter((item): item is { type: string; label: string; qty: string; source: string } => Boolean(item))
+
+  const compatibilityText = useMemo(() => {
+    if (compatLevel === 'ok') return { label: 'Fully compatible', tone: 'good' }
+    if (compatLevel === 'warning') return { label: 'Limited compatibility data', tone: 'warn' }
+    return { label: 'Manual override needed', tone: 'bad' }
+  }, [compatLevel])
+
+  const canGoToStep = (target: Step) => {
+    if (target === 1) return true
+    if (target === 2) return true
+    if (target === 3) return Boolean(selectedModelId)
+    if (target === 4) return Boolean(selectedModelId)
+    return false
+  }
+
+  const setStepSafe = (target: Step) => {
+    if (canGoToStep(target)) setStep(target)
+  }
+
+  const resetConfigurator = () => {
+    setSelectedModelId('')
+    setPlatformSearch('')
+    setFilterManufacturer('')
+    setFilterFormFactor('')
+    setFilterTags([])
+    setSelectedComponents({})
+    setManualOverrides({})
+    setComponentSearch({})
+    setAdvancedValues({})
+    setAllowOverride(false)
+    setStep(1)
+  }
 
   return (
     <main style={{ padding: 24, display: 'grid', gap: 16 }}>
       <div>
         <h1 style={{ marginBottom: 6 }}>Configurations</h1>
-        <div style={{ color: 'var(--muted)' }}>Configure server, storage, or network hardware. Compatibility checks and auto-calculations will be wired next.</div>
+        <div style={{ color: 'var(--muted)' }}>Pick a platform, choose compatible components, then review and save.</div>
       </div>
 
-      <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', alignItems: 'end' }}>
-        <label style={{ display: 'grid', gap: 6 }}>
-          <span style={{ fontSize: 12, color: 'var(--muted)' }}>Machine type</span>
-          <select
-            value={machineType}
-            onChange={(e) => setMachineType(e.target.value)}
-            style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)' }}
-          >
-            {machineOptions.map((m) => (
-              <option key={m.value} value={m.value}>
-                {m.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <div
-        style={{
-          border: '1px solid var(--border)',
-          borderRadius: 12,
-          padding: 14,
-          background: 'var(--panel)',
-          display: 'grid',
-          gap: 12,
-        }}
-      >
-        <div>
-          <div style={{ fontWeight: 900 }}>Model catalog</div>
-          <div style={{ color: 'var(--muted)', fontSize: 12 }}>
-            Pick a platform to load verified compatibility rules and component dropdowns.
+      <div className="layout">
+        <section style={{ display: 'grid', gap: 14 }}>
+          <div className="stepper">
+            {[1, 2, 3, 4].map((stepIndex) => {
+              const label = stepIndex === 1 ? 'Machine type' : stepIndex === 2 ? 'Platform' : stepIndex === 3 ? 'Configure' : 'Review'
+              const active = step === stepIndex
+              const enabled = canGoToStep(stepIndex as Step)
+              return (
+                <button
+                  key={stepIndex}
+                  type="button"
+                  onClick={() => setStepSafe(stepIndex as Step)}
+                  disabled={!enabled}
+                  className={`step ${active ? 'stepActive' : ''}`}
+                >
+                  <span className="stepIndex">{stepIndex}</span>
+                  <span>{label}</span>
+                </button>
+              )
+            })}
           </div>
-        </div>
-        {catalogLoading ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>Loading catalog...</div> : null}
-        {catalogError ? <div style={{ color: 'var(--bad)', fontSize: 12 }}>{catalogError}</div> : null}
-        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-          <label style={{ display: 'grid', gap: 6 }}>
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>Manufacturer</span>
-            <select
-              value={selectedManufacturer}
-              onChange={(e) => setSelectedManufacturer(e.target.value)}
-              disabled={catalogLoading || manufacturerOptions.length === 0}
-              style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)' }}
-            >
-              <option value="">Select manufacturer</option>
-              {manufacturerOptions.map((maker) => (
-                <option key={maker} value={maker}>
-                  {maker}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label style={{ display: 'grid', gap: 6 }}>
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>Family</span>
-            <select
-              value={selectedFamily}
-              onChange={(e) => setSelectedFamily(e.target.value)}
-              disabled={catalogLoading || familyOptions.length === 0}
-              style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)' }}
-            >
-              <option value="">Select family</option>
-              {familyOptions.map((family) => (
-                <option key={family} value={family}>
-                  {family}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label style={{ display: 'grid', gap: 6 }}>
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>Model</span>
-            <select
-              value={selectedModelId}
-              onChange={(e) => setSelectedModelId(e.target.value)}
-              disabled={catalogLoading || modelOptions.length === 0}
-              style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)' }}
-            >
-              <option value="">Select model</option>
-              {modelOptions.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.model}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
 
-        <div style={{ display: 'grid', gap: 8 }}>
-          {selectedModel ? (
-            <div style={{ display: 'grid', gap: 4, fontSize: 12 }}>
+          {step === 1 ? (
+            <div className="panel">
               <div>
-                <strong>Selected:</strong> {selectedModel.manufacturer} {selectedModel.model}
+                <div style={{ fontWeight: 900 }}>Step 1: Machine type</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>Choose the hardware category to configure.</div>
               </div>
-              <div style={{ color: 'var(--muted)' }}>
-                Form factor: {selectedModel.form_factor || 'n/a'} - Tags: {selectedModel.tags.length ? selectedModel.tags.join(', ') : 'none'}
-              </div>
-            </div>
-          ) : (
-            <div style={{ color: 'var(--muted)', fontSize: 12 }}>Select a model to load compatibility.</div>
-          )}
-          <div style={{ fontWeight: 900, marginTop: 6 }}>Compatible components</div>
-          {compatLoading ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>Loading compatible parts...</div> : null}
-          {compatError ? <div style={{ color: 'var(--bad)', fontSize: 12 }}>{compatError}</div> : null}
-          {selectedModelId && compatibleTypes.length === 0 && !compatLoading ? (
-            <div style={{ color: 'var(--muted)', fontSize: 12 }}>No compatibility rules yet for this model.</div>
-          ) : null}
-          {compatibleTypes.length ? (
-            <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-              {compatibleTypes.map((type) => {
-                const options = compatibleByType[type] || []
-                const fieldKey = `compat_${type}`
-                const value = typeof values[fieldKey] === 'string' ? values[fieldKey] : ''
-                return (
-                  <label key={type} style={{ display: 'grid', gap: 6 }}>
-                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>{componentTypeLabels[type] || type}</span>
-                    <select
-                      value={value}
-                      onChange={(e) => setValue(fieldKey, e.target.value)}
-                      style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)' }}
-                    >
-                      <option value="">Select {componentTypeLabels[type] || type}</option>
-                      {options.map((component) => (
-                        <option key={component.id} value={component.id}>
-                          {(component.manufacturer ? `${component.manufacturer} ` : '') + component.model}
-                          {component.part_number ? ` (${component.part_number})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>{options.length} compatible options</span>
-                  </label>
-                )
-              })}
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      {selected ? (
-        <div style={{ display: 'grid', gap: 12 }}>
-          {selected.sections.map((section) => (
-            <div
-              key={section.title}
-              style={{
-                border: '1px solid var(--border)',
-                borderRadius: 12,
-                padding: 14,
-                background: 'var(--panel)',
-                display: 'grid',
-                gap: 10,
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: 900 }}>{section.title}</div>
-                {section.description ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>{section.description}</div> : null}
-              </div>
-              <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-                {section.fields.map((field) => {
-                  const value = values[field.key]
-                  const commonStyle = {
-                    padding: '9px 10px',
-                    borderRadius: 10,
-                    border: '1px solid var(--border)',
-                    background: 'var(--panel-2)',
-                    color: 'var(--text)',
-                  }
+              <div className="chipRow" style={{ marginTop: 10 }}>
+                {machineOptions.map((option) => {
+                  const active = machineType === option.value
                   return (
-                    <label key={field.key} style={{ display: 'grid', gap: 6 }}>
-                      <span style={{ fontSize: 12, color: 'var(--muted)' }}>{field.label}</span>
-                      {field.kind === 'select' ? (
-                        <select
-                          value={typeof value === 'string' ? value : ''}
-                          onChange={(e) => setValue(field.key, e.target.value)}
-                          style={commonStyle}
-                        >
-                          <option value="">Select</option>
-                          {field.options?.map((opt) => (
-                            <option key={opt} value={opt}>
-                              {opt}
-                            </option>
-                          ))}
-                        </select>
-                      ) : field.kind === 'toggle' ? (
-                        <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <input
-                            type="checkbox"
-                            checked={Boolean(value)}
-                            onChange={(e) => setValue(field.key, e.target.checked)}
-                          />
-                          <span style={{ fontSize: 12, color: 'var(--muted)' }}>Enabled</span>
-                        </label>
-                      ) : field.kind === 'readonly' ? (
-                        <input
-                          value={field.readOnlyValue || 'Auto'}
-                          readOnly
-                          style={{ ...commonStyle, opacity: 0.7 }}
-                        />
-                      ) : field.kind === 'textarea' ? (
-                        <textarea
-                          value={typeof value === 'string' ? value : ''}
-                          onChange={(e) => setValue(field.key, e.target.value)}
-                          placeholder={field.placeholder}
-                          rows={3}
-                          style={{ ...commonStyle, resize: 'vertical' }}
-                        />
-                      ) : (
-                        <input
-                          type={field.kind === 'number' ? 'number' : 'text'}
-                          value={typeof value === 'string' ? value : ''}
-                          onChange={(e) => setValue(field.key, e.target.value)}
-                          placeholder={field.placeholder}
-                          style={commonStyle}
-                        />
-                      )}
-                      {field.help ? <span style={{ fontSize: 11, color: 'var(--muted)' }}>{field.help}</span> : null}
-                    </label>
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setMachineType(option.value)}
+                      className={`chip ${active ? 'chipActive' : ''}`}
+                    >
+                      {option.label}
+                    </button>
                   )
                 })}
               </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                <button className="primaryBtn" type="button" onClick={() => setStepSafe(2)}>
+                  Continue
+                </button>
+              </div>
             </div>
-          ))}
-        </div>
-      ) : null}
+          ) : null}
 
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <button
-          style={{
-            padding: '10px 12px',
-            borderRadius: 12,
-            border: '1px solid var(--border)',
-            background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%)',
-            color: '#fff',
-            fontWeight: 900,
-            cursor: 'pointer',
-          }}
-        >
-          Save configuration
-        </button>
-        <button
-          style={{
-            padding: '10px 12px',
-            borderRadius: 12,
-            border: '1px solid var(--border)',
-            background: 'var(--panel)',
-            color: 'var(--text)',
-            fontWeight: 900,
-            cursor: 'pointer',
-          }}
-        >
-          Clone configuration
-        </button>
-        <button
-          onClick={() => setValues({})}
-          style={{
-            padding: '10px 12px',
-            borderRadius: 12,
-            border: '1px solid var(--border)',
-            background: 'var(--panel)',
-            color: 'var(--text)',
-            fontWeight: 900,
-            cursor: 'pointer',
-          }}
-        >
-          Reset form
-        </button>
+          {step === 2 ? (
+            <div className="panel">
+              <div>
+                <div style={{ fontWeight: 900 }}>Step 2: Platform</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  Search the catalog once and select a platform model.
+                </div>
+              </div>
+              {catalogLoading ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>Loading catalog...</div> : null}
+              {catalogError ? <div style={{ color: 'var(--bad)', fontSize: 12 }}>{catalogError}</div> : null}
+              <div className="platformGrid">
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>Search platform</span>
+                  <input
+                    value={platformSearch}
+                    onChange={(e) => setPlatformSearch(e.target.value)}
+                    placeholder="Search manufacturer, family, model, tags"
+                    style={controlStyle}
+                  />
+                </label>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>Platform model</span>
+                  <select
+                    value={selectedModelId}
+                    onChange={(e) => setSelectedModelId(e.target.value)}
+                    disabled={catalogLoading || platformResults.length === 0}
+                    style={controlStyle}
+                  >
+                    <option value="">Select platform</option>
+                    {platformResults.map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {formatPlatformLabel(model)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div style={{ display: 'grid', gap: 8 }}>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>Quick filters</div>
+                <div className="chipRow">
+                  {manufacturerOptions.slice(0, 6).map((maker) => {
+                    const active = filterManufacturer === maker
+                    return (
+                      <button
+                        key={maker}
+                        type="button"
+                        className={`chip ${active ? 'chipActive' : ''}`}
+                        onClick={() => setFilterManufacturer(active ? '' : maker)}
+                      >
+                        {maker}
+                      </button>
+                    )
+                  })}
+                  {formFactorOptions.map((form) => {
+                    const active = filterFormFactor === form
+                    return (
+                      <button
+                        key={form}
+                        type="button"
+                        className={`chip ${active ? 'chipActive' : ''}`}
+                        onClick={() => setFilterFormFactor(active ? '' : form)}
+                      >
+                        {form}
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="chipRow">
+                  {tagOptions.map((tag) => {
+                    const active = filterTags.includes(tag)
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        className={`chip ${active ? 'chipActive' : ''}`}
+                        onClick={() => toggleTagFilter(tag)}
+                      >
+                        {tag}
+                      </button>
+                    )
+                  })}
+                </div>
+                {(filterManufacturer || filterFormFactor || filterTags.length) && (
+                  <button
+                    type="button"
+                    className="linkBtn"
+                    onClick={() => {
+                      setFilterManufacturer('')
+                      setFilterFormFactor('')
+                      setFilterTags([])
+                    }}
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </div>
+              {selectedModel ? (
+                <div className="summaryCard">
+                  <div style={{ fontWeight: 900 }}>Platform summary</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{formatPlatformLabel(selectedModel)}</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
+                    <span style={autoPillStyle} title="Derived from catalog">
+                      Form factor: {selectedModel.form_factor || 'Auto'}
+                    </span>
+                    {selectedModel.tags.slice(0, 6).map((tag) => (
+                      <span key={tag} style={autoPillStyle}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
+                <button className="ghostBtn" type="button" onClick={() => setStepSafe(1)}>
+                  Back
+                </button>
+                <button className="primaryBtn" type="button" onClick={() => setStepSafe(3)} disabled={!selectedModelId}>
+                  Continue to configuration
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {step === 3 ? (
+            <div className="panel">
+              <div>
+                <div style={{ fontWeight: 900 }}>Step 3: Configure components</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  Choose compatible components first. Advanced details are optional.
+                </div>
+              </div>
+              {compatLoading ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>Loading compatibility...</div> : null}
+              {compatError ? <div style={{ color: 'var(--bad)', fontSize: 12 }}>{compatError}</div> : null}
+              {selectedModel ? (
+                <div className="summaryCard">
+                  <div style={{ fontWeight: 900 }}>Selected platform</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{formatPlatformLabel(selectedModel)}</div>
+                </div>
+              ) : null}
+
+              <div style={{ display: 'grid', gap: 14 }}>
+                {primaryComponentTypes.length ? (
+                  <div className="componentGrid">
+                    {primaryComponentTypes.map((type) => {
+                      const options = compatibleByType[type] || []
+                      const selection = selectedComponents[type]
+                      const searchValue = componentSearch[type] || ''
+                      const filteredOptions = options.filter((option) => {
+                        if (!searchValue.trim()) return true
+                        const label = `${option.manufacturer || ''} ${option.model} ${option.part_number || ''} ${option.tags.join(' ')}`.toLowerCase()
+                        return label.includes(searchValue.trim().toLowerCase())
+                      })
+                      const selectedComponent = selection?.componentId ? componentLookup.get(selection.componentId) : null
+                      return (
+                        <div key={type} className="componentCard">
+                          <div className="componentHeader">
+                            <div style={{ fontWeight: 700 }}>{componentTypeLabels[type] || type}</div>
+                            <span style={autoPillStyle}>{options.length} options</span>
+                          </div>
+                          {options.length > 6 ? (
+                            <input
+                              value={searchValue}
+                              onChange={(e) => setComponentSearch((prev) => ({ ...prev, [type]: e.target.value }))}
+                              placeholder="Search options"
+                              style={{ ...controlStyle, padding: '8px 10px' }}
+                            />
+                          ) : null}
+                          <select
+                            value={selection?.componentId || ''}
+                            onChange={(e) => updateComponentSelection(type, e.target.value)}
+                            style={controlStyle}
+                          >
+                            <option value="">Select {componentTypeLabels[type] || type}</option>
+                            {filteredOptions.map((component) => (
+                              <option key={component.id} value={component.id}>
+                                {(component.manufacturer ? `${component.manufacturer} ` : '') + component.model}
+                                {component.part_number ? ` (${component.part_number})` : ''}
+                              </option>
+                            ))}
+                          </select>
+                          <div style={{ display: 'grid', gap: 6 }}>
+                            <label style={{ display: 'grid', gap: 6 }}>
+                              <span style={{ fontSize: 11, color: 'var(--muted)' }}>Quantity</span>
+                              <input
+                                type="number"
+                                min={0}
+                                value={selection?.qty || ''}
+                                onChange={(e) => updateComponentQty(type, e.target.value)}
+                                placeholder="0"
+                                style={{ ...controlStyle, padding: '8px 10px' }}
+                              />
+                            </label>
+                            {selectedComponent ? (
+                              <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                                {selectedComponent.tags.length ? `Tags: ${selectedComponent.tags.slice(0, 4).join(', ')}` : 'No tag data'}
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: 11, color: 'var(--muted)' }}>Pick an option to see details.</div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                    No validated compatibility rules yet for this platform. Use manual overrides below.
+                  </div>
+                )}
+
+                {secondaryComponentTypes.length ? (
+                  <details className="advancedPanel" open={primaryComponentTypes.length === 0}>
+                    <summary style={{ fontWeight: 700 }}>Optional components (manual override)</summary>
+                    <div className="componentGrid" style={{ marginTop: 10 }}>
+                      {secondaryComponentTypes.map((type) => {
+                        const manual = manualOverrides[type] || { enabled: false, label: '', qty: '1', notes: '' }
+                        return (
+                          <div key={type} className="componentCard">
+                            <div className="componentHeader">
+                              <div style={{ fontWeight: 700 }}>{componentTypeLabels[type] || type}</div>
+                              <span style={autoPillStyle}>No validated options</span>
+                            </div>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <input
+                                type="checkbox"
+                                checked={manual.enabled}
+                                onChange={(e) => updateManualOverride(type, { enabled: e.target.checked })}
+                              />
+                              <span style={{ fontSize: 12, color: 'var(--muted)' }}>Manual override</span>
+                            </label>
+                            {manual.enabled ? (
+                              <div style={{ display: 'grid', gap: 8 }}>
+                                <input
+                                  value={manual.label}
+                                  onChange={(e) => updateManualOverride(type, { label: e.target.value })}
+                                  placeholder="Component description"
+                                  style={{ ...controlStyle, padding: '8px 10px' }}
+                                />
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={manual.qty}
+                                  onChange={(e) => updateManualOverride(type, { qty: e.target.value })}
+                                  placeholder="Quantity"
+                                  style={{ ...controlStyle, padding: '8px 10px' }}
+                                />
+                                <input
+                                  value={manual.notes}
+                                  onChange={(e) => updateManualOverride(type, { notes: e.target.value })}
+                                  placeholder="Notes (optional)"
+                                  style={{ ...controlStyle, padding: '8px 10px' }}
+                                />
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: 11, color: 'var(--muted)' }}>Enable override to enter a custom part.</div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </details>
+                ) : null}
+
+                <details className="advancedPanel">
+                  <summary style={{ fontWeight: 700 }}>Advanced details</summary>
+                  <div className="advancedGrid">
+                    {(advancedFieldsByMachine[machineType] || []).map((field) => {
+                      const value = advancedValues[field.key] || ''
+                      if (field.kind === 'readonly') {
+                        return (
+                          <div key={field.key} className="advancedField">
+                            <div style={{ fontSize: 11, color: 'var(--muted)' }}>{field.label}</div>
+                            <span style={autoPillStyle} title="Auto derived from platform or rules">
+                              Auto
+                            </span>
+                          </div>
+                        )
+                      }
+                      if (field.kind === 'select') {
+                        return (
+                          <label key={field.key} className="advancedField">
+                            <span style={{ fontSize: 11, color: 'var(--muted)' }}>{field.label}</span>
+                            <select
+                              value={value}
+                              onChange={(e) => setAdvancedValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                              style={{ ...controlStyle, padding: '8px 10px' }}
+                            >
+                              <option value="">Select</option>
+                              {field.options?.map((opt) => (
+                                <option key={opt} value={opt}>
+                                  {opt}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        )
+                      }
+                      return (
+                        <label key={field.key} className="advancedField">
+                          <span style={{ fontSize: 11, color: 'var(--muted)' }}>{field.label}</span>
+                          <input
+                            type={field.kind === 'number' ? 'number' : 'text'}
+                            value={value}
+                            onChange={(e) => setAdvancedValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                            placeholder={field.placeholder}
+                            style={{ ...controlStyle, padding: '8px 10px' }}
+                          />
+                        </label>
+                      )
+                    })}
+                  </div>
+                </details>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
+                <button className="ghostBtn" type="button" onClick={() => setStepSafe(2)}>
+                  Back
+                </button>
+                <button className="primaryBtn" type="button" onClick={() => setStepSafe(4)}>
+                  Review configuration
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {step === 4 ? (
+            <div className="panel">
+              <div>
+                <div style={{ fontWeight: 900 }}>Step 4: Review</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>Confirm the BOM and compatibility status.</div>
+              </div>
+              <div className="summaryCard">
+                <div style={{ fontWeight: 900 }}>Platform</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{selectedModel ? formatPlatformLabel(selectedModel) : 'No platform selected'}</div>
+              </div>
+              <div className="summaryCard">
+                <div style={{ fontWeight: 900 }}>Selected components</div>
+                {summaryItems.length ? (
+                  <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
+                    {summaryItems.map((item) => (
+                      <div key={`${item.type}-${item.label}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 12 }}>
+                        <div>
+                          <strong>{componentTypeLabels[item.type] || item.type}:</strong> {item.label}
+                        </div>
+                        <div style={{ color: 'var(--muted)' }}>Qty {item.qty}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>No components selected yet.</div>
+                )}
+              </div>
+              <div className="summaryCard">
+                <div style={{ fontWeight: 900 }}>Compatibility</div>
+                <div className={`statusPill status${compatibilityText.tone}`}>{compatibilityText.label}</div>
+                {missingRequired.length ? (
+                  <div style={{ fontSize: 12, color: 'var(--bad)' }}>
+                    Missing required: {missingRequired.map((type) => componentTypeLabels[type] || type).join(', ')}
+                  </div>
+                ) : null}
+                {manualUsed ? (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                    <input type="checkbox" checked={allowOverride} onChange={(e) => setAllowOverride(e.target.checked)} />
+                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>Allow save with manual overrides</span>
+                  </label>
+                ) : null}
+                {noCompatTypes.length ? (
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
+                    Limited data for: {noCompatTypes.map((type) => componentTypeLabels[type] || type).join(', ')}
+                  </div>
+                ) : null}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
+                <button className="ghostBtn" type="button" onClick={() => setStepSafe(3)}>
+                  Back
+                </button>
+                <button className="primaryBtn" type="button" disabled={!canSave}>
+                  Save configuration
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </section>
+
+        <aside className="summary stickyCard">
+          <div style={{ fontWeight: 900 }}>Configuration summary</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{selectedModel ? formatPlatformLabel(selectedModel) : 'No platform selected yet.'}</div>
+
+          <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+            <div className={`statusPill status${compatibilityText.tone}`}>{compatibilityText.label}</div>
+            {missingRequired.length ? (
+              <div style={{ fontSize: 12, color: 'var(--bad)' }}>
+                Required: {missingRequired.map((type) => componentTypeLabels[type] || type).join(', ')}
+              </div>
+            ) : null}
+          </div>
+
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>Selected components</div>
+            {summaryItems.length ? (
+              <div style={{ display: 'grid', gap: 6, fontSize: 12 }}>
+                {summaryItems.map((item) => (
+                  <div key={`${item.type}-${item.label}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                    <div>{componentTypeLabels[item.type] || item.type}</div>
+                    <div style={{ color: 'var(--muted)' }}>Qty {item.qty}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>No selections yet.</div>
+            )}
+          </div>
+
+          <div style={{ marginTop: 12, display: 'grid', gap: 6 }}>
+            <div style={{ fontWeight: 700 }}>Computed placeholders</div>
+            <div style={{ display: 'grid', gap: 6 }}>
+              <span style={autoPillStyle}>Power draw: Auto</span>
+              <span style={autoPillStyle}>Usable capacity: Auto</span>
+              <span style={autoPillStyle}>Ports summary: Auto</span>
+            </div>
+          </div>
+
+          {manualUsed ? (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
+              <input type="checkbox" checked={allowOverride} onChange={(e) => setAllowOverride(e.target.checked)} />
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>Allow save with manual overrides</span>
+            </label>
+          ) : null}
+
+          <div style={{ display: 'grid', gap: 8, marginTop: 16 }}>
+            <button className="primaryBtn" type="button" disabled={!canSave}>
+              Save configuration
+            </button>
+            <button className="ghostBtn" type="button">
+              Clone configuration
+            </button>
+            <button className="ghostBtn" type="button" onClick={resetConfigurator}>
+              Reset
+            </button>
+          </div>
+        </aside>
       </div>
+
+      <style jsx>{`
+        .layout {
+          display: grid;
+          gap: 16px;
+          grid-template-columns: minmax(0, 1fr) 320px;
+          align-items: start;
+        }
+        .panel {
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 14px;
+          background: var(--panel);
+          display: grid;
+          gap: 12px;
+        }
+        .summary {
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 14px;
+          background: var(--panel);
+          display: grid;
+          gap: 8px;
+        }
+        .stickyCard {
+          position: sticky;
+          top: 16px;
+        }
+        .stepper {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+          gap: 10px;
+        }
+        .step {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 12px;
+          border-radius: 12px;
+          border: 1px solid var(--border);
+          background: var(--panel);
+          color: var(--text);
+          font-weight: 700;
+          cursor: pointer;
+          transition: border 0.2s ease;
+        }
+        .step:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        .stepActive {
+          border-color: var(--accent);
+          box-shadow: 0 0 0 1px rgba(90, 180, 255, 0.2);
+        }
+        .stepIndex {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 24px;
+          height: 24px;
+          border-radius: 999px;
+          border: 1px solid var(--border);
+          background: var(--panel-2);
+          font-size: 12px;
+        }
+        .chipRow {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .chip {
+          padding: 6px 12px;
+          border-radius: 999px;
+          border: 1px solid var(--border);
+          background: var(--panel-2);
+          color: var(--text);
+          font-size: 12px;
+          cursor: pointer;
+        }
+        .chipActive {
+          border-color: var(--accent);
+          background: rgba(90, 180, 255, 0.15);
+        }
+        .linkBtn {
+          background: none;
+          border: none;
+          color: var(--accent);
+          font-size: 12px;
+          cursor: pointer;
+          padding: 0;
+        }
+        .primaryBtn {
+          padding: 10px 14px;
+          border-radius: 12px;
+          border: 1px solid var(--border);
+          background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+          color: #fff;
+          font-weight: 900;
+          cursor: pointer;
+        }
+        .primaryBtn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+        .ghostBtn {
+          padding: 10px 12px;
+          border-radius: 12px;
+          border: 1px solid var(--border);
+          background: var(--panel);
+          color: var(--text);
+          font-weight: 700;
+          cursor: pointer;
+        }
+        .platformGrid {
+          display: grid;
+          gap: 10px;
+          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        }
+        .summaryCard {
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 10px;
+          background: var(--panel-2);
+          display: grid;
+          gap: 6px;
+        }
+        .componentGrid {
+          display: grid;
+          gap: 12px;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        }
+        .componentCard {
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 12px;
+          background: var(--panel);
+          display: grid;
+          gap: 10px;
+        }
+        .componentHeader {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 8px;
+        }
+        .advancedPanel {
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 12px;
+          background: var(--panel);
+        }
+        .advancedPanel summary {
+          cursor: pointer;
+        }
+        .advancedGrid {
+          margin-top: 12px;
+          display: grid;
+          gap: 10px;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        }
+        .advancedField {
+          display: grid;
+          gap: 6px;
+        }
+        .statusPill {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 4px 12px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 700;
+          border: 1px solid var(--border);
+        }
+        .statusgood {
+          color: #7ce7a0;
+          background: rgba(124, 231, 160, 0.1);
+        }
+        .statuswarn {
+          color: #f7c76a;
+          background: rgba(247, 199, 106, 0.12);
+        }
+        .statusbad {
+          color: #f78383;
+          background: rgba(247, 131, 131, 0.12);
+        }
+        @media (max-width: 980px) {
+          .layout {
+            grid-template-columns: 1fr;
+          }
+          .stickyCard {
+            position: static;
+          }
+        }
+      `}</style>
     </main>
   )
 }
