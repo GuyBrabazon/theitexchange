@@ -48,6 +48,7 @@ type ComponentSelection = {
 type ManualEntry = {
   enabled: boolean
   label: string
+  partNumber: string
   qty: string
   notes: string
 }
@@ -137,6 +138,8 @@ const controlStyle = {
   color: 'var(--text)',
 }
 
+const normalizePartNumber = (value: string) => value.trim().toUpperCase()
+
 export default function ConfigurationsPage() {
   const [step, setStep] = useState<Step>(1)
   const [machineType, setMachineType] = useState<MachineType>('server')
@@ -158,7 +161,9 @@ export default function ConfigurationsPage() {
   const [manualOverrides, setManualOverrides] = useState<Record<string, ManualEntry>>({})
   const [componentSearch, setComponentSearch] = useState<Record<string, string>>({})
   const [advancedValues, setAdvancedValues] = useState<Record<string, string>>({})
-  const [allowOverride, setAllowOverride] = useState(false)
+  const [stockByPart, setStockByPart] = useState<Record<string, number>>({})
+  const [stockLoading, setStockLoading] = useState(false)
+  const [stockChecked, setStockChecked] = useState<Record<string, true>>({})
 
   const filteredModels = useMemo(() => systemModels.filter((m) => m.machine_type === machineType), [systemModels, machineType])
 
@@ -187,6 +192,48 @@ export default function ConfigurationsPage() {
     const family = model.family ? `${model.family} / ` : ''
     const form = model.form_factor ? ` (${model.form_factor})` : ''
     return `${model.manufacturer} / ${family}${model.model}${form}`
+  }
+
+  const getStockQty = (partNumber?: string | null) => {
+    if (!partNumber) return null
+    const key = normalizePartNumber(partNumber)
+    return Object.prototype.hasOwnProperty.call(stockByPart, key) ? stockByPart[key] : null
+  }
+
+  const renderStockPill = (partNumber: string | null | undefined, qtyValue: string) => {
+    if (!partNumber) {
+      return <span style={autoPillStyle}>Stock unknown</span>
+    }
+    const key = normalizePartNumber(partNumber)
+    const checked = Object.prototype.hasOwnProperty.call(stockChecked, key)
+    const stockQty = getStockQty(partNumber)
+    if (!checked) {
+      return <span style={autoPillStyle}>Stock unknown</span>
+    }
+    if (stockQty == null) {
+      return stockLoading ? <span style={autoPillStyle}>Stock loading</span> : <span className="statusPill statusbad">No stock</span>
+    }
+    const requested = Number(qtyValue || 0)
+    if (Number.isFinite(requested) && stockQty > 0 && requested > stockQty) {
+      return <span className="statusPill statuswarn">Only {stockQty} in stock</span>
+    }
+    if (stockQty <= 0) {
+      return <span className="statusPill statusbad">No stock</span>
+    }
+    return <span className="statusPill statusgood">In stock (qty: {stockQty})</span>
+  }
+
+  const formatOptionLabel = (component: ComponentModel) => {
+    const base = `${component.manufacturer ? `${component.manufacturer} ` : ''}${component.model}${
+      component.part_number ? ` (${component.part_number})` : ''
+    }`
+    if (!component.part_number) return `${base} — Stock: n/a`
+    const key = normalizePartNumber(component.part_number)
+    const checked = Object.prototype.hasOwnProperty.call(stockChecked, key)
+    const stockQty = getStockQty(component.part_number)
+    if (!checked) return `${base} — Stock: n/a`
+    if (stockQty == null) return `${base} — Stock: ${stockLoading ? '...' : 'No stock'}`
+    return `${base} — ${stockQty > 0 ? 'In stock' : 'No stock'}`
   }
 
   const platformResults = useMemo(() => {
@@ -263,9 +310,11 @@ export default function ConfigurationsPage() {
     setManualOverrides({})
     setComponentSearch({})
     setAdvancedValues({})
-    setAllowOverride(false)
     setCompatError('')
     setCompatibleComponents([])
+    setStockByPart({})
+    setStockLoading(false)
+    setStockChecked({})
     setStep(1)
   }, [machineType])
 
@@ -274,8 +323,10 @@ export default function ConfigurationsPage() {
     setManualOverrides({})
     setComponentSearch({})
     setAdvancedValues({})
-    setAllowOverride(false)
     setCompatError('')
+    setStockByPart({})
+    setStockLoading(false)
+    setStockChecked({})
   }, [selectedModelId])
 
   useEffect(() => {
@@ -320,6 +371,105 @@ export default function ConfigurationsPage() {
     loadCompat()
   }, [selectedModelId])
 
+  useEffect(() => {
+    const loadStock = async (partNumbers: string[], replace: boolean) => {
+      if (partNumbers.length === 0) {
+        if (replace) setStockByPart({})
+        setStockLoading(false)
+        if (replace) setStockChecked({})
+        return
+      }
+      setStockLoading(true)
+      const checkedUpdate = Object.fromEntries(partNumbers.map((pn) => [pn, true]))
+      setStockChecked((prev) => (replace ? checkedUpdate : { ...prev, ...checkedUpdate }))
+      try {
+        const { data: sessionData } = await supabase.auth.getSession()
+        const token = sessionData.session?.access_token
+        const headers = token ? { Authorization: `Bearer ${token}` } : undefined
+        const chunkSize = 200
+        const next: Record<string, number> = {}
+
+        for (let i = 0; i < partNumbers.length; i += chunkSize) {
+          const chunk = partNumbers.slice(i, i + chunkSize)
+          const params = new URLSearchParams()
+          params.set('part_numbers', chunk.join(','))
+          const res = await fetch(`/api/inventory/stock?${params.toString()}`, { headers })
+          const json = (await res.json()) as { ok: boolean; items?: Array<{ part_number: string; qty: number }> }
+          if (!json.ok) {
+            throw new Error('Failed to load stock')
+          }
+          ;(json.items ?? []).forEach((item) => {
+            if (!item.part_number) return
+            const key = normalizePartNumber(item.part_number)
+            const qty = Number.isFinite(item.qty) ? Number(item.qty) : 0
+            next[key] = qty
+          })
+        }
+
+        setStockByPart((prev) => (replace ? next : { ...prev, ...next }))
+      } catch (e) {
+        console.error('stock load error', e)
+      } finally {
+        setStockLoading(false)
+      }
+    }
+
+    const partNumbers = Array.from(
+      new Set(
+        compatibleComponents
+          .map((component) => component.part_number)
+          .filter((value): value is string => Boolean(value && value.trim()))
+          .map((value) => normalizePartNumber(value))
+      )
+    )
+
+    loadStock(partNumbers, true)
+  }, [compatibleComponents])
+
+  useEffect(() => {
+    const manualPartNumbers = Object.values(manualOverrides)
+      .filter((entry) => entry.enabled && entry.partNumber.trim())
+      .map((entry) => normalizePartNumber(entry.partNumber))
+    const missing = manualPartNumbers.filter((pn) => !(pn in stockChecked))
+    if (!missing.length) return
+
+    const handle = setTimeout(() => {
+      void (async () => {
+        const checkedUpdate = Object.fromEntries(Array.from(new Set(missing)).map((pn) => [pn, true]))
+        setStockChecked((prev) => ({ ...prev, ...checkedUpdate }))
+        setStockLoading(true)
+        const { data: sessionData } = await supabase.auth.getSession()
+        const token = sessionData.session?.access_token
+        const headers = token ? { Authorization: `Bearer ${token}` } : undefined
+        const chunkSize = 200
+        const next: Record<string, number> = {}
+
+        for (let i = 0; i < missing.length; i += chunkSize) {
+          const chunk = missing.slice(i, i + chunkSize)
+          const params = new URLSearchParams()
+          params.set('part_numbers', chunk.join(','))
+          const res = await fetch(`/api/inventory/stock?${params.toString()}`, { headers })
+          const json = (await res.json()) as { ok: boolean; items?: Array<{ part_number: string; qty: number }> }
+          if (!json.ok) {
+            throw new Error('Failed to load stock')
+          }
+          ;(json.items ?? []).forEach((item) => {
+            if (!item.part_number) return
+            const key = normalizePartNumber(item.part_number)
+            const qty = Number.isFinite(item.qty) ? Number(item.qty) : 0
+            next[key] = qty
+          })
+        }
+
+        setStockByPart((prev) => ({ ...prev, ...next }))
+      })()
+        .catch((e) => console.error('manual stock load error', e))
+        .finally(() => setStockLoading(false))
+    }, 300)
+
+    return () => clearTimeout(handle)
+  }, [manualOverrides, stockChecked])
+
   const compatibleByType = useMemo(() => {
     const groups: Record<string, ComponentModel[]> = {}
     compatibleComponents.forEach((component) => {
@@ -332,8 +482,11 @@ export default function ConfigurationsPage() {
   }, [compatibleComponents])
 
   const componentOrder = componentOrderByMachine[machineType]
-  const primaryComponentTypes = componentOrder.filter((type) => (compatibleByType[type] || []).length > 0)
-  const secondaryComponentTypes = componentOrder.filter((type) => !primaryComponentTypes.includes(type))
+  const requiredTypes = requiredTypesByMachine[machineType]
+  const recommendedTypes = componentOrder.filter(
+    (type) => !requiredTypes.includes(type) && (compatibleByType[type] || []).length > 0
+  )
+  const optionalTypes = componentOrder.filter((type) => !requiredTypes.includes(type) && !recommendedTypes.includes(type))
 
   const componentLookup = useMemo(() => {
     const map = new Map<string, ComponentModel>()
@@ -366,16 +519,28 @@ export default function ConfigurationsPage() {
 
   const updateManualOverride = (type: string, updates: Partial<ManualEntry>) => {
     setManualOverrides((prev) => {
-      const current = prev[type] || { enabled: false, label: '', qty: '1', notes: '' }
+      const current = prev[type] || { enabled: false, label: '', partNumber: '', qty: '1', notes: '' }
       return { ...prev, [type]: { ...current, ...updates } }
     })
+  }
+
+  const enableManual = (type: string) => {
+    setSelectedComponents((prev) => {
+      if (!prev[type]) return prev
+      const next = { ...prev }
+      delete next[type]
+      return next
+    })
+    updateManualOverride(type, { enabled: true })
+  }
+
+  const disableManual = (type: string) => {
+    updateManualOverride(type, { enabled: false })
   }
 
   const toggleTagFilter = (tag: string) => {
     setFilterTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
   }
-
-  const requiredTypes = requiredTypesByMachine[machineType]
   const missingRequired = requiredTypes.filter((type) => {
     const selection = selectedComponents[type]
     const manual = manualOverrides[type]
@@ -386,9 +551,11 @@ export default function ConfigurationsPage() {
 
   const manualUsed = Object.values(manualOverrides).some((entry) => entry.enabled && entry.label.trim())
   const noCompatTypes = componentOrder.filter((type) => (compatibleByType[type] || []).length === 0)
+  const requiredChecklist = requiredTypes.map((type) => componentTypeLabels[type] || type)
+  const requiredProgress = `${requiredTypes.length - missingRequired.length}/${requiredTypes.length}`
 
-  const compatLevel = missingRequired.length > 0 ? 'blocked' : manualUsed ? 'blocked' : noCompatTypes.length ? 'warning' : 'ok'
-  const canSave = missingRequired.length === 0 && (!manualUsed || allowOverride)
+  const compatLevel = missingRequired.length > 0 ? 'blocked' : noCompatTypes.length ? 'warning' : 'ok'
+  const canSave = missingRequired.length === 0
 
   const summaryItems = componentOrder
     .map((type) => {
@@ -408,16 +575,16 @@ export default function ConfigurationsPage() {
     .filter((item): item is { type: string; label: string; qty: string; source: string } => Boolean(item))
 
   const compatibilityText = useMemo(() => {
-    if (compatLevel === 'ok') return { label: 'Fully compatible', tone: 'good' }
+    if (compatLevel === 'ok') return { label: 'Ready to save', tone: 'good' }
     if (compatLevel === 'warning') return { label: 'Limited compatibility data', tone: 'warn' }
-    return { label: 'Manual override needed', tone: 'bad' }
+    return { label: 'Missing required selections', tone: 'bad' }
   }, [compatLevel])
 
   const canGoToStep = (target: Step) => {
     if (target === 1) return true
     if (target === 2) return true
     if (target === 3) return Boolean(selectedModelId)
-    if (target === 4) return Boolean(selectedModelId)
+    if (target === 4) return Boolean(selectedModelId) && missingRequired.length === 0
     return false
   }
 
@@ -435,8 +602,147 @@ export default function ConfigurationsPage() {
     setManualOverrides({})
     setComponentSearch({})
     setAdvancedValues({})
-    setAllowOverride(false)
+    setStockByPart({})
+    setStockLoading(false)
+    setStockChecked({})
     setStep(1)
+  }
+
+  const renderComponentRow = (type: string, required: boolean) => {
+    const label = componentTypeLabels[type] || type
+    const options = compatibleByType[type] || []
+    const hasOptions = options.length > 0
+    const manual = manualOverrides[type] || { enabled: false, label: '', partNumber: '', qty: '1', notes: '' }
+    const manualActive = manual.enabled
+    const selection = selectedComponents[type]
+    const searchValue = componentSearch[type] || ''
+    const filteredOptions = hasOptions
+      ? options.filter((option) => {
+          if (!searchValue.trim()) return true
+          const optionLabel = `${option.manufacturer || ''} ${option.model} ${option.part_number || ''} ${option.tags.join(' ')}`.toLowerCase()
+          return optionLabel.includes(searchValue.trim().toLowerCase())
+        })
+      : []
+    const selectedComponent = selection?.componentId ? componentLookup.get(selection.componentId) : null
+
+    return (
+      <div key={type} className="componentCard">
+        <div className="componentHeader">
+          <div style={{ fontWeight: 700 }}>{label}</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {required ? <span className="requiredPill">Required</span> : null}
+            {hasOptions ? <span style={autoPillStyle}>{options.length} options</span> : <span style={autoPillStyle}>No validated options</span>}
+          </div>
+        </div>
+
+        {manualActive ? (
+          <div style={{ display: 'grid', gap: 8 }}>
+            {hasOptions ? (
+              <button className="linkBtn" type="button" onClick={() => disableManual(type)}>
+                Back to catalog selection
+              </button>
+            ) : null}
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontSize: 11, color: 'var(--muted)' }}>Description</span>
+              <input
+                value={manual.label}
+                onChange={(e) => updateManualOverride(type, { label: e.target.value })}
+                placeholder="Manual part description"
+                style={{ ...controlStyle, padding: '8px 10px' }}
+              />
+            </label>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontSize: 11, color: 'var(--muted)' }}>Part number (optional)</span>
+              <input
+                value={manual.partNumber}
+                onChange={(e) => updateManualOverride(type, { partNumber: e.target.value })}
+                placeholder="e.g. INT-4314"
+                style={{ ...controlStyle, padding: '8px 10px' }}
+              />
+            </label>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontSize: 11, color: 'var(--muted)' }}>Quantity</span>
+              <input
+                type="number"
+                min={0}
+                value={manual.qty}
+                onChange={(e) => updateManualOverride(type, { qty: e.target.value })}
+                placeholder="1"
+                style={{ ...controlStyle, padding: '8px 10px' }}
+              />
+            </label>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontSize: 11, color: 'var(--muted)' }}>Notes</span>
+              <input
+                value={manual.notes}
+                onChange={(e) => updateManualOverride(type, { notes: e.target.value })}
+                placeholder="Optional notes"
+                style={{ ...controlStyle, padding: '8px 10px' }}
+              />
+            </label>
+            {manual.partNumber.trim() ? (
+              <div>{renderStockPill(manual.partNumber, manual.qty)}</div>
+            ) : (
+              <div style={{ fontSize: 11, color: 'var(--muted)' }}>Add a part number to check stock.</div>
+            )}
+          </div>
+        ) : hasOptions ? (
+          <div style={{ display: 'grid', gap: 8 }}>
+            {options.length > 6 ? (
+              <input
+                value={searchValue}
+                onChange={(e) => setComponentSearch((prev) => ({ ...prev, [type]: e.target.value }))}
+                placeholder="Search options"
+                style={{ ...controlStyle, padding: '8px 10px' }}
+              />
+            ) : null}
+            <select
+              value={selection?.componentId || ''}
+              onChange={(e) => updateComponentSelection(type, e.target.value)}
+              style={controlStyle}
+            >
+              <option value="">Select {label}</option>
+              {filteredOptions.map((component) => (
+                <option key={component.id} value={component.id}>
+                  {formatOptionLabel(component)}
+                </option>
+              ))}
+            </select>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontSize: 11, color: 'var(--muted)' }}>Quantity</span>
+              <input
+                type="number"
+                min={0}
+                value={selection?.qty || ''}
+                onChange={(e) => updateComponentQty(type, e.target.value)}
+                placeholder="0"
+                style={{ ...controlStyle, padding: '8px 10px' }}
+              />
+            </label>
+            {selectedComponent ? (
+              <div style={{ display: 'grid', gap: 6 }}>
+                {renderStockPill(selectedComponent.part_number, selection?.qty || '')}
+                <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                  {selectedComponent.tags.length ? `Tags: ${selectedComponent.tags.slice(0, 4).join(', ')}` : 'No tag data'}
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: 11, color: 'var(--muted)' }}>Pick an option to see details.</div>
+            )}
+            <button className="linkBtn" type="button" onClick={() => enableManual(type)}>
+              Can&apos;t find it? Add a manual part
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gap: 6 }}>
+            <div style={{ fontSize: 11, color: 'var(--muted)' }}>No validated options yet.</div>
+            <button className="linkBtn" type="button" onClick={() => enableManual(type)}>
+              Add a manual part
+            </button>
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -638,124 +944,36 @@ export default function ConfigurationsPage() {
               ) : null}
 
               <div style={{ display: 'grid', gap: 14 }}>
-                {primaryComponentTypes.length ? (
-                  <div className="componentGrid">
-                    {primaryComponentTypes.map((type) => {
-                      const options = compatibleByType[type] || []
-                      const selection = selectedComponents[type]
-                      const searchValue = componentSearch[type] || ''
-                      const filteredOptions = options.filter((option) => {
-                        if (!searchValue.trim()) return true
-                        const label = `${option.manufacturer || ''} ${option.model} ${option.part_number || ''} ${option.tags.join(' ')}`.toLowerCase()
-                        return label.includes(searchValue.trim().toLowerCase())
-                      })
-                      const selectedComponent = selection?.componentId ? componentLookup.get(selection.componentId) : null
-                      return (
-                        <div key={type} className="componentCard">
-                          <div className="componentHeader">
-                            <div style={{ fontWeight: 700 }}>{componentTypeLabels[type] || type}</div>
-                            <span style={autoPillStyle}>{options.length} options</span>
-                          </div>
-                          {options.length > 6 ? (
-                            <input
-                              value={searchValue}
-                              onChange={(e) => setComponentSearch((prev) => ({ ...prev, [type]: e.target.value }))}
-                              placeholder="Search options"
-                              style={{ ...controlStyle, padding: '8px 10px' }}
-                            />
-                          ) : null}
-                          <select
-                            value={selection?.componentId || ''}
-                            onChange={(e) => updateComponentSelection(type, e.target.value)}
-                            style={controlStyle}
-                          >
-                            <option value="">Select {componentTypeLabels[type] || type}</option>
-                            {filteredOptions.map((component) => (
-                              <option key={component.id} value={component.id}>
-                                {(component.manufacturer ? `${component.manufacturer} ` : '') + component.model}
-                                {component.part_number ? ` (${component.part_number})` : ''}
-                              </option>
-                            ))}
-                          </select>
-                          <div style={{ display: 'grid', gap: 6 }}>
-                            <label style={{ display: 'grid', gap: 6 }}>
-                              <span style={{ fontSize: 11, color: 'var(--muted)' }}>Quantity</span>
-                              <input
-                                type="number"
-                                min={0}
-                                value={selection?.qty || ''}
-                                onChange={(e) => updateComponentQty(type, e.target.value)}
-                                placeholder="0"
-                                style={{ ...controlStyle, padding: '8px 10px' }}
-                              />
-                            </label>
-                            {selectedComponent ? (
-                              <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-                                {selectedComponent.tags.length ? `Tags: ${selectedComponent.tags.slice(0, 4).join(', ')}` : 'No tag data'}
-                              </div>
-                            ) : (
-                              <div style={{ fontSize: 11, color: 'var(--muted)' }}>Pick an option to see details.</div>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                ) : (
+                <div style={{ display: 'grid', gap: 10 }}>
+                  <div style={{ fontWeight: 900 }}>Required components</div>
                   <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                    No validated compatibility rules yet for this platform. Use manual overrides below.
+                    Complete required items to proceed: {requiredChecklist.join(', ')} ({requiredProgress} done)
                   </div>
-                )}
+                  <div className="componentGrid">
+                    {requiredTypes.map((type) => renderComponentRow(type, true))}
+                  </div>
+                  {missingRequired.length ? (
+                    <div style={{ fontSize: 12, color: 'var(--bad)' }}>
+                      Missing required selections: {missingRequired.map((type) => componentTypeLabels[type] || type).join(', ')}
+                    </div>
+                  ) : null}
+                </div>
 
-                {secondaryComponentTypes.length ? (
-                  <details className="advancedPanel" open={primaryComponentTypes.length === 0}>
-                    <summary style={{ fontWeight: 700 }}>Optional components (manual override)</summary>
+                {recommendedTypes.length ? (
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    <div style={{ fontWeight: 900 }}>Recommended components</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>Optional but commonly included.</div>
+                    <div className="componentGrid">
+                      {recommendedTypes.map((type) => renderComponentRow(type, false))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {optionalTypes.length ? (
+                  <details className="advancedPanel">
+                    <summary style={{ fontWeight: 700 }}>Add more components</summary>
                     <div className="componentGrid" style={{ marginTop: 10 }}>
-                      {secondaryComponentTypes.map((type) => {
-                        const manual = manualOverrides[type] || { enabled: false, label: '', qty: '1', notes: '' }
-                        return (
-                          <div key={type} className="componentCard">
-                            <div className="componentHeader">
-                              <div style={{ fontWeight: 700 }}>{componentTypeLabels[type] || type}</div>
-                              <span style={autoPillStyle}>No validated options</span>
-                            </div>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <input
-                                type="checkbox"
-                                checked={manual.enabled}
-                                onChange={(e) => updateManualOverride(type, { enabled: e.target.checked })}
-                              />
-                              <span style={{ fontSize: 12, color: 'var(--muted)' }}>Manual override</span>
-                            </label>
-                            {manual.enabled ? (
-                              <div style={{ display: 'grid', gap: 8 }}>
-                                <input
-                                  value={manual.label}
-                                  onChange={(e) => updateManualOverride(type, { label: e.target.value })}
-                                  placeholder="Component description"
-                                  style={{ ...controlStyle, padding: '8px 10px' }}
-                                />
-                                <input
-                                  type="number"
-                                  min={0}
-                                  value={manual.qty}
-                                  onChange={(e) => updateManualOverride(type, { qty: e.target.value })}
-                                  placeholder="Quantity"
-                                  style={{ ...controlStyle, padding: '8px 10px' }}
-                                />
-                                <input
-                                  value={manual.notes}
-                                  onChange={(e) => updateManualOverride(type, { notes: e.target.value })}
-                                  placeholder="Notes (optional)"
-                                  style={{ ...controlStyle, padding: '8px 10px' }}
-                                />
-                              </div>
-                            ) : (
-                              <div style={{ fontSize: 11, color: 'var(--muted)' }}>Enable override to enter a custom part.</div>
-                            )}
-                          </div>
-                        )
-                      })}
+                      {optionalTypes.map((type) => renderComponentRow(type, false))}
                     </div>
                   </details>
                 ) : null}
@@ -815,7 +1033,7 @@ export default function ConfigurationsPage() {
                 <button className="ghostBtn" type="button" onClick={() => setStepSafe(2)}>
                   Back
                 </button>
-                <button className="primaryBtn" type="button" onClick={() => setStepSafe(4)}>
+                <button className="primaryBtn" type="button" onClick={() => setStepSafe(4)} disabled={missingRequired.length > 0}>
                   Review configuration
                 </button>
               </div>
@@ -858,10 +1076,9 @@ export default function ConfigurationsPage() {
                   </div>
                 ) : null}
                 {manualUsed ? (
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                    <input type="checkbox" checked={allowOverride} onChange={(e) => setAllowOverride(e.target.checked)} />
-                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>Allow save with manual overrides</span>
-                  </label>
+                  <div style={{ fontSize: 12, color: '#f7c76a', marginTop: 8 }}>
+                    Manual parts added (unverified). Review before quoting.
+                  </div>
                 ) : null}
                 {noCompatTypes.length ? (
                   <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
@@ -920,10 +1137,9 @@ export default function ConfigurationsPage() {
           </div>
 
           {manualUsed ? (
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
-              <input type="checkbox" checked={allowOverride} onChange={(e) => setAllowOverride(e.target.checked)} />
-              <span style={{ fontSize: 12, color: 'var(--muted)' }}>Allow save with manual overrides</span>
-            </label>
+            <div style={{ fontSize: 12, color: '#f7c76a', marginTop: 12 }}>
+              Manual parts added (unverified).
+            </div>
           ) : null}
 
           <div style={{ display: 'grid', gap: 8, marginTop: 16 }}>
@@ -1083,6 +1299,15 @@ export default function ConfigurationsPage() {
           justify-content: space-between;
           align-items: center;
           gap: 8px;
+        }
+        .requiredPill {
+          padding: 4px 10px;
+          border-radius: 999px;
+          border: 1px solid var(--accent);
+          color: var(--accent);
+          font-size: 11px;
+          font-weight: 700;
+          background: rgba(90, 180, 255, 0.12);
         }
         .advancedPanel {
           border: 1px solid var(--border);
