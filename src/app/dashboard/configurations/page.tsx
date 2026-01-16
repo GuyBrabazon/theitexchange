@@ -163,7 +163,7 @@ export default function ConfigurationsPage() {
   const [advancedValues, setAdvancedValues] = useState<Record<string, string>>({})
   const [stockByPart, setStockByPart] = useState<Record<string, number>>({})
   const [stockLoading, setStockLoading] = useState(false)
-  const [stockChecked, setStockChecked] = useState<Record<string, true>>({})
+  const [stockChecked, setStockChecked] = useState<Record<string, boolean>>({})
 
   const filteredModels = useMemo(() => systemModels.filter((m) => m.machine_type === machineType), [systemModels, machineType])
 
