@@ -464,8 +464,10 @@ export default function ConfigurationsPage() {
         .catch((e) => console.error('manual stock load error', e))
         .finally(() => setStockLoading(false))
     }, 300)
+    return () => clearTimeout(handle)
+  }, [manualOverrides, stockChecked])
 
-      return (
+  return (
     <main className="configPage">
       <div className="pageHeader">
         <h1>Configurations</h1>
@@ -640,6 +642,8 @@ export default function ConfigurationsPage() {
             <details className="accordion" open>
               <summary>Required Components</summary>
               <div className="accordionBody">
+                {compatLoading ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>Loading compatibility...</div> : null}
+                {compatError ? <div style={{ color: 'var(--bad)', fontSize: 12 }}>{compatError}</div> : null}
                 <div style={{ fontSize: 12, color: 'var(--muted)' }}>
                   Complete required items to proceed: {requiredChecklist.join(', ')} ({requiredProgress} done)
                 </div>
@@ -728,25 +732,25 @@ export default function ConfigurationsPage() {
             <div className="summaryTitle">Overview / Summary</div>
             <div className="summaryList">
               <div className="summaryItem">
-                <span className="summaryCheck">?</span>
+                <span className="summaryCheck">✓</span>
                 <span>
                   Configuration: <strong>{configName.trim() || 'Untitled configuration'}</strong>
                 </span>
               </div>
               <div className="summaryItem">
-                <span className="summaryCheck">?</span>
+                <span className="summaryCheck">✓</span>
                 <span>
                   Machine Type: <strong>{machineOptions.find((opt) => opt.value === machineType)?.label || 'Unknown'}</strong>
                 </span>
               </div>
               <div className="summaryItem">
-                <span className="summaryCheck">?</span>
+                <span className="summaryCheck">✓</span>
                 <span>
                   Quantity: <strong>{configQty || '1'}</strong>
                 </span>
               </div>
               <div className="summaryItem">
-                <span className="summaryCheck">?</span>
+                <span className="summaryCheck">✓</span>
                 <span>
                   Platform: <strong>{selectedModel ? formatPlatformLabel(selectedModel) : 'Not selected'}</strong>
                 </span>
@@ -903,7 +907,7 @@ export default function ConfigurationsPage() {
           display: none;
         }
         .accordion summary::after {
-          content: '?';
+          content: '▾';
           margin-left: auto;
           color: var(--muted);
           transition: transform 0.2s ease;
