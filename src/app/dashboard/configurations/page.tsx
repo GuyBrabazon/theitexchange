@@ -597,7 +597,7 @@ export default function ConfigurationsPage() {
     })
   }
 
-  const filterByTagKeywords = (options: ComponentModel[], keywords: string[]) => {
+  function filterByTagKeywords(options: ComponentModel[], keywords: string[]) {
     const lowered = keywords.map((keyword) => keyword.toLowerCase())
     return options.filter((component) => {
       const tags = component.tags.map((tag) => tag.toLowerCase())
