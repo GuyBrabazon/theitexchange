@@ -5,8 +5,6 @@ import { supabase } from '@/lib/supabase'
 
 type MachineType = 'server' | 'storage' | 'network'
 
-type Step = 1 | 2 | 3 | 4
-
 type SystemModel = {
   id: string
   tenant_id: string | null
@@ -141,8 +139,9 @@ const controlStyle = {
 const normalizePartNumber = (value: string) => value.trim().toUpperCase()
 
 export default function ConfigurationsPage() {
-  const [step, setStep] = useState<Step>(1)
   const [machineType, setMachineType] = useState<MachineType>('server')
+  const [configName, setConfigName] = useState('')
+  const [configQty, setConfigQty] = useState('1')
   const [catalogLoading, setCatalogLoading] = useState(false)
   const [catalogError, setCatalogError] = useState('')
   const [systemModels, setSystemModels] = useState<SystemModel[]>([])
@@ -315,7 +314,6 @@ export default function ConfigurationsPage() {
     setStockByPart({})
     setStockLoading(false)
     setStockChecked({})
-    setStep(1)
   }, [machineType])
 
   useEffect(() => {
@@ -467,652 +465,307 @@ export default function ConfigurationsPage() {
         .finally(() => setStockLoading(false))
     }, 300)
 
-    return () => clearTimeout(handle)
-  }, [manualOverrides, stockChecked])
+      return (
+    <main className="configPage">
+      <div className="pageHeader">
+        <h1>Configurations</h1>
+        <div className="subText">Build a platform configuration quickly with catalog-driven compatibility.</div>
+      </div>
 
-  const compatibleByType = useMemo(() => {
-    const groups: Record<string, ComponentModel[]> = {}
-    compatibleComponents.forEach((component) => {
-      const key = component.component_type || 'other'
-      if (!groups[key]) groups[key] = []
-      groups[key].push(component)
-    })
-    Object.values(groups).forEach((list) => list.sort((a, b) => a.model.localeCompare(b.model)))
-    return groups
-  }, [compatibleComponents])
+      <div className="tabBar">
+        {machineOptions.map((option) => {
+          const active = machineType === option.value
+          return (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setMachineType(option.value)}
+              className={`tabBtn ${active ? 'tabActive' : ''}`}
+            >
+              {option.label}
+            </button>
+          )
+        })}
+      </div>
 
-  const componentOrder = componentOrderByMachine[machineType]
-  const requiredTypes = requiredTypesByMachine[machineType]
-  const recommendedTypes = componentOrder.filter(
-    (type) => !requiredTypes.includes(type) && (compatibleByType[type] || []).length > 0
-  )
-  const optionalTypes = componentOrder.filter((type) => !requiredTypes.includes(type) && !recommendedTypes.includes(type))
-
-  const componentLookup = useMemo(() => {
-    const map = new Map<string, ComponentModel>()
-    compatibleComponents.forEach((component) => map.set(component.id, component))
-    return map
-  }, [compatibleComponents])
-
-  const updateComponentSelection = (type: string, componentId: string) => {
-    setSelectedComponents((prev) => {
-      if (!componentId) {
-        const next = { ...prev }
-        delete next[type]
-        return next
-      }
-      const existing = prev[type]
-      return {
-        ...prev,
-        [type]: { componentId, qty: existing?.qty || '1' },
-      }
-    })
-  }
-
-  const updateComponentQty = (type: string, qty: string) => {
-    setSelectedComponents((prev) => {
-      const existing = prev[type]
-      if (!existing) return prev
-      return { ...prev, [type]: { ...existing, qty } }
-    })
-  }
-
-  const updateManualOverride = (type: string, updates: Partial<ManualEntry>) => {
-    setManualOverrides((prev) => {
-      const current = prev[type] || { enabled: false, label: '', partNumber: '', qty: '1', notes: '' }
-      return { ...prev, [type]: { ...current, ...updates } }
-    })
-  }
-
-  const enableManual = (type: string) => {
-    setSelectedComponents((prev) => {
-      if (!prev[type]) return prev
-      const next = { ...prev }
-      delete next[type]
-      return next
-    })
-    updateManualOverride(type, { enabled: true })
-  }
-
-  const disableManual = (type: string) => {
-    updateManualOverride(type, { enabled: false })
-  }
-
-  const toggleTagFilter = (tag: string) => {
-    setFilterTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
-  }
-  const missingRequired = requiredTypes.filter((type) => {
-    const selection = selectedComponents[type]
-    const manual = manualOverrides[type]
-    if (selection?.componentId) return false
-    if (manual?.enabled && manual.label.trim()) return false
-    return true
-  })
-
-  const manualUsed = Object.values(manualOverrides).some((entry) => entry.enabled && entry.label.trim())
-  const noCompatTypes = componentOrder.filter((type) => (compatibleByType[type] || []).length === 0)
-  const requiredChecklist = requiredTypes.map((type) => componentTypeLabels[type] || type)
-  const requiredProgress = `${requiredTypes.length - missingRequired.length}/${requiredTypes.length}`
-
-  const compatLevel = missingRequired.length > 0 ? 'blocked' : noCompatTypes.length ? 'warning' : 'ok'
-  const canSave = missingRequired.length === 0
-
-  const summaryItems = componentOrder
-    .map((type) => {
-      const selection = selectedComponents[type]
-      if (selection?.componentId) {
-        const component = componentLookup.get(selection.componentId)
-        if (!component) return null
-        const label = `${component.manufacturer ? `${component.manufacturer} ` : ''}${component.model}${component.part_number ? ` (${component.part_number})` : ''}`
-        return { type, label, qty: selection.qty || '1', source: 'catalog' }
-      }
-      const manual = manualOverrides[type]
-      if (manual?.enabled && manual.label.trim()) {
-        return { type, label: manual.label, qty: manual.qty || '1', source: 'manual' }
-      }
-      return null
-    })
-    .filter((item): item is { type: string; label: string; qty: string; source: string } => Boolean(item))
-
-  const compatibilityText = useMemo(() => {
-    if (compatLevel === 'ok') return { label: 'Ready to save', tone: 'good' }
-    if (compatLevel === 'warning') return { label: 'Limited compatibility data', tone: 'warn' }
-    return { label: 'Missing required selections', tone: 'bad' }
-  }, [compatLevel])
-
-  const canGoToStep = (target: Step) => {
-    if (target === 1) return true
-    if (target === 2) return true
-    if (target === 3) return Boolean(selectedModelId)
-    if (target === 4) return Boolean(selectedModelId) && missingRequired.length === 0
-    return false
-  }
-
-  const setStepSafe = (target: Step) => {
-    if (canGoToStep(target)) setStep(target)
-  }
-
-  const resetConfigurator = () => {
-    setSelectedModelId('')
-    setPlatformSearch('')
-    setFilterManufacturer('')
-    setFilterFormFactor('')
-    setFilterTags([])
-    setSelectedComponents({})
-    setManualOverrides({})
-    setComponentSearch({})
-    setAdvancedValues({})
-    setStockByPart({})
-    setStockLoading(false)
-    setStockChecked({})
-    setStep(1)
-  }
-
-  const renderComponentRow = (type: string, required: boolean) => {
-    const label = componentTypeLabels[type] || type
-    const options = compatibleByType[type] || []
-    const hasOptions = options.length > 0
-    const manual = manualOverrides[type] || { enabled: false, label: '', partNumber: '', qty: '1', notes: '' }
-    const manualActive = manual.enabled
-    const selection = selectedComponents[type]
-    const searchValue = componentSearch[type] || ''
-    const filteredOptions = hasOptions
-      ? options.filter((option) => {
-          if (!searchValue.trim()) return true
-          const optionLabel = `${option.manufacturer || ''} ${option.model} ${option.part_number || ''} ${option.tags.join(' ')}`.toLowerCase()
-          return optionLabel.includes(searchValue.trim().toLowerCase())
-        })
-      : []
-    const selectedComponent = selection?.componentId ? componentLookup.get(selection.componentId) : null
-
-    return (
-      <div key={type} className="componentCard">
-        <div className="componentHeader">
-          <div style={{ fontWeight: 700 }}>{label}</div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {required ? <span className="requiredPill">Required</span> : null}
-            {hasOptions ? <span style={autoPillStyle}>{options.length} options</span> : <span style={autoPillStyle}>No validated options</span>}
+      <div className="configCard">
+        <div className="configHeader">
+          <div>
+            <div className="configTitle">Configuration Details</div>
+            <div className="configSubtitle">Select a platform model, then fill components in the sections below.</div>
+          </div>
+          <div className="configFieldGrid">
+            <label className="field">
+              <span className="fieldLabel">Configuration Name</span>
+              <input
+                value={configName}
+                onChange={(e) => setConfigName(e.target.value)}
+                placeholder="e.g. Web Server Cluster"
+                style={controlStyle}
+              />
+            </label>
+            <label className="field">
+              <span className="fieldLabel">Machine Type</span>
+              <select value={machineType} onChange={(e) => setMachineType(e.target.value as MachineType)} style={controlStyle}>
+                {machineOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span className="fieldLabel">Quantity</span>
+              <input
+                type="number"
+                min={1}
+                value={configQty}
+                onChange={(e) => setConfigQty(e.target.value)}
+                placeholder="1"
+                style={controlStyle}
+              />
+            </label>
           </div>
         </div>
 
-        {manualActive ? (
-          <div style={{ display: 'grid', gap: 8 }}>
-            {hasOptions ? (
-              <button className="linkBtn" type="button" onClick={() => disableManual(type)}>
-                Back to catalog selection
-              </button>
-            ) : null}
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span style={{ fontSize: 11, color: 'var(--muted)' }}>Description</span>
-              <input
-                value={manual.label}
-                onChange={(e) => updateManualOverride(type, { label: e.target.value })}
-                placeholder="Manual part description"
-                style={{ ...controlStyle, padding: '8px 10px' }}
-              />
-            </label>
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span style={{ fontSize: 11, color: 'var(--muted)' }}>Part number (optional)</span>
-              <input
-                value={manual.partNumber}
-                onChange={(e) => updateManualOverride(type, { partNumber: e.target.value })}
-                placeholder="e.g. INT-4314"
-                style={{ ...controlStyle, padding: '8px 10px' }}
-              />
-            </label>
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span style={{ fontSize: 11, color: 'var(--muted)' }}>Quantity</span>
-              <input
-                type="number"
-                min={0}
-                value={manual.qty}
-                onChange={(e) => updateManualOverride(type, { qty: e.target.value })}
-                placeholder="1"
-                style={{ ...controlStyle, padding: '8px 10px' }}
-              />
-            </label>
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span style={{ fontSize: 11, color: 'var(--muted)' }}>Notes</span>
-              <input
-                value={manual.notes}
-                onChange={(e) => updateManualOverride(type, { notes: e.target.value })}
-                placeholder="Optional notes"
-                style={{ ...controlStyle, padding: '8px 10px' }}
-              />
-            </label>
-            {manual.partNumber.trim() ? (
-              <div>{renderStockPill(manual.partNumber, manual.qty)}</div>
-            ) : (
-              <div style={{ fontSize: 11, color: 'var(--muted)' }}>Add a part number to check stock.</div>
-            )}
-          </div>
-        ) : hasOptions ? (
-          <div style={{ display: 'grid', gap: 8 }}>
-            {options.length > 6 ? (
-              <input
-                value={searchValue}
-                onChange={(e) => setComponentSearch((prev) => ({ ...prev, [type]: e.target.value }))}
-                placeholder="Search options"
-                style={{ ...controlStyle, padding: '8px 10px' }}
-              />
-            ) : null}
-            <select
-              value={selection?.componentId || ''}
-              onChange={(e) => updateComponentSelection(type, e.target.value)}
-              style={controlStyle}
-            >
-              <option value="">Select {label}</option>
-              {filteredOptions.map((component) => (
-                <option key={component.id} value={component.id}>
-                  {formatOptionLabel(component)}
-                </option>
-              ))}
-            </select>
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span style={{ fontSize: 11, color: 'var(--muted)' }}>Quantity</span>
-              <input
-                type="number"
-                min={0}
-                value={selection?.qty || ''}
-                onChange={(e) => updateComponentQty(type, e.target.value)}
-                placeholder="0"
-                style={{ ...controlStyle, padding: '8px 10px' }}
-              />
-            </label>
-            {selectedComponent ? (
-              <div style={{ display: 'grid', gap: 6 }}>
-                {renderStockPill(selectedComponent.part_number, selection?.qty || '')}
-                <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-                  {selectedComponent.tags.length ? `Tags: ${selectedComponent.tags.slice(0, 4).join(', ')}` : 'No tag data'}
-                </div>
-              </div>
-            ) : (
-              <div style={{ fontSize: 11, color: 'var(--muted)' }}>Pick an option to see details.</div>
-            )}
-            <button className="linkBtn" type="button" onClick={() => enableManual(type)}>
-              Can&apos;t find it? Add a manual part
-            </button>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gap: 6 }}>
-            <div style={{ fontSize: 11, color: 'var(--muted)' }}>No validated options yet.</div>
-            <button className="linkBtn" type="button" onClick={() => enableManual(type)}>
-              Add a manual part
-            </button>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  return (
-    <main style={{ padding: 24, display: 'grid', gap: 16 }}>
-      <div>
-        <h1 style={{ marginBottom: 6 }}>Configurations</h1>
-        <div style={{ color: 'var(--muted)' }}>Pick a platform, choose compatible components, then review and save.</div>
-      </div>
-
-      <div className="layout">
-        <section style={{ display: 'grid', gap: 14 }}>
-          <div className="stepper">
-            {[1, 2, 3, 4].map((stepIndex) => {
-              const label = stepIndex === 1 ? 'Machine type' : stepIndex === 2 ? 'Platform' : stepIndex === 3 ? 'Configure' : 'Review'
-              const active = step === stepIndex
-              const enabled = canGoToStep(stepIndex as Step)
-              return (
-                <button
-                  key={stepIndex}
-                  type="button"
-                  onClick={() => setStepSafe(stepIndex as Step)}
-                  disabled={!enabled}
-                  className={`step ${active ? 'stepActive' : ''}`}
-                >
-                  <span className="stepIndex">{stepIndex}</span>
-                  <span>{label}</span>
-                </button>
-              )
-            })}
-          </div>
-
-          {step === 1 ? (
-            <div className="panel">
-              <div>
-                <div style={{ fontWeight: 900 }}>Step 1: Machine type</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)' }}>Choose the hardware category to configure.</div>
-              </div>
-              <div className="chipRow" style={{ marginTop: 10 }}>
-                {machineOptions.map((option) => {
-                  const active = machineType === option.value
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setMachineType(option.value)}
-                      className={`chip ${active ? 'chipActive' : ''}`}
+        <div className="configLayout">
+          <div className="configLeft">
+            <details className="accordion" open>
+              <summary>Platform Details</summary>
+              <div className="accordionBody">
+                {catalogLoading ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>Loading catalog...</div> : null}
+                {catalogError ? <div style={{ color: 'var(--bad)', fontSize: 12 }}>{catalogError}</div> : null}
+                <div className="configFieldGrid">
+                  <label className="field">
+                    <span className="fieldLabel">Search platform</span>
+                    <input
+                      value={platformSearch}
+                      onChange={(e) => setPlatformSearch(e.target.value)}
+                      placeholder="Search manufacturer, family, model, tags"
+                      style={controlStyle}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="fieldLabel">Platform model</span>
+                    <select
+                      value={selectedModelId}
+                      onChange={(e) => setSelectedModelId(e.target.value)}
+                      disabled={catalogLoading || platformResults.length === 0}
+                      style={controlStyle}
                     >
-                      {option.label}
-                    </button>
-                  )
-                })}
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-                <button className="primaryBtn" type="button" onClick={() => setStepSafe(2)}>
-                  Continue
-                </button>
-              </div>
-            </div>
-          ) : null}
-
-          {step === 2 ? (
-            <div className="panel">
-              <div>
-                <div style={{ fontWeight: 900 }}>Step 2: Platform</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                  Search the catalog once and select a platform model.
-                </div>
-              </div>
-              {catalogLoading ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>Loading catalog...</div> : null}
-              {catalogError ? <div style={{ color: 'var(--bad)', fontSize: 12 }}>{catalogError}</div> : null}
-              <div className="platformGrid">
-                <label style={{ display: 'grid', gap: 6 }}>
-                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>Search platform</span>
-                  <input
-                    value={platformSearch}
-                    onChange={(e) => setPlatformSearch(e.target.value)}
-                    placeholder="Search manufacturer, family, model, tags"
-                    style={controlStyle}
-                  />
-                </label>
-                <label style={{ display: 'grid', gap: 6 }}>
-                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>Platform model</span>
-                  <select
-                    value={selectedModelId}
-                    onChange={(e) => setSelectedModelId(e.target.value)}
-                    disabled={catalogLoading || platformResults.length === 0}
-                    style={controlStyle}
-                  >
-                    <option value="">Select platform</option>
-                    {platformResults.map((model) => (
-                      <option key={model.id} value={model.id}>
-                        {formatPlatformLabel(model)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <div style={{ display: 'grid', gap: 8 }}>
-                <div style={{ fontSize: 12, color: 'var(--muted)' }}>Quick filters</div>
-                <div className="chipRow">
-                  {manufacturerOptions.slice(0, 6).map((maker) => {
-                    const active = filterManufacturer === maker
-                    return (
-                      <button
-                        key={maker}
-                        type="button"
-                        className={`chip ${active ? 'chipActive' : ''}`}
-                        onClick={() => setFilterManufacturer(active ? '' : maker)}
-                      >
-                        {maker}
-                      </button>
-                    )
-                  })}
-                  {formFactorOptions.map((form) => {
-                    const active = filterFormFactor === form
-                    return (
-                      <button
-                        key={form}
-                        type="button"
-                        className={`chip ${active ? 'chipActive' : ''}`}
-                        onClick={() => setFilterFormFactor(active ? '' : form)}
-                      >
-                        {form}
-                      </button>
-                    )
-                  })}
-                </div>
-                <div className="chipRow">
-                  {tagOptions.map((tag) => {
-                    const active = filterTags.includes(tag)
-                    return (
-                      <button
-                        key={tag}
-                        type="button"
-                        className={`chip ${active ? 'chipActive' : ''}`}
-                        onClick={() => toggleTagFilter(tag)}
-                      >
-                        {tag}
-                      </button>
-                    )
-                  })}
-                </div>
-                {(filterManufacturer || filterFormFactor || filterTags.length) && (
-                  <button
-                    type="button"
-                    className="linkBtn"
-                    onClick={() => {
-                      setFilterManufacturer('')
-                      setFilterFormFactor('')
-                      setFilterTags([])
-                    }}
-                  >
-                    Clear filters
-                  </button>
-                )}
-              </div>
-              {selectedModel ? (
-                <div className="summaryCard">
-                  <div style={{ fontWeight: 900 }}>Platform summary</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{formatPlatformLabel(selectedModel)}</div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
-                    <span style={autoPillStyle} title="Derived from catalog">
-                      Form factor: {selectedModel.form_factor || 'Auto'}
-                    </span>
-                    {selectedModel.tags.slice(0, 6).map((tag) => (
-                      <span key={tag} style={autoPillStyle}>
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-                <button className="ghostBtn" type="button" onClick={() => setStepSafe(1)}>
-                  Back
-                </button>
-                <button className="primaryBtn" type="button" onClick={() => setStepSafe(3)} disabled={!selectedModelId}>
-                  Continue to configuration
-                </button>
-              </div>
-            </div>
-          ) : null}
-
-          {step === 3 ? (
-            <div className="panel">
-              <div>
-                <div style={{ fontWeight: 900 }}>Step 3: Configure components</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                  Choose compatible components first. Advanced details are optional.
-                </div>
-              </div>
-              {compatLoading ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>Loading compatibility...</div> : null}
-              {compatError ? <div style={{ color: 'var(--bad)', fontSize: 12 }}>{compatError}</div> : null}
-              {selectedModel ? (
-                <div className="summaryCard">
-                  <div style={{ fontWeight: 900 }}>Selected platform</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{formatPlatformLabel(selectedModel)}</div>
-                </div>
-              ) : null}
-
-              <div style={{ display: 'grid', gap: 14 }}>
-                <div style={{ display: 'grid', gap: 10 }}>
-                  <div style={{ fontWeight: 900 }}>Required components</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                    Complete required items to proceed: {requiredChecklist.join(', ')} ({requiredProgress} done)
-                  </div>
-                  <div className="componentGrid">
-                    {requiredTypes.map((type) => renderComponentRow(type, true))}
-                  </div>
-                  {missingRequired.length ? (
-                    <div style={{ fontSize: 12, color: 'var(--bad)' }}>
-                      Missing required selections: {missingRequired.map((type) => componentTypeLabels[type] || type).join(', ')}
-                    </div>
-                  ) : null}
+                      <option value="">Select platform</option>
+                      {platformResults.map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {formatPlatformLabel(model)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
 
-                {recommendedTypes.length ? (
-                  <div style={{ display: 'grid', gap: 10 }}>
-                    <div style={{ fontWeight: 900 }}>Recommended components</div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>Optional but commonly included.</div>
-                    <div className="componentGrid">
-                      {recommendedTypes.map((type) => renderComponentRow(type, false))}
-                    </div>
-                  </div>
-                ) : null}
+                <div className="configFieldGrid">
+                  <label className="field">
+                    <span className="fieldLabel">Manufacturer</span>
+                    <select value={filterManufacturer} onChange={(e) => setFilterManufacturer(e.target.value)} style={controlStyle}>
+                      <option value="">All manufacturers</option>
+                      {manufacturerOptions.map((maker) => (
+                        <option key={maker} value={maker}>
+                          {maker}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span className="fieldLabel">Form factor</span>
+                    <select value={filterFormFactor} onChange={(e) => setFilterFormFactor(e.target.value)} style={controlStyle}>
+                      <option value="">All form factors</option>
+                      {formFactorOptions.map((form) => (
+                        <option key={form} value={form}>
+                          {form}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
 
-                {optionalTypes.length ? (
-                  <details className="advancedPanel">
-                    <summary style={{ fontWeight: 700 }}>Add more components</summary>
-                    <div className="componentGrid" style={{ marginTop: 10 }}>
-                      {optionalTypes.map((type) => renderComponentRow(type, false))}
-                    </div>
-                  </details>
-                ) : null}
-
-                <details className="advancedPanel">
-                  <summary style={{ fontWeight: 700 }}>Advanced details</summary>
-                  <div className="advancedGrid">
-                    {(advancedFieldsByMachine[machineType] || []).map((field) => {
-                      const value = advancedValues[field.key] || ''
-                      if (field.kind === 'readonly') {
-                        return (
-                          <div key={field.key} className="advancedField">
-                            <div style={{ fontSize: 11, color: 'var(--muted)' }}>{field.label}</div>
-                            <span style={autoPillStyle} title="Auto derived from platform or rules">
-                              Auto
-                            </span>
-                          </div>
-                        )
-                      }
-                      if (field.kind === 'select') {
-                        return (
-                          <label key={field.key} className="advancedField">
-                            <span style={{ fontSize: 11, color: 'var(--muted)' }}>{field.label}</span>
-                            <select
-                              value={value}
-                              onChange={(e) => setAdvancedValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                              style={{ ...controlStyle, padding: '8px 10px' }}
-                            >
-                              <option value="">Select</option>
-                              {field.options?.map((opt) => (
-                                <option key={opt} value={opt}>
-                                  {opt}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                        )
-                      }
+                <div style={{ display: 'grid', gap: 8 }}>
+                  <div className="fieldLabel">Tags</div>
+                  <div className="chipRow">
+                    {tagOptions.map((tag) => {
+                      const active = filterTags.includes(tag)
                       return (
-                        <label key={field.key} className="advancedField">
-                          <span style={{ fontSize: 11, color: 'var(--muted)' }}>{field.label}</span>
-                          <input
-                            type={field.kind === 'number' ? 'number' : 'text'}
-                            value={value}
-                            onChange={(e) => setAdvancedValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                            placeholder={field.placeholder}
-                            style={{ ...controlStyle, padding: '8px 10px' }}
-                          />
-                        </label>
+                        <button
+                          key={tag}
+                          type="button"
+                          className={`chip ${active ? 'chipActive' : ''}`}
+                          onClick={() => toggleTagFilter(tag)}
+                        >
+                          {tag}
+                        </button>
                       )
                     })}
                   </div>
-                </details>
-              </div>
+                  {filterManufacturer || filterFormFactor || filterTags.length ? (
+                    <button
+                      type="button"
+                      className="linkBtn"
+                      onClick={() => {
+                        setFilterManufacturer('')
+                        setFilterFormFactor('')
+                        setFilterTags([])
+                      }}
+                    >
+                      Clear filters
+                    </button>
+                  ) : null}
+                </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
-                <button className="ghostBtn" type="button" onClick={() => setStepSafe(2)}>
-                  Back
-                </button>
-                <button className="primaryBtn" type="button" onClick={() => setStepSafe(4)} disabled={missingRequired.length > 0}>
-                  Review configuration
-                </button>
-              </div>
-            </div>
-          ) : null}
-
-          {step === 4 ? (
-            <div className="panel">
-              <div>
-                <div style={{ fontWeight: 900 }}>Step 4: Review</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)' }}>Confirm the BOM and compatibility status.</div>
-              </div>
-              <div className="summaryCard">
-                <div style={{ fontWeight: 900 }}>Platform</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{selectedModel ? formatPlatformLabel(selectedModel) : 'No platform selected'}</div>
-              </div>
-              <div className="summaryCard">
-                <div style={{ fontWeight: 900 }}>Selected components</div>
-                {summaryItems.length ? (
-                  <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
-                    {summaryItems.map((item) => (
-                      <div key={`${item.type}-${item.label}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 12 }}>
-                        <div>
-                          <strong>{componentTypeLabels[item.type] || item.type}:</strong> {item.label}
-                        </div>
-                        <div style={{ color: 'var(--muted)' }}>Qty {item.qty}</div>
-                      </div>
-                    ))}
+                {selectedModel ? (
+                  <div className="summaryCard">
+                    <div style={{ fontWeight: 900 }}>Platform summary</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>{formatPlatformLabel(selectedModel)}</div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
+                      <span style={autoPillStyle}>Form factor: {selectedModel.form_factor || 'Auto'}</span>
+                      {selectedModel.tags.slice(0, 6).map((tag) => (
+                        <span key={tag} style={autoPillStyle}>
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                ) : (
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>No components selected yet.</div>
-                )}
+                ) : null}
               </div>
-              <div className="summaryCard">
-                <div style={{ fontWeight: 900 }}>Compatibility</div>
-                <div className={`statusPill status${compatibilityText.tone}`}>{compatibilityText.label}</div>
+            </details>
+
+            <details className="accordion" open>
+              <summary>Required Components</summary>
+              <div className="accordionBody">
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  Complete required items to proceed: {requiredChecklist.join(', ')} ({requiredProgress} done)
+                </div>
+                <div className="componentGrid">{requiredTypes.map((type) => renderComponentRow(type, true))}</div>
                 {missingRequired.length ? (
                   <div style={{ fontSize: 12, color: 'var(--bad)' }}>
-                    Missing required: {missingRequired.map((type) => componentTypeLabels[type] || type).join(', ')}
-                  </div>
-                ) : null}
-                {manualUsed ? (
-                  <div style={{ fontSize: 12, color: '#f7c76a', marginTop: 8 }}>
-                    Manual parts added (unverified). Review before quoting.
-                  </div>
-                ) : null}
-                {noCompatTypes.length ? (
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
-                    Limited data for: {noCompatTypes.map((type) => componentTypeLabels[type] || type).join(', ')}
+                    Missing required selections: {missingRequired.map((type) => componentTypeLabels[type] || type).join(', ')}
                   </div>
                 ) : null}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
-                <button className="ghostBtn" type="button" onClick={() => setStepSafe(3)}>
-                  Back
-                </button>
-                <button className="primaryBtn" type="button" disabled={!canSave}>
-                  Save configuration
-                </button>
+            </details>
+
+            {recommendedTypes.length ? (
+              <details className="accordion" open>
+                <summary>Recommended Components</summary>
+                <div className="accordionBody">
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>Optional but commonly included.</div>
+                  <div className="componentGrid">{recommendedTypes.map((type) => renderComponentRow(type, false))}</div>
+                </div>
+              </details>
+            ) : null}
+
+            {optionalTypes.length ? (
+              <details className="accordion">
+                <summary>Add More Components</summary>
+                <div className="accordionBody">
+                  <div className="componentGrid">{optionalTypes.map((type) => renderComponentRow(type, false))}</div>
+                </div>
+              </details>
+            ) : null}
+
+            <details className="accordion">
+              <summary>Advanced Details</summary>
+              <div className="accordionBody">
+                <div className="advancedGrid">
+                  {(advancedFieldsByMachine[machineType] || []).map((field) => {
+                    const value = advancedValues[field.key] || ''
+                    if (field.kind === 'readonly') {
+                      return (
+                        <div key={field.key} className="advancedField">
+                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{field.label}</div>
+                          <span style={autoPillStyle} title="Auto derived from platform or rules">
+                            Auto
+                          </span>
+                        </div>
+                      )
+                    }
+                    if (field.kind === 'select') {
+                      return (
+                        <label key={field.key} className="advancedField">
+                          <span style={{ fontSize: 11, color: 'var(--muted)' }}>{field.label}</span>
+                          <select
+                            value={value}
+                            onChange={(e) => setAdvancedValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                            style={{ ...controlStyle, padding: '8px 10px' }}
+                          >
+                            <option value="">Select</option>
+                            {field.options?.map((opt) => (
+                              <option key={opt} value={opt}>
+                                {opt}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )
+                    }
+                    return (
+                      <label key={field.key} className="advancedField">
+                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>{field.label}</span>
+                        <input
+                          type={field.kind === 'number' ? 'number' : 'text'}
+                          value={value}
+                          onChange={(e) => setAdvancedValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                          placeholder={field.placeholder}
+                          style={{ ...controlStyle, padding: '8px 10px' }}
+                        />
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+            </details>
+          </div>
+
+          <aside className="summaryPanel stickyCard">
+            <div className="summaryTitle">Overview / Summary</div>
+            <div className="summaryList">
+              <div className="summaryItem">
+                <span className="summaryCheck">?</span>
+                <span>
+                  Configuration: <strong>{configName.trim() || 'Untitled configuration'}</strong>
+                </span>
+              </div>
+              <div className="summaryItem">
+                <span className="summaryCheck">?</span>
+                <span>
+                  Machine Type: <strong>{machineOptions.find((opt) => opt.value === machineType)?.label || 'Unknown'}</strong>
+                </span>
+              </div>
+              <div className="summaryItem">
+                <span className="summaryCheck">?</span>
+                <span>
+                  Quantity: <strong>{configQty || '1'}</strong>
+                </span>
+              </div>
+              <div className="summaryItem">
+                <span className="summaryCheck">?</span>
+                <span>
+                  Platform: <strong>{selectedModel ? formatPlatformLabel(selectedModel) : 'Not selected'}</strong>
+                </span>
               </div>
             </div>
-          ) : null}
-        </section>
 
-        <aside className="summary stickyCard">
-          <div style={{ fontWeight: 900 }}>Configuration summary</div>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{selectedModel ? formatPlatformLabel(selectedModel) : 'No platform selected yet.'}</div>
-
-          <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
             <div className={`statusPill status${compatibilityText.tone}`}>{compatibilityText.label}</div>
             {missingRequired.length ? (
               <div style={{ fontSize: 12, color: 'var(--bad)' }}>
-                Required: {missingRequired.map((type) => componentTypeLabels[type] || type).join(', ')}
+                Missing required: {missingRequired.map((type) => componentTypeLabels[type] || type).join(', ')}
               </div>
             ) : null}
-          </div>
+            {manualUsed ? (
+              <div style={{ fontSize: 12, color: '#f7c76a' }}>
+                Manual parts added (unverified). Review before quoting.
+              </div>
+            ) : null}
 
-          <div style={{ marginTop: 12 }}>
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>Selected components</div>
+            <div className="summarySectionTitle">Selected components</div>
             {summaryItems.length ? (
               <div style={{ display: 'grid', gap: 6, fontSize: 12 }}>
                 {summaryItems.map((item) => (
@@ -1125,100 +778,181 @@ export default function ConfigurationsPage() {
             ) : (
               <div style={{ fontSize: 12, color: 'var(--muted)' }}>No selections yet.</div>
             )}
-          </div>
 
-          <div style={{ marginTop: 12, display: 'grid', gap: 6 }}>
-            <div style={{ fontWeight: 700 }}>Computed placeholders</div>
+            <div className="summarySectionTitle">Computed placeholders</div>
             <div style={{ display: 'grid', gap: 6 }}>
               <span style={autoPillStyle}>Power draw: Auto</span>
               <span style={autoPillStyle}>Usable capacity: Auto</span>
               <span style={autoPillStyle}>Ports summary: Auto</span>
             </div>
-          </div>
 
-          {manualUsed ? (
-            <div style={{ fontSize: 12, color: '#f7c76a', marginTop: 12 }}>
-              Manual parts added (unverified).
+            <div className="summaryActions">
+              <button className="primaryBtn" type="button" disabled={!canSave}>
+                Save configuration
+              </button>
+              <button className="ghostBtn" type="button">
+                Clone configuration
+              </button>
+              <button className="ghostBtn" type="button" onClick={resetConfigurator}>
+                Reset
+              </button>
             </div>
-          ) : null}
-
-          <div style={{ display: 'grid', gap: 8, marginTop: 16 }}>
-            <button className="primaryBtn" type="button" disabled={!canSave}>
-              Save configuration
-            </button>
-            <button className="ghostBtn" type="button">
-              Clone configuration
-            </button>
-            <button className="ghostBtn" type="button" onClick={resetConfigurator}>
-              Reset
-            </button>
-          </div>
-        </aside>
+          </aside>
+        </div>
       </div>
 
       <style jsx>{`
-        .layout {
+        .configPage {
+          padding: 24px;
+          display: grid;
+          gap: 16px;
+        }
+        .pageHeader {
+          display: grid;
+          gap: 6px;
+        }
+        .subText {
+          color: var(--muted);
+          font-size: 13px;
+        }
+        .tabBar {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          overflow: hidden;
+          background: var(--panel);
+        }
+        .tabBtn {
+          padding: 12px 16px;
+          border: none;
+          border-right: 1px solid var(--border);
+          background: var(--panel);
+          color: var(--muted);
+          font-weight: 800;
+          cursor: pointer;
+        }
+        .tabBtn:last-child {
+          border-right: none;
+        }
+        .tabActive {
+          background: rgba(90, 180, 255, 0.18);
+          color: var(--text);
+        }
+        .configCard {
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 16px;
+          background: var(--panel);
+          display: grid;
+          gap: 16px;
+        }
+        .configHeader {
+          display: grid;
+          gap: 12px;
+          border-bottom: 1px solid var(--border);
+          padding-bottom: 12px;
+        }
+        .configTitle {
+          font-weight: 900;
+        }
+        .configSubtitle {
+          font-size: 12px;
+          color: var(--muted);
+        }
+        .configFieldGrid {
+          display: grid;
+          gap: 12px;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        }
+        .field {
+          display: grid;
+          gap: 6px;
+        }
+        .fieldLabel {
+          font-size: 12px;
+          color: var(--muted);
+        }
+        .configLayout {
           display: grid;
           gap: 16px;
           grid-template-columns: minmax(0, 1fr) 320px;
           align-items: start;
         }
-        .panel {
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          padding: 14px;
-          background: var(--panel);
+        .configLeft {
           display: grid;
           gap: 12px;
         }
-        .summary {
+        .accordion {
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          background: var(--panel);
+          overflow: hidden;
+        }
+        .accordion summary {
+          list-style: none;
+          padding: 10px 12px;
+          background: var(--panel-2);
+          font-weight: 800;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          cursor: pointer;
+        }
+        .accordion summary::-webkit-details-marker {
+          display: none;
+        }
+        .accordion summary::after {
+          content: '?';
+          margin-left: auto;
+          color: var(--muted);
+          transition: transform 0.2s ease;
+        }
+        .accordion[open] summary::after {
+          transform: rotate(180deg);
+        }
+        .accordionBody {
+          padding: 12px;
+          display: grid;
+          gap: 12px;
+        }
+        .summaryPanel {
           border: 1px solid var(--border);
           border-radius: 12px;
           padding: 14px;
           background: var(--panel);
           display: grid;
+          gap: 10px;
+        }
+        .summaryTitle {
+          font-weight: 900;
+        }
+        .summaryList {
+          display: grid;
           gap: 8px;
+          font-size: 12px;
+        }
+        .summaryItem {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+        .summaryCheck {
+          color: #7ce7a0;
+          font-weight: 900;
+        }
+        .summarySectionTitle {
+          font-weight: 700;
+          margin-top: 6px;
+        }
+        .summaryActions {
+          display: grid;
+          gap: 8px;
+          margin-top: 8px;
         }
         .stickyCard {
           position: sticky;
           top: 16px;
-        }
-        .stepper {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-          gap: 10px;
-        }
-        .step {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 10px 12px;
-          border-radius: 12px;
-          border: 1px solid var(--border);
-          background: var(--panel);
-          color: var(--text);
-          font-weight: 700;
-          cursor: pointer;
-          transition: border 0.2s ease;
-        }
-        .step:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        .stepActive {
-          border-color: var(--accent);
-          box-shadow: 0 0 0 1px rgba(90, 180, 255, 0.2);
-        }
-        .stepIndex {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 24px;
-          height: 24px;
-          border-radius: 999px;
-          border: 1px solid var(--border);
-          background: var(--panel-2);
-          font-size: 12px;
         }
         .chipRow {
           display: flex;
@@ -1268,11 +1002,6 @@ export default function ConfigurationsPage() {
           font-weight: 700;
           cursor: pointer;
         }
-        .platformGrid {
-          display: grid;
-          gap: 10px;
-          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        }
         .summaryCard {
           border: 1px solid var(--border);
           border-radius: 10px;
@@ -1309,17 +1038,8 @@ export default function ConfigurationsPage() {
           font-weight: 700;
           background: rgba(90, 180, 255, 0.12);
         }
-        .advancedPanel {
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          padding: 12px;
-          background: var(--panel);
-        }
-        .advancedPanel summary {
-          cursor: pointer;
-        }
         .advancedGrid {
-          margin-top: 12px;
+          margin-top: 4px;
           display: grid;
           gap: 10px;
           grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -1351,14 +1071,25 @@ export default function ConfigurationsPage() {
           background: rgba(247, 131, 131, 0.12);
         }
         @media (max-width: 980px) {
-          .layout {
+          .configLayout {
             grid-template-columns: 1fr;
           }
           .stickyCard {
             position: static;
           }
+          .tabBar {
+            grid-template-columns: 1fr;
+          }
+          .tabBtn {
+            border-right: none;
+            border-bottom: 1px solid var(--border);
+          }
+          .tabBtn:last-child {
+            border-bottom: none;
+          }
         }
       `}</style>
     </main>
   )
+
 }
