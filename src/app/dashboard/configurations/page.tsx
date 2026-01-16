@@ -71,16 +71,19 @@ const componentTypeLabels: Record<string, string> = {
   drive: 'Drives',
   gpu: 'GPU',
   nic: 'Network card',
-  controller: 'Controller',
+  controller: 'Storage Controller',
   transceiver: 'Transceiver',
   module: 'Module',
-  power: 'Power',
+  power: 'Power Supplies',
   cable: 'Cable',
+  rail: 'Rail kit',
+  bezel: 'Bezel',
+  remote_access: 'Remote Access',
   other: 'Other',
 }
 
 const componentOrderByMachine: Record<MachineType, string[]> = {
-  server: ['cpu', 'memory', 'drive', 'controller', 'nic', 'power', 'gpu', 'transceiver', 'module', 'cable', 'other'],
+  server: ['cpu', 'memory', 'drive', 'controller', 'nic', 'gpu', 'power', 'remote_access', 'rail', 'bezel', 'transceiver', 'module', 'cable', 'other'],
   storage: ['drive', 'controller', 'nic', 'transceiver', 'module', 'power', 'cable', 'other'],
   network: ['nic', 'transceiver', 'module', 'power', 'cable', 'other'],
 }
@@ -146,11 +149,14 @@ export default function ConfigurationsPage() {
   const [catalogError, setCatalogError] = useState('')
   const [systemModels, setSystemModels] = useState<SystemModel[]>([])
 
-  const [platformSearch, setPlatformSearch] = useState('')
-  const [filterManufacturer, setFilterManufacturer] = useState('')
-  const [filterFormFactor, setFilterFormFactor] = useState('')
-  const [filterTags, setFilterTags] = useState<string[]>([])
+  const [manufacturerSearch, setManufacturerSearch] = useState('')
+  const [familySearch, setFamilySearch] = useState('')
+  const [modelSearch, setModelSearch] = useState('')
+  const [chassisSearch, setChassisSearch] = useState('')
+  const [selectedManufacturer, setSelectedManufacturer] = useState('')
+  const [selectedFamily, setSelectedFamily] = useState('')
   const [selectedModelId, setSelectedModelId] = useState('')
+  const [selectedChassisId, setSelectedChassisId] = useState('')
 
   const [compatibleComponents, setCompatibleComponents] = useState<ComponentModel[]>([])
   const [compatLoading, setCompatLoading] = useState(false)
@@ -167,25 +173,43 @@ export default function ConfigurationsPage() {
   const filteredModels = useMemo(() => systemModels.filter((m) => m.machine_type === machineType), [systemModels, machineType])
 
   const manufacturerOptions = useMemo(() => {
-    const set = new Set(filteredModels.map((m) => m.manufacturer).filter(Boolean))
-    return Array.from(set).sort()
-  }, [filteredModels])
+    const query = manufacturerSearch.trim().toLowerCase()
+    const list = filteredModels.map((model) => model.manufacturer).filter(Boolean)
+    const filtered = query ? list.filter((maker) => maker.toLowerCase().includes(query)) : list
+    return Array.from(new Set(filtered)).sort()
+  }, [filteredModels, manufacturerSearch])
 
-  const formFactorOptions = useMemo(() => {
-    const set = new Set(filteredModels.map((m) => m.form_factor).filter(Boolean) as string[])
-    return Array.from(set).sort()
-  }, [filteredModels])
+  const familyOptions = useMemo(() => {
+    const query = familySearch.trim().toLowerCase()
+    const list = filteredModels
+      .filter((model) => !selectedManufacturer || model.manufacturer === selectedManufacturer)
+      .map((model) => model.family)
+      .filter((family): family is string => Boolean(family && family.trim()))
+    const filtered = query ? list.filter((family) => family.toLowerCase().includes(query)) : list
+    return Array.from(new Set(filtered)).sort()
+  }, [filteredModels, selectedManufacturer, familySearch])
 
-  const tagOptions = useMemo(() => {
-    const counts = new Map<string, number>()
-    filteredModels.forEach((model) => {
-      model.tags.forEach((tag) => counts.set(tag, (counts.get(tag) || 0) + 1))
-    })
-    return Array.from(counts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([tag]) => tag)
-  }, [filteredModels])
+  const modelOptions = useMemo(() => {
+    const query = modelSearch.trim().toLowerCase()
+    return filteredModels
+      .filter(
+        (model) =>
+          (!selectedManufacturer || model.manufacturer === selectedManufacturer) &&
+          (!selectedFamily || (model.family || '') === selectedFamily)
+      )
+      .filter((model) => {
+        if (!query) return true
+        const haystack = [model.manufacturer, model.family || '', model.model, model.form_factor || '', model.tags.join(' ')].join(' ').toLowerCase()
+        return haystack.includes(query)
+      })
+      .sort((a, b) => {
+        const maker = a.manufacturer.localeCompare(b.manufacturer)
+        if (maker !== 0) return maker
+        const family = (a.family || '').localeCompare(b.family || '')
+        if (family !== 0) return family
+        return a.model.localeCompare(b.model)
+      })
+  }, [filteredModels, selectedManufacturer, selectedFamily, modelSearch])
 
   const formatPlatformLabel = (model: SystemModel) => {
     const family = model.family ? `${model.family} / ` : ''
@@ -235,26 +259,6 @@ export default function ConfigurationsPage() {
     return `${base} - ${stockQty > 0 ? 'In stock' : 'No stock'}`
   }
 
-  const platformResults = useMemo(() => {
-    const query = platformSearch.trim().toLowerCase()
-    return filteredModels
-      .filter((model) => {
-        if (filterManufacturer && model.manufacturer !== filterManufacturer) return false
-        if (filterFormFactor && model.form_factor !== filterFormFactor) return false
-        if (filterTags.length && !filterTags.every((tag) => model.tags.includes(tag))) return false
-        if (!query) return true
-        const haystack = [model.manufacturer, model.family || '', model.model, model.form_factor || '', model.tags.join(' ')].join(' ').toLowerCase()
-        return haystack.includes(query)
-      })
-      .sort((a, b) => {
-        const maker = a.manufacturer.localeCompare(b.manufacturer)
-        if (maker !== 0) return maker
-        const family = (a.family || '').localeCompare(b.family || '')
-        if (family !== 0) return family
-        return a.model.localeCompare(b.model)
-      })
-  }, [filteredModels, filterManufacturer, filterFormFactor, filterTags, platformSearch])
-
   const selectedModel = useMemo(() => filteredModels.find((m) => m.id === selectedModelId) || null, [filteredModels, selectedModelId])
 
   useEffect(() => {
@@ -300,11 +304,14 @@ export default function ConfigurationsPage() {
   }, [machineType])
 
   useEffect(() => {
+    setManufacturerSearch('')
+    setFamilySearch('')
+    setModelSearch('')
+    setChassisSearch('')
+    setSelectedManufacturer('')
+    setSelectedFamily('')
     setSelectedModelId('')
-    setPlatformSearch('')
-    setFilterManufacturer('')
-    setFilterFormFactor('')
-    setFilterTags([])
+    setSelectedChassisId('')
     setSelectedComponents({})
     setManualOverrides({})
     setComponentSearch({})
@@ -322,6 +329,8 @@ export default function ConfigurationsPage() {
     setComponentSearch({})
     setAdvancedValues({})
     setCompatError('')
+    setChassisSearch('')
+    setSelectedChassisId('')
     setStockByPart({})
     setStockLoading(false)
     setStockChecked({})
@@ -478,6 +487,13 @@ export default function ConfigurationsPage() {
     return groups
   }, [compatibleComponents])
 
+  const remoteAccessOptions = useMemo(
+    () => filterByTagKeywords(compatibleComponents, ['license', 'remote', 'idrac', 'ilo']),
+    [compatibleComponents]
+  )
+  const railOptions = useMemo(() => filterByTagKeywords(compatibleComponents, ['rail']), [compatibleComponents])
+  const bezelOptions = useMemo(() => filterByTagKeywords(compatibleComponents, ['bezel']), [compatibleComponents])
+
   const componentOrder = componentOrderByMachine[machineType]
   const requiredTypes = requiredTypesByMachine[machineType]
   const recommendedTypes = componentOrder.filter(
@@ -490,6 +506,109 @@ export default function ConfigurationsPage() {
     compatibleComponents.forEach((component) => map.set(component.id, component))
     return map
   }, [compatibleComponents])
+
+  const chassisOptions = useMemo(() => {
+    return compatibleComponents
+      .filter((component) => component.tags.some((tag) => tag.toLowerCase().includes('chassis')))
+      .sort((a, b) => a.model.localeCompare(b.model))
+  }, [compatibleComponents])
+
+  const filteredChassisOptions = useMemo(() => {
+    const query = chassisSearch.trim().toLowerCase()
+    if (!query) return chassisOptions
+    return chassisOptions.filter((component) => {
+      const haystack = `${component.manufacturer || ''} ${component.model} ${component.part_number || ''} ${component.tags.join(' ')}`.toLowerCase()
+      return haystack.includes(query)
+    })
+  }, [chassisOptions, chassisSearch])
+
+  const getSelectedComponent = (type: string) => {
+    const selection = selectedComponents[type]
+    if (!selection?.componentId) return null
+    return componentLookup.get(selection.componentId) || null
+  }
+
+  const getSelectedQty = (type: string) => {
+    const qty = Number(selectedComponents[type]?.qty || 0)
+    return Number.isFinite(qty) ? qty : 0
+  }
+
+  const getTagNumber = (tags: string[], prefixes: string[]) => {
+    for (const tagRaw of tags) {
+      const tag = tagRaw.toLowerCase()
+      for (const prefix of prefixes) {
+        if (!tag.startsWith(prefix)) continue
+        const value = parseFloat(tag.slice(prefix.length).replace(/[^0-9.]/g, ''))
+        if (Number.isFinite(value)) return value
+      }
+    }
+    return null
+  }
+
+  const getCapacityGbFromTags = (tags: string[]) => {
+    const tb = getTagNumber(tags, ['tb_', 'tib_', 'capacity_tb_', 'size_tb_'])
+    if (tb != null) return tb * 1000
+    const gb = getTagNumber(tags, ['gb_', 'gib_', 'capacity_gb_', 'size_gb_'])
+    if (gb != null) return gb
+    return null
+  }
+
+  const formatCapacity = (gb: number) => {
+    if (gb >= 1000) {
+      const tb = gb / 1000
+      const label = tb % 1 === 0 ? tb.toFixed(0) : tb.toFixed(2)
+      return `${label} TB`
+    }
+    return `${Math.round(gb)} GB`
+  }
+
+  const getMaxForType = (type: string) => {
+    if (!selectedModel) return null
+    const tags = selectedModel.tags
+    const prefixesByType: Record<string, string[]> = {
+      cpu: ['max_cpu_', 'max_cpus_', 'cpu_max_', 'cpu_slots_'],
+      memory: ['max_dimm_', 'max_dimms_', 'memory_slots_', 'max_memory_slots_', 'dimm_slots_'],
+      drive: ['max_drive_', 'max_drives_', 'drive_bays_', 'bays_', 'bay_'],
+      gpu: ['max_gpu_', 'max_gpus_', 'gpu_slots_'],
+      nic: ['max_nic_', 'max_nics_', 'nic_slots_'],
+      power: ['max_psu_', 'max_psus_', 'psu_slots_'],
+    }
+    const prefixes = prefixesByType[type]
+    if (!prefixes) return null
+    return getTagNumber(tags, prefixes)
+  }
+
+  const matchesComponentSearch = (component: ComponentModel, searchValue: string) => {
+    if (!searchValue.trim()) return true
+    const haystack = `${component.manufacturer || ''} ${component.model} ${component.part_number || ''} ${component.tags.join(' ')}`.toLowerCase()
+    return haystack.includes(searchValue.trim().toLowerCase())
+  }
+
+  const filterComponentsBySearch = (options: ComponentModel[], searchValue: string) => {
+    if (!searchValue.trim()) return options
+    return options.filter((component) => matchesComponentSearch(component, searchValue))
+  }
+
+  const getInStockOptions = (options: ComponentModel[]) => {
+    return options.filter((component) => {
+      if (!component.part_number) return false
+      const qty = getStockQty(component.part_number)
+      return typeof qty === 'number' && qty > 0
+    })
+  }
+
+  const filterByTagKeywords = (options: ComponentModel[], keywords: string[]) => {
+    const lowered = keywords.map((keyword) => keyword.toLowerCase())
+    return options.filter((component) => {
+      const tags = component.tags.map((tag) => tag.toLowerCase())
+      return lowered.some((keyword) => tags.some((tag) => tag.includes(keyword)))
+    })
+  }
+
+  const getSelectionValueForOptions = (options: ComponentModel[], selectedId: string) => {
+    if (!selectedId) return ''
+    return options.some((option) => option.id === selectedId) ? selectedId : ''
+  }
 
   const updateComponentSelection = (type: string, componentId: string) => {
     setSelectedComponents((prev) => {
@@ -535,8 +654,33 @@ export default function ConfigurationsPage() {
     updateManualOverride(type, { enabled: false })
   }
 
-  const toggleTagFilter = (tag: string) => {
-    setFilterTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
+  const handleManufacturerSelect = (value: string) => {
+    setSelectedManufacturer(value)
+    setFamilySearch('')
+    setModelSearch('')
+    setChassisSearch('')
+    setSelectedFamily('')
+    setSelectedModelId('')
+    setSelectedChassisId('')
+  }
+
+  const handleFamilySelect = (value: string) => {
+    setSelectedFamily(value)
+    setModelSearch('')
+    setChassisSearch('')
+    setSelectedModelId('')
+    setSelectedChassisId('')
+  }
+
+  const handleModelSelect = (value: string) => {
+    setSelectedModelId(value)
+    setSelectedChassisId('')
+    setChassisSearch('')
+    if (!value) return
+    const match = filteredModels.find((model) => model.id === value)
+    if (!match) return
+    setSelectedManufacturer(match.manufacturer)
+    setSelectedFamily(match.family || '')
   }
 
   const missingRequired = requiredTypes.filter((type) => {
@@ -578,14 +722,29 @@ export default function ConfigurationsPage() {
     })
     .filter((item): item is { type: string; label: string; qty: string; source: string } => Boolean(item))
 
+  const pcieSummary = useMemo(() => {
+    if (!selectedModel) return 'Auto'
+    const slots = getTagNumber(selectedModel.tags, ['pcie_slots_', 'pcie_slot_'])
+    const gen = getTagNumber(selectedModel.tags, ['pcie_gen_', 'pcie_gen'])
+    if (slots && gen) return `${slots}x Gen${gen}`
+    if (slots) return `${slots} slots`
+    return 'Auto'
+  }, [selectedModel])
+
+  const isServer = machineType === 'server'
+  const hasChassisOptions = chassisOptions.length > 0
+
   const resetConfigurator = () => {
     setConfigName('')
     setConfigQty('1')
+    setManufacturerSearch('')
+    setFamilySearch('')
+    setModelSearch('')
+    setChassisSearch('')
+    setSelectedManufacturer('')
+    setSelectedFamily('')
     setSelectedModelId('')
-    setPlatformSearch('')
-    setFilterManufacturer('')
-    setFilterFormFactor('')
-    setFilterTags([])
+    setSelectedChassisId('')
     setSelectedComponents({})
     setManualOverrides({})
     setComponentSearch({})
@@ -734,6 +893,109 @@ export default function ConfigurationsPage() {
     )
   }
 
+  const renderSearchSelect = ({
+    label,
+    options,
+    searchKey,
+    value,
+    placeholder,
+    disabled,
+    note,
+    onChange,
+  }: {
+    label: string
+    options: ComponentModel[]
+    searchKey: string
+    value: string
+    placeholder: string
+    disabled?: boolean
+    note?: string
+    onChange: (value: string) => void
+  }) => {
+    const searchValue = componentSearch[searchKey] || ''
+    const filtered = filterComponentsBySearch(options, searchValue)
+    return (
+      <label className="field">
+        <span className="fieldLabel">{label}</span>
+        <input
+          value={searchValue}
+          onChange={(e) => setComponentSearch((prev) => ({ ...prev, [searchKey]: e.target.value }))}
+          placeholder="Search part number or description"
+          style={{ ...controlStyle, padding: '8px 10px' }}
+          disabled={disabled}
+        />
+        <select value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} style={controlStyle}>
+          <option value="">{placeholder}</option>
+          {filtered.map((component) => (
+            <option key={component.id} value={component.id}>
+              {formatOptionLabel(component)}
+            </option>
+          ))}
+        </select>
+        {note ? <span className="fieldNote">{note}</span> : null}
+      </label>
+    )
+  }
+
+  const coresNeedOptions = ['4', '8', '16', '24', '32', '48', '64']
+  const memoryNeedOptions = ['32', '64', '128', '256', '512', '1024']
+  const storageNeedOptions = ['2 TB', '4 TB', '8 TB', '16 TB', '32 TB', '64 TB']
+
+  const cpuOptions = compatibleByType.cpu || []
+  const memoryOptions = compatibleByType.memory || []
+  const driveOptions = compatibleByType.drive || []
+  const nicOptions = compatibleByType.nic || []
+  const gpuOptions = compatibleByType.gpu || []
+  const powerOptions = compatibleByType.power || []
+
+  const cpuInStockOptions = getInStockOptions(cpuOptions)
+  const memoryInStockOptions = getInStockOptions(memoryOptions)
+  const driveInStockOptions = getInStockOptions(driveOptions)
+  const nicInStockOptions = getInStockOptions(nicOptions)
+  const gpuInStockOptions = getInStockOptions(gpuOptions)
+  const powerInStockOptions = getInStockOptions(powerOptions)
+  const railInStockOptions = getInStockOptions(railOptions)
+  const bezelInStockOptions = getInStockOptions(bezelOptions)
+
+  const selectedCpu = getSelectedComponent('cpu')
+  const selectedMemory = getSelectedComponent('memory')
+  const selectedDrive = getSelectedComponent('drive')
+
+  const cpuQty = getSelectedQty('cpu')
+  const memoryQty = getSelectedQty('memory')
+  const driveQty = getSelectedQty('drive')
+
+  const cpuCoresPer = selectedCpu ? getTagNumber(selectedCpu.tags, ['cores_', 'core_', 'cpu_cores_', 'corecount_']) : null
+  const memoryGbPer = selectedMemory ? getTagNumber(selectedMemory.tags, ['gb_', 'gib_', 'memory_gb_', 'size_gb_']) : null
+  const driveGbPer = selectedDrive ? getCapacityGbFromTags(selectedDrive.tags) : null
+
+  const cpuTotalCores = cpuCoresPer != null && cpuQty > 0 ? cpuCoresPer * cpuQty : null
+  const memoryTotalGb = memoryGbPer != null && memoryQty > 0 ? memoryGbPer * memoryQty : null
+  const driveTotalGb = driveGbPer != null && driveQty > 0 ? driveGbPer * driveQty : null
+
+  const cpuMax = getMaxForType('cpu')
+  const memoryMax = getMaxForType('memory')
+  const driveMax = getMaxForType('drive')
+
+  const cpuSelectedId = selectedComponents.cpu?.componentId || ''
+  const memorySelectedId = selectedComponents.memory?.componentId || ''
+  const driveSelectedId = selectedComponents.drive?.componentId || ''
+  const nicSelectedId = selectedComponents.nic?.componentId || ''
+  const gpuSelectedId = selectedComponents.gpu?.componentId || ''
+  const powerSelectedId = selectedComponents.power?.componentId || ''
+  const railSelectedId = selectedComponents.rail?.componentId || ''
+  const bezelSelectedId = selectedComponents.bezel?.componentId || ''
+  const remoteSelectedId = selectedComponents.remote_access?.componentId || ''
+
+  const cpuStockValue = getSelectionValueForOptions(cpuInStockOptions, cpuSelectedId)
+  const memoryStockValue = getSelectionValueForOptions(memoryInStockOptions, memorySelectedId)
+  const driveStockValue = getSelectionValueForOptions(driveInStockOptions, driveSelectedId)
+  const nicStockValue = getSelectionValueForOptions(nicInStockOptions, nicSelectedId)
+  const gpuStockValue = getSelectionValueForOptions(gpuInStockOptions, gpuSelectedId)
+  const powerStockValue = getSelectionValueForOptions(powerInStockOptions, powerSelectedId)
+  const railStockValue = getSelectionValueForOptions(railInStockOptions, railSelectedId)
+  const bezelStockValue = getSelectionValueForOptions(bezelInStockOptions, bezelSelectedId)
+
   return (
     <main className="configPage">
       <div className="pageHeader">
@@ -806,24 +1068,67 @@ export default function ConfigurationsPage() {
                 {catalogError ? <div style={{ color: 'var(--bad)', fontSize: 12 }}>{catalogError}</div> : null}
                 <div className="configFieldGrid">
                   <label className="field">
-                    <span className="fieldLabel">Search platform</span>
+                    <span className="fieldLabel">Manufacturer</span>
                     <input
-                      value={platformSearch}
-                      onChange={(e) => setPlatformSearch(e.target.value)}
-                      placeholder="Search manufacturer, family, model, tags"
-                      style={controlStyle}
+                      value={manufacturerSearch}
+                      onChange={(e) => setManufacturerSearch(e.target.value)}
+                      placeholder="Search manufacturers"
+                      style={{ ...controlStyle, padding: '8px 10px' }}
                     />
-                  </label>
-                  <label className="field">
-                    <span className="fieldLabel">Platform model</span>
                     <select
-                      value={selectedModelId}
-                      onChange={(e) => setSelectedModelId(e.target.value)}
-                      disabled={catalogLoading || platformResults.length === 0}
+                      value={selectedManufacturer}
+                      onChange={(e) => handleManufacturerSelect(e.target.value)}
+                      disabled={catalogLoading || manufacturerOptions.length === 0}
                       style={controlStyle}
                     >
-                      <option value="">Select platform</option>
-                      {platformResults.map((model) => (
+                      <option value="">Select manufacturer</option>
+                      {manufacturerOptions.map((maker) => (
+                        <option key={maker} value={maker}>
+                          {maker}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span className="fieldLabel">Product family</span>
+                    <input
+                      value={familySearch}
+                      onChange={(e) => setFamilySearch(e.target.value)}
+                      placeholder="Search families"
+                      style={{ ...controlStyle, padding: '8px 10px' }}
+                      disabled={!selectedManufacturer}
+                    />
+                    <select
+                      value={selectedFamily}
+                      onChange={(e) => handleFamilySelect(e.target.value)}
+                      disabled={!selectedManufacturer || familyOptions.length === 0}
+                      style={controlStyle}
+                    >
+                      <option value="">Select family</option>
+                      {familyOptions.map((family) => (
+                        <option key={family} value={family}>
+                          {family}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span className="fieldLabel">Model</span>
+                    <input
+                      value={modelSearch}
+                      onChange={(e) => setModelSearch(e.target.value)}
+                      placeholder="Search models"
+                      style={{ ...controlStyle, padding: '8px 10px' }}
+                      disabled={!selectedManufacturer}
+                    />
+                    <select
+                      value={selectedModelId}
+                      onChange={(e) => handleModelSelect(e.target.value)}
+                      disabled={!selectedManufacturer || modelOptions.length === 0}
+                      style={controlStyle}
+                    >
+                      <option value="">Select model</option>
+                      {modelOptions.map((model) => (
                         <option key={model.id} value={model.id}>
                           {formatPlatformLabel(model)}
                         </option>
@@ -834,59 +1139,46 @@ export default function ConfigurationsPage() {
 
                 <div className="configFieldGrid">
                   <label className="field">
-                    <span className="fieldLabel">Manufacturer</span>
-                    <select value={filterManufacturer} onChange={(e) => setFilterManufacturer(e.target.value)} style={controlStyle}>
-                      <option value="">All manufacturers</option>
-                      {manufacturerOptions.map((maker) => (
-                        <option key={maker} value={maker}>
-                          {maker}
-                        </option>
-                      ))}
-                    </select>
+                    <span className="fieldLabel">Form factor</span>
+                    <input readOnly value={selectedModel?.form_factor || 'Auto'} style={{ ...controlStyle, opacity: 0.7 }} />
                   </label>
                   <label className="field">
-                    <span className="fieldLabel">Form factor</span>
-                    <select value={filterFormFactor} onChange={(e) => setFilterFormFactor(e.target.value)} style={controlStyle}>
-                      <option value="">All form factors</option>
-                      {formFactorOptions.map((form) => (
-                        <option key={form} value={form}>
-                          {form}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-
-                <div style={{ display: 'grid', gap: 8 }}>
-                  <div className="fieldLabel">Tags</div>
-                  <div className="chipRow">
-                    {tagOptions.map((tag) => {
-                      const active = filterTags.includes(tag)
-                      return (
-                        <button
-                          key={tag}
-                          type="button"
-                          className={`chip ${active ? 'chipActive' : ''}`}
-                          onClick={() => toggleTagFilter(tag)}
+                    <span className="fieldLabel">Chassis model</span>
+                    {hasChassisOptions ? (
+                      <>
+                        <input
+                          value={chassisSearch}
+                          onChange={(e) => setChassisSearch(e.target.value)}
+                          placeholder="Search chassis models"
+                          style={{ ...controlStyle, padding: '8px 10px' }}
+                          disabled={!selectedModelId}
+                        />
+                        <select
+                          value={selectedChassisId}
+                          onChange={(e) => setSelectedChassisId(e.target.value)}
+                          disabled={!selectedModelId || chassisOptions.length === 0}
+                          style={controlStyle}
                         >
-                          {tag}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  {filterManufacturer || filterFormFactor || filterTags.length ? (
-                    <button
-                      type="button"
-                      className="linkBtn"
-                      onClick={() => {
-                        setFilterManufacturer('')
-                        setFilterFormFactor('')
-                        setFilterTags([])
-                      }}
-                    >
-                      Clear filters
-                    </button>
-                  ) : null}
+                          <option value="">Select chassis</option>
+                          {filteredChassisOptions.map((component) => (
+                            <option key={component.id} value={component.id}>
+                              {formatOptionLabel(component)}
+                            </option>
+                          ))}
+                        </select>
+                      </>
+                    ) : (
+                      <input
+                        readOnly
+                        value={selectedModel ? selectedModel.model : 'Auto'}
+                        style={{ ...controlStyle, opacity: 0.7 }}
+                      />
+                    )}
+                  </label>
+                  <label className="field">
+                    <span className="fieldLabel">PCIe slots</span>
+                    <input readOnly value={pcieSummary} style={{ ...controlStyle, opacity: 0.7 }} />
+                  </label>
                 </div>
 
                 {selectedModel ? (
@@ -906,41 +1198,439 @@ export default function ConfigurationsPage() {
               </div>
             </details>
 
-            <details className="accordion" open>
-              <summary>Required Components</summary>
-              <div className="accordionBody">
+            {isServer ? (
+              <>
                 {compatLoading ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>Loading compatibility...</div> : null}
                 {compatError ? <div style={{ color: 'var(--bad)', fontSize: 12 }}>{compatError}</div> : null}
-                <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                  Complete required items to proceed: {requiredChecklist.join(', ')} ({requiredProgress} done)
-                </div>
-                <div className="componentGrid">{requiredTypes.map((type) => renderComponentRow(type, true))}</div>
-                {missingRequired.length ? (
-                  <div style={{ fontSize: 12, color: 'var(--bad)' }}>
-                    Missing required selections: {missingRequired.map((type) => componentTypeLabels[type] || type).join(', ')}
+
+                <details className="accordion" open>
+                  <summary>CPU</summary>
+                  <div className="accordionBody">
+                    <div className="configFieldGrid">
+                      {renderSearchSelect({
+                        label: 'Compatible CPUs in stock',
+                        options: cpuInStockOptions,
+                        searchKey: 'cpu_stock',
+                        value: cpuStockValue,
+                        placeholder: cpuInStockOptions.length ? 'Select in-stock CPU' : 'No in-stock options',
+                        disabled: !selectedModelId || compatLoading,
+                        note: !cpuInStockOptions.length ? (stockLoading ? 'Loading stock data.' : 'No in-stock options.') : undefined,
+                        onChange: (value) => updateComponentSelection('cpu', value),
+                      })}
+                      {renderSearchSelect({
+                        label: 'All compatible CPUs',
+                        options: cpuOptions,
+                        searchKey: 'cpu_all',
+                        value: cpuSelectedId,
+                        placeholder: cpuOptions.length ? 'Select compatible CPU' : 'No compatible options',
+                        disabled: !selectedModelId || compatLoading,
+                        note: !cpuOptions.length ? 'No compatible options yet.' : undefined,
+                        onChange: (value) => updateComponentSelection('cpu', value),
+                      })}
+                    </div>
+                    <div className="configFieldGrid">
+                      <label className="field">
+                        <span className="fieldLabel">{selectedCpu ? 'Cores' : 'How many cores do you need?'}</span>
+                        {selectedCpu ? (
+                          <input
+                            readOnly
+                            value={cpuTotalCores != null ? `${cpuTotalCores} cores` : 'Auto'}
+                            style={{ ...controlStyle, opacity: 0.7 }}
+                          />
+                        ) : (
+                          <select
+                            value={advancedValues.cpu_cores_need || ''}
+                            onChange={(e) => setAdvancedValues((prev) => ({ ...prev, cpu_cores_need: e.target.value }))}
+                            style={controlStyle}
+                          >
+                            <option value="">Select cores</option>
+                            {coresNeedOptions.map((opt) => (
+                              <option key={opt} value={opt}>
+                                {opt} cores
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </label>
+                      <label className="field">
+                        <span className="fieldLabel">Quantity</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={cpuMax ?? undefined}
+                          value={selectedComponents.cpu?.qty || ''}
+                          onChange={(e) => updateComponentQty('cpu', e.target.value)}
+                          placeholder="0"
+                          style={{ ...controlStyle, padding: '8px 10px' }}
+                        />
+                        <span className="fieldNote">Max: {cpuMax ?? 'Auto'}</span>
+                      </label>
+                    </div>
+                    {selectedCpu ? (
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {renderStockPill(selectedCpu.part_number, selectedComponents.cpu?.qty || '')}
+                      </div>
+                    ) : null}
                   </div>
+                </details>
+
+                <details className="accordion" open>
+                  <summary>Memory</summary>
+                  <div className="accordionBody">
+                    <div className="configFieldGrid">
+                      {renderSearchSelect({
+                        label: 'Compatible DIMMs in stock',
+                        options: memoryInStockOptions,
+                        searchKey: 'memory_stock',
+                        value: memoryStockValue,
+                        placeholder: memoryInStockOptions.length ? 'Select in-stock DIMM' : 'No in-stock options',
+                        disabled: !selectedModelId || compatLoading,
+                        note: !memoryInStockOptions.length ? (stockLoading ? 'Loading stock data.' : 'No in-stock options.') : undefined,
+                        onChange: (value) => updateComponentSelection('memory', value),
+                      })}
+                      {renderSearchSelect({
+                        label: 'All compatible DIMMs',
+                        options: memoryOptions,
+                        searchKey: 'memory_all',
+                        value: memorySelectedId,
+                        placeholder: memoryOptions.length ? 'Select compatible DIMM' : 'No compatible options',
+                        disabled: !selectedModelId || compatLoading,
+                        note: !memoryOptions.length ? 'No compatible options yet.' : undefined,
+                        onChange: (value) => updateComponentSelection('memory', value),
+                      })}
+                    </div>
+                    <div className="configFieldGrid">
+                      <label className="field">
+                        <span className="fieldLabel">{selectedMemory ? 'Gigabytes' : 'How many Gigabytes of memory do you need?'}</span>
+                        {selectedMemory ? (
+                          <input
+                            readOnly
+                            value={memoryTotalGb != null ? `${Math.round(memoryTotalGb)} GB` : 'Auto'}
+                            style={{ ...controlStyle, opacity: 0.7 }}
+                          />
+                        ) : (
+                          <select
+                            value={advancedValues.memory_gb_need || ''}
+                            onChange={(e) => setAdvancedValues((prev) => ({ ...prev, memory_gb_need: e.target.value }))}
+                            style={controlStyle}
+                          >
+                            <option value="">Select memory size</option>
+                            {memoryNeedOptions.map((opt) => (
+                              <option key={opt} value={opt}>
+                                {opt} GB
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </label>
+                      <label className="field">
+                        <span className="fieldLabel">Quantity</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={memoryMax ?? undefined}
+                          value={selectedComponents.memory?.qty || ''}
+                          onChange={(e) => updateComponentQty('memory', e.target.value)}
+                          placeholder="0"
+                          style={{ ...controlStyle, padding: '8px 10px' }}
+                        />
+                        <span className="fieldNote">Max: {memoryMax ?? 'Auto'}</span>
+                      </label>
+                    </div>
+                    {selectedMemory ? (
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {renderStockPill(selectedMemory.part_number, selectedComponents.memory?.qty || '')}
+                      </div>
+                    ) : null}
+                  </div>
+                </details>
+
+                <details className="accordion" open>
+                  <summary>Storage Controller</summary>
+                  <div className="accordionBody">
+                    <label className="field">
+                      <span className="fieldLabel">Controller type</span>
+                      <select
+                        value={advancedValues.storage_controller_type || ''}
+                        onChange={(e) => setAdvancedValues((prev) => ({ ...prev, storage_controller_type: e.target.value }))}
+                        style={controlStyle}
+                      >
+                        <option value="">Select controller type</option>
+                        <option value="pcie">PCIe cards</option>
+                        <option value="front">Front cards</option>
+                        <option value="onboard">Onboard</option>
+                        <option value="diskless">Diskless</option>
+                      </select>
+                    </label>
+                  </div>
+                </details>
+
+                <details className="accordion" open>
+                  <summary>Storage</summary>
+                  <div className="accordionBody">
+                    <div className="configFieldGrid">
+                      {renderSearchSelect({
+                        label: 'Compatible drives in stock',
+                        options: driveInStockOptions,
+                        searchKey: 'drive_stock',
+                        value: driveStockValue,
+                        placeholder: driveInStockOptions.length ? 'Select in-stock drive' : 'No in-stock options',
+                        disabled: !selectedModelId || compatLoading,
+                        note: !driveInStockOptions.length ? (stockLoading ? 'Loading stock data.' : 'No in-stock options.') : undefined,
+                        onChange: (value) => updateComponentSelection('drive', value),
+                      })}
+                      {renderSearchSelect({
+                        label: 'All compatible drives',
+                        options: driveOptions,
+                        searchKey: 'drive_all',
+                        value: driveSelectedId,
+                        placeholder: driveOptions.length ? 'Select compatible drive' : 'No compatible options',
+                        disabled: !selectedModelId || compatLoading,
+                        note: !driveOptions.length ? 'No compatible options yet.' : undefined,
+                        onChange: (value) => updateComponentSelection('drive', value),
+                      })}
+                    </div>
+                    <div className="configFieldGrid">
+                      <label className="field">
+                        <span className="fieldLabel">{selectedDrive ? 'Usable storage' : 'How much Usable storage do you need?'}</span>
+                        {selectedDrive ? (
+                          <input
+                            readOnly
+                            value={driveTotalGb != null ? formatCapacity(driveTotalGb) : 'Auto'}
+                            style={{ ...controlStyle, opacity: 0.7 }}
+                          />
+                        ) : (
+                          <select
+                            value={advancedValues.storage_usable_need || ''}
+                            onChange={(e) => setAdvancedValues((prev) => ({ ...prev, storage_usable_need: e.target.value }))}
+                            style={controlStyle}
+                          >
+                            <option value="">Select usable storage</option>
+                            {storageNeedOptions.map((opt) => (
+                              <option key={opt} value={opt}>
+                                {opt}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </label>
+                      <label className="field">
+                        <span className="fieldLabel">Quantity</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={driveMax ?? undefined}
+                          value={selectedComponents.drive?.qty || ''}
+                          onChange={(e) => updateComponentQty('drive', e.target.value)}
+                          placeholder="0"
+                          style={{ ...controlStyle, padding: '8px 10px' }}
+                        />
+                        <span className="fieldNote">Max: {driveMax ?? 'Auto'}</span>
+                      </label>
+                    </div>
+                    {selectedDrive ? (
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {renderStockPill(selectedDrive.part_number, selectedComponents.drive?.qty || '')}
+                      </div>
+                    ) : null}
+                  </div>
+                </details>
+
+                <details className="accordion">
+                  <summary>Network card</summary>
+                  <div className="accordionBody">
+                    <div className="configFieldGrid">
+                      {renderSearchSelect({
+                        label: 'Compatible network cards in stock',
+                        options: nicInStockOptions,
+                        searchKey: 'nic_stock',
+                        value: nicStockValue,
+                        placeholder: nicInStockOptions.length ? 'Select in-stock NIC' : 'No in-stock options',
+                        disabled: !selectedModelId || compatLoading,
+                        note: !nicInStockOptions.length ? (stockLoading ? 'Loading stock data.' : 'No in-stock options.') : undefined,
+                        onChange: (value) => updateComponentSelection('nic', value),
+                      })}
+                      {renderSearchSelect({
+                        label: 'All compatible network cards',
+                        options: nicOptions,
+                        searchKey: 'nic_all',
+                        value: nicSelectedId,
+                        placeholder: nicOptions.length ? 'Select compatible NIC' : 'No compatible options',
+                        disabled: !selectedModelId || compatLoading,
+                        note: !nicOptions.length ? 'No compatible options yet.' : undefined,
+                        onChange: (value) => updateComponentSelection('nic', value),
+                      })}
+                    </div>
+                  </div>
+                </details>
+
+                <details className="accordion">
+                  <summary>GPU</summary>
+                  <div className="accordionBody">
+                    <div className="configFieldGrid">
+                      {renderSearchSelect({
+                        label: 'Compatible GPUs in stock',
+                        options: gpuInStockOptions,
+                        searchKey: 'gpu_stock',
+                        value: gpuStockValue,
+                        placeholder: gpuInStockOptions.length ? 'Select in-stock GPU' : 'No in-stock options',
+                        disabled: !selectedModelId || compatLoading,
+                        note: !gpuInStockOptions.length ? (stockLoading ? 'Loading stock data.' : 'No in-stock options.') : undefined,
+                        onChange: (value) => updateComponentSelection('gpu', value),
+                      })}
+                      {renderSearchSelect({
+                        label: 'All compatible GPUs',
+                        options: gpuOptions,
+                        searchKey: 'gpu_all',
+                        value: gpuSelectedId,
+                        placeholder: gpuOptions.length ? 'Select compatible GPU' : 'No compatible options',
+                        disabled: !selectedModelId || compatLoading,
+                        note: !gpuOptions.length ? 'No compatible options yet.' : undefined,
+                        onChange: (value) => updateComponentSelection('gpu', value),
+                      })}
+                    </div>
+                  </div>
+                </details>
+
+                <details className="accordion">
+                  <summary>Power Supplies</summary>
+                  <div className="accordionBody">
+                    <div className="configFieldGrid">
+                      {renderSearchSelect({
+                        label: 'Compatible power supplies in stock',
+                        options: powerInStockOptions,
+                        searchKey: 'power_stock',
+                        value: powerStockValue,
+                        placeholder: powerInStockOptions.length ? 'Select in-stock PSU' : 'No in-stock options',
+                        disabled: !selectedModelId || compatLoading,
+                        note: !powerInStockOptions.length ? (stockLoading ? 'Loading stock data.' : 'No in-stock options.') : undefined,
+                        onChange: (value) => updateComponentSelection('power', value),
+                      })}
+                      {renderSearchSelect({
+                        label: 'All compatible power supplies',
+                        options: powerOptions,
+                        searchKey: 'power_all',
+                        value: powerSelectedId,
+                        placeholder: powerOptions.length ? 'Select compatible PSU' : 'No compatible options',
+                        disabled: !selectedModelId || compatLoading,
+                        note: !powerOptions.length ? 'No compatible options yet.' : undefined,
+                        onChange: (value) => updateComponentSelection('power', value),
+                      })}
+                    </div>
+                  </div>
+                </details>
+
+                <details className="accordion">
+                  <summary>Remote Access</summary>
+                  <div className="accordionBody">
+                    {renderSearchSelect({
+                      label: 'All compatible licenses',
+                      options: remoteAccessOptions,
+                      searchKey: 'remote_all',
+                      value: remoteSelectedId,
+                      placeholder: remoteAccessOptions.length ? 'Select compatible license' : 'No compatible licenses',
+                      disabled: !selectedModelId || compatLoading,
+                      note: !remoteAccessOptions.length ? 'No compatible licenses yet.' : undefined,
+                      onChange: (value) => updateComponentSelection('remote_access', value),
+                    })}
+                  </div>
+                </details>
+
+                <details className="accordion">
+                  <summary>Rail kit</summary>
+                  <div className="accordionBody">
+                    <div className="configFieldGrid">
+                      {renderSearchSelect({
+                        label: 'Compatible rail kits in stock',
+                        options: railInStockOptions,
+                        searchKey: 'rail_stock',
+                        value: railStockValue,
+                        placeholder: railInStockOptions.length ? 'Select in-stock rail kit' : 'No in-stock options',
+                        disabled: !selectedModelId || compatLoading,
+                        note: !railInStockOptions.length ? (stockLoading ? 'Loading stock data.' : 'No in-stock options.') : undefined,
+                        onChange: (value) => updateComponentSelection('rail', value),
+                      })}
+                      {renderSearchSelect({
+                        label: 'All compatible rail kits',
+                        options: railOptions,
+                        searchKey: 'rail_all',
+                        value: railSelectedId,
+                        placeholder: railOptions.length ? 'Select compatible rail kit' : 'No compatible options',
+                        disabled: !selectedModelId || compatLoading,
+                        note: !railOptions.length ? 'No compatible options yet.' : undefined,
+                        onChange: (value) => updateComponentSelection('rail', value),
+                      })}
+                    </div>
+                  </div>
+                </details>
+
+                <details className="accordion">
+                  <summary>Bezel</summary>
+                  <div className="accordionBody">
+                    <div className="configFieldGrid">
+                      {renderSearchSelect({
+                        label: 'Compatible bezels in stock',
+                        options: bezelInStockOptions,
+                        searchKey: 'bezel_stock',
+                        value: bezelStockValue,
+                        placeholder: bezelInStockOptions.length ? 'Select in-stock bezel' : 'No in-stock options',
+                        disabled: !selectedModelId || compatLoading,
+                        note: !bezelInStockOptions.length ? (stockLoading ? 'Loading stock data.' : 'No in-stock options.') : undefined,
+                        onChange: (value) => updateComponentSelection('bezel', value),
+                      })}
+                      {renderSearchSelect({
+                        label: 'All compatible bezels',
+                        options: bezelOptions,
+                        searchKey: 'bezel_all',
+                        value: bezelSelectedId,
+                        placeholder: bezelOptions.length ? 'Select compatible bezel' : 'No compatible options',
+                        disabled: !selectedModelId || compatLoading,
+                        note: !bezelOptions.length ? 'No compatible options yet.' : undefined,
+                        onChange: (value) => updateComponentSelection('bezel', value),
+                      })}
+                    </div>
+                  </div>
+                </details>
+              </>
+            ) : (
+              <>
+                <details className="accordion" open>
+                  <summary>Required Components</summary>
+                  <div className="accordionBody">
+                    {compatLoading ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>Loading compatibility...</div> : null}
+                    {compatError ? <div style={{ color: 'var(--bad)', fontSize: 12 }}>{compatError}</div> : null}
+                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                      Complete required items to proceed: {requiredChecklist.join(', ')} ({requiredProgress} done)
+                    </div>
+                    <div className="componentGrid">{requiredTypes.map((type) => renderComponentRow(type, true))}</div>
+                    {missingRequired.length ? (
+                      <div style={{ fontSize: 12, color: 'var(--bad)' }}>
+                        Missing required selections: {missingRequired.map((type) => componentTypeLabels[type] || type).join(', ')}
+                      </div>
+                    ) : null}
+                  </div>
+                </details>
+
+                {recommendedTypes.length ? (
+                  <details className="accordion" open>
+                    <summary>Recommended Components</summary>
+                    <div className="accordionBody">
+                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>Optional but commonly included.</div>
+                      <div className="componentGrid">{recommendedTypes.map((type) => renderComponentRow(type, false))}</div>
+                    </div>
+                  </details>
                 ) : null}
-              </div>
-            </details>
 
-            {recommendedTypes.length ? (
-              <details className="accordion" open>
-                <summary>Recommended Components</summary>
-                <div className="accordionBody">
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>Optional but commonly included.</div>
-                  <div className="componentGrid">{recommendedTypes.map((type) => renderComponentRow(type, false))}</div>
-                </div>
-              </details>
-            ) : null}
-
-            {optionalTypes.length ? (
-              <details className="accordion">
-                <summary>Add More Components</summary>
-                <div className="accordionBody">
-                  <div className="componentGrid">{optionalTypes.map((type) => renderComponentRow(type, false))}</div>
-                </div>
-              </details>
-            ) : null}
+                {optionalTypes.length ? (
+                  <details className="accordion">
+                    <summary>Add More Components</summary>
+                    <div className="accordionBody">
+                      <div className="componentGrid">{optionalTypes.map((type) => renderComponentRow(type, false))}</div>
+                    </div>
+                  </details>
+                ) : null}
+              </>
+            )}
 
             <details className="accordion">
               <summary>Advanced Details</summary>
@@ -999,25 +1689,25 @@ export default function ConfigurationsPage() {
             <div className="summaryTitle">Overview / Summary</div>
             <div className="summaryList">
               <div className="summaryItem">
-                <span className="summaryCheck">âœ“</span>
+                <span className="summaryCheck">OK</span>
                 <span>
                   Configuration: <strong>{configName.trim() || 'Untitled configuration'}</strong>
                 </span>
               </div>
               <div className="summaryItem">
-                <span className="summaryCheck">âœ“</span>
+                <span className="summaryCheck">OK</span>
                 <span>
                   Machine Type: <strong>{machineOptions.find((opt) => opt.value === machineType)?.label || 'Unknown'}</strong>
                 </span>
               </div>
               <div className="summaryItem">
-                <span className="summaryCheck">âœ“</span>
+                <span className="summaryCheck">OK</span>
                 <span>
                   Quantity: <strong>{configQty || '1'}</strong>
                 </span>
               </div>
               <div className="summaryItem">
-                <span className="summaryCheck">âœ“</span>
+                <span className="summaryCheck">OK</span>
                 <span>
                   Platform: <strong>{selectedModel ? formatPlatformLabel(selectedModel) : 'Not selected'}</strong>
                 </span>
@@ -1144,6 +1834,10 @@ export default function ConfigurationsPage() {
           font-size: 12px;
           color: var(--muted);
         }
+        .fieldNote {
+          font-size: 11px;
+          color: var(--muted);
+        }
         .configLayout {
           display: grid;
           gap: 16px;
@@ -1174,7 +1868,7 @@ export default function ConfigurationsPage() {
           display: none;
         }
         .accordion summary::after {
-          content: 'â–¾';
+          content: 'v';
           margin-left: auto;
           color: var(--muted);
           transition: transform 0.2s ease;
