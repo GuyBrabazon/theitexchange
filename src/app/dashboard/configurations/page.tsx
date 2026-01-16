@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -226,13 +226,13 @@ export default function ConfigurationsPage() {
     const base = `${component.manufacturer ? `${component.manufacturer} ` : ''}${component.model}${
       component.part_number ? ` (${component.part_number})` : ''
     }`
-    if (!component.part_number) return `${base} — Stock: n/a`
+    if (!component.part_number) return `${base} - Stock: n/a`
     const key = normalizePartNumber(component.part_number)
     const checked = Object.prototype.hasOwnProperty.call(stockChecked, key)
     const stockQty = getStockQty(component.part_number)
-    if (!checked) return `${base} — Stock: n/a`
-    if (stockQty == null) return `${base} — Stock: ${stockLoading ? '...' : 'No stock'}`
-    return `${base} — ${stockQty > 0 ? 'In stock' : 'No stock'}`
+    if (!checked) return `${base} - Stock: n/a`
+    if (stockQty == null) return `${base} - Stock: ${stockLoading ? '...' : 'No stock'}`
+    return `${base} - ${stockQty > 0 ? 'In stock' : 'No stock'}`
   }
 
   const platformResults = useMemo(() => {
@@ -466,6 +466,273 @@ export default function ConfigurationsPage() {
     }, 300)
     return () => clearTimeout(handle)
   }, [manualOverrides, stockChecked])
+
+  const compatibleByType = useMemo(() => {
+    const groups: Record<string, ComponentModel[]> = {}
+    compatibleComponents.forEach((component) => {
+      const key = component.component_type || 'other'
+      if (!groups[key]) groups[key] = []
+      groups[key].push(component)
+    })
+    Object.values(groups).forEach((list) => list.sort((a, b) => a.model.localeCompare(b.model)))
+    return groups
+  }, [compatibleComponents])
+
+  const componentOrder = componentOrderByMachine[machineType]
+  const requiredTypes = requiredTypesByMachine[machineType]
+  const recommendedTypes = componentOrder.filter(
+    (type) => !requiredTypes.includes(type) && (compatibleByType[type] || []).length > 0
+  )
+  const optionalTypes = componentOrder.filter((type) => !requiredTypes.includes(type) && !recommendedTypes.includes(type))
+
+  const componentLookup = useMemo(() => {
+    const map = new Map<string, ComponentModel>()
+    compatibleComponents.forEach((component) => map.set(component.id, component))
+    return map
+  }, [compatibleComponents])
+
+  const updateComponentSelection = (type: string, componentId: string) => {
+    setSelectedComponents((prev) => {
+      if (!componentId) {
+        const next = { ...prev }
+        delete next[type]
+        return next
+      }
+      const existing = prev[type]
+      return {
+        ...prev,
+        [type]: { componentId, qty: existing?.qty || '1' },
+      }
+    })
+  }
+
+  const updateComponentQty = (type: string, qty: string) => {
+    setSelectedComponents((prev) => {
+      const existing = prev[type]
+      if (!existing) return prev
+      return { ...prev, [type]: { ...existing, qty } }
+    })
+  }
+
+  const updateManualOverride = (type: string, updates: Partial<ManualEntry>) => {
+    setManualOverrides((prev) => {
+      const current = prev[type] || { enabled: false, label: '', partNumber: '', qty: '1', notes: '' }
+      return { ...prev, [type]: { ...current, ...updates } }
+    })
+  }
+
+  const enableManual = (type: string) => {
+    setSelectedComponents((prev) => {
+      if (!prev[type]) return prev
+      const next = { ...prev }
+      delete next[type]
+      return next
+    })
+    updateManualOverride(type, { enabled: true })
+  }
+
+  const disableManual = (type: string) => {
+    updateManualOverride(type, { enabled: false })
+  }
+
+  const toggleTagFilter = (tag: string) => {
+    setFilterTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
+  }
+
+  const missingRequired = requiredTypes.filter((type) => {
+    const selection = selectedComponents[type]
+    const manual = manualOverrides[type]
+    if (selection?.componentId) return false
+    if (manual?.enabled && manual.label.trim()) return false
+    return true
+  })
+
+  const manualUsed = Object.values(manualOverrides).some((entry) => entry.enabled && entry.label.trim())
+  const requiredChecklist = requiredTypes.map((type) => componentTypeLabels[type] || type)
+  const requiredProgress = `${requiredTypes.length - missingRequired.length}/${requiredTypes.length}`
+
+  const compatibilityText = useMemo(() => {
+    if (missingRequired.length > 0) return { label: 'Missing required selections', tone: 'bad' }
+    if (manualUsed) return { label: 'Manual parts added', tone: 'warn' }
+    return { label: 'Ready to save', tone: 'good' }
+  }, [missingRequired.length, manualUsed])
+
+  const canSave = missingRequired.length === 0
+
+  const summaryItems = componentOrder
+    .map((type) => {
+      const selection = selectedComponents[type]
+      if (selection?.componentId) {
+        const component = componentLookup.get(selection.componentId)
+        if (!component) return null
+        const label = `${component.manufacturer ? `${component.manufacturer} ` : ''}${component.model}${
+          component.part_number ? ` (${component.part_number})` : ''
+        }`
+        return { type, label, qty: selection.qty || '1', source: 'catalog' }
+      }
+      const manual = manualOverrides[type]
+      if (manual?.enabled && manual.label.trim()) {
+        return { type, label: manual.label, qty: manual.qty || '1', source: 'manual' }
+      }
+      return null
+    })
+    .filter((item): item is { type: string; label: string; qty: string; source: string } => Boolean(item))
+
+  const resetConfigurator = () => {
+    setConfigName('')
+    setConfigQty('1')
+    setSelectedModelId('')
+    setPlatformSearch('')
+    setFilterManufacturer('')
+    setFilterFormFactor('')
+    setFilterTags([])
+    setSelectedComponents({})
+    setManualOverrides({})
+    setComponentSearch({})
+    setAdvancedValues({})
+    setCompatError('')
+    setCompatibleComponents([])
+    setStockByPart({})
+    setStockLoading(false)
+    setStockChecked({})
+  }
+
+  const renderComponentRow = (type: string, required: boolean) => {
+    const label = componentTypeLabels[type] || type
+    const options = compatibleByType[type] || []
+    const hasOptions = options.length > 0
+    const manual = manualOverrides[type] || { enabled: false, label: '', partNumber: '', qty: '1', notes: '' }
+    const manualActive = manual.enabled
+    const selection = selectedComponents[type]
+    const searchValue = componentSearch[type] || ''
+    const filteredOptions = hasOptions
+      ? options.filter((option) => {
+          if (!searchValue.trim()) return true
+          const optionLabel = `${option.manufacturer || ''} ${option.model} ${option.part_number || ''} ${option.tags.join(' ')}`.toLowerCase()
+          return optionLabel.includes(searchValue.trim().toLowerCase())
+        })
+      : []
+    const selectedComponent = selection?.componentId ? componentLookup.get(selection.componentId) : null
+
+    return (
+      <div key={type} className="componentCard">
+        <div className="componentHeader">
+          <div style={{ fontWeight: 700 }}>{label}</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {required ? <span className="requiredPill">Required</span> : null}
+            {hasOptions ? <span style={autoPillStyle}>{options.length} options</span> : <span style={autoPillStyle}>No validated options</span>}
+          </div>
+        </div>
+
+        {manualActive ? (
+          <div style={{ display: 'grid', gap: 8 }}>
+            {hasOptions ? (
+              <button className="linkBtn" type="button" onClick={() => disableManual(type)}>
+                Back to catalog selection
+              </button>
+            ) : null}
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontSize: 11, color: 'var(--muted)' }}>Description</span>
+              <input
+                value={manual.label}
+                onChange={(e) => updateManualOverride(type, { label: e.target.value })}
+                placeholder="Manual part description"
+                style={{ ...controlStyle, padding: '8px 10px' }}
+              />
+            </label>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontSize: 11, color: 'var(--muted)' }}>Part number (optional)</span>
+              <input
+                value={manual.partNumber}
+                onChange={(e) => updateManualOverride(type, { partNumber: e.target.value })}
+                placeholder="e.g. INT-4314"
+                style={{ ...controlStyle, padding: '8px 10px' }}
+              />
+            </label>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontSize: 11, color: 'var(--muted)' }}>Quantity</span>
+              <input
+                type="number"
+                min={0}
+                value={manual.qty}
+                onChange={(e) => updateManualOverride(type, { qty: e.target.value })}
+                placeholder="1"
+                style={{ ...controlStyle, padding: '8px 10px' }}
+              />
+            </label>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontSize: 11, color: 'var(--muted)' }}>Notes</span>
+              <input
+                value={manual.notes}
+                onChange={(e) => updateManualOverride(type, { notes: e.target.value })}
+                placeholder="Optional notes"
+                style={{ ...controlStyle, padding: '8px 10px' }}
+              />
+            </label>
+            {manual.partNumber.trim() ? (
+              <div>{renderStockPill(manual.partNumber, manual.qty)}</div>
+            ) : (
+              <div style={{ fontSize: 11, color: 'var(--muted)' }}>Add a part number to check stock.</div>
+            )}
+          </div>
+        ) : hasOptions ? (
+          <div style={{ display: 'grid', gap: 8 }}>
+            {options.length > 6 ? (
+              <input
+                value={searchValue}
+                onChange={(e) => setComponentSearch((prev) => ({ ...prev, [type]: e.target.value }))}
+                placeholder="Search options"
+                style={{ ...controlStyle, padding: '8px 10px' }}
+              />
+            ) : null}
+            <select
+              value={selection?.componentId || ''}
+              onChange={(e) => updateComponentSelection(type, e.target.value)}
+              style={controlStyle}
+            >
+              <option value="">Select {label}</option>
+              {filteredOptions.map((component) => (
+                <option key={component.id} value={component.id}>
+                  {formatOptionLabel(component)}
+                </option>
+              ))}
+            </select>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontSize: 11, color: 'var(--muted)' }}>Quantity</span>
+              <input
+                type="number"
+                min={0}
+                value={selection?.qty || ''}
+                onChange={(e) => updateComponentQty(type, e.target.value)}
+                placeholder="0"
+                style={{ ...controlStyle, padding: '8px 10px' }}
+              />
+            </label>
+            {selectedComponent ? (
+              <div style={{ display: 'grid', gap: 6 }}>
+                {renderStockPill(selectedComponent.part_number, selection?.qty || '')}
+                <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                  {selectedComponent.tags.length ? `Tags: ${selectedComponent.tags.slice(0, 4).join(', ')}` : 'No tag data'}
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: 11, color: 'var(--muted)' }}>Pick an option to see details.</div>
+            )}
+            <button className="linkBtn" type="button" onClick={() => enableManual(type)}>
+              Can't find it? Add a manual part
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gap: 6 }}>
+            <div style={{ fontSize: 11, color: 'var(--muted)' }}>No validated options yet.</div>
+            <button className="linkBtn" type="button" onClick={() => enableManual(type)}>
+              Add a manual part
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <main className="configPage">
@@ -732,25 +999,25 @@ export default function ConfigurationsPage() {
             <div className="summaryTitle">Overview / Summary</div>
             <div className="summaryList">
               <div className="summaryItem">
-                <span className="summaryCheck">✓</span>
+                <span className="summaryCheck">âœ“</span>
                 <span>
                   Configuration: <strong>{configName.trim() || 'Untitled configuration'}</strong>
                 </span>
               </div>
               <div className="summaryItem">
-                <span className="summaryCheck">✓</span>
+                <span className="summaryCheck">âœ“</span>
                 <span>
                   Machine Type: <strong>{machineOptions.find((opt) => opt.value === machineType)?.label || 'Unknown'}</strong>
                 </span>
               </div>
               <div className="summaryItem">
-                <span className="summaryCheck">✓</span>
+                <span className="summaryCheck">âœ“</span>
                 <span>
                   Quantity: <strong>{configQty || '1'}</strong>
                 </span>
               </div>
               <div className="summaryItem">
-                <span className="summaryCheck">✓</span>
+                <span className="summaryCheck">âœ“</span>
                 <span>
                   Platform: <strong>{selectedModel ? formatPlatformLabel(selectedModel) : 'Not selected'}</strong>
                 </span>
@@ -907,7 +1174,7 @@ export default function ConfigurationsPage() {
           display: none;
         }
         .accordion summary::after {
-          content: '▾';
+          content: 'â–¾';
           margin-left: auto;
           color: var(--muted);
           transition: transform 0.2s ease;
@@ -1097,3 +1364,7 @@ export default function ConfigurationsPage() {
   )
 
 }
+
+
+
+
