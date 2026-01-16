@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 type MachineType = 'server' | 'storage' | 'network'
@@ -52,6 +52,13 @@ type ManualEntry = {
   partNumber: string
   qty: string
   notes: string
+}
+
+type SelectOption = {
+  value: string
+  label: string
+  searchText?: string
+  disabled?: boolean
 }
 
 type AdvancedField = {
@@ -144,6 +151,116 @@ const controlStyle = {
 
 const normalizePartNumber = (value: string) => value.trim().toUpperCase()
 
+type SearchableSelectProps = {
+  value: string
+  options: SelectOption[]
+  placeholder: string
+  disabled?: boolean
+  onChange: (value: string) => void
+  searchPlaceholder?: string
+  emptyLabel?: string
+}
+
+function SearchableSelect({
+  value,
+  options,
+  placeholder,
+  disabled,
+  onChange,
+  searchPlaceholder = 'Search',
+  emptyLabel = 'No options found',
+}: SearchableSelectProps) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const wrapRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (wrapRef.current && !wrapRef.current.contains(target)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  useEffect(() => {
+    if (!open) setQuery('')
+  }, [open])
+
+  useEffect(() => {
+    if (disabled) setOpen(false)
+  }, [disabled])
+
+  const selectedOption = options.find((option) => option.value === value)
+  const displayLabel = selectedOption ? selectedOption.label : placeholder
+  const loweredQuery = query.trim().toLowerCase()
+  const filteredOptions = loweredQuery
+    ? options.filter((option) => (option.searchText || option.label).toLowerCase().includes(loweredQuery))
+    : options
+
+  return (
+    <div className="selectWrap" ref={wrapRef}>
+      <button
+        type="button"
+        className="selectTrigger"
+        onClick={() => {
+          if (!disabled) setOpen((prev) => !prev)
+        }}
+        disabled={disabled}
+      >
+        <span className={`selectValue ${!selectedOption ? 'selectPlaceholder' : ''}`}>{displayLabel}</span>
+        <span className="selectCaret">v</span>
+      </button>
+      {open ? (
+        <div className="selectMenu">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={searchPlaceholder}
+            className="selectSearch"
+            autoComplete="off"
+          />
+          <div className="selectList">
+            {value ? (
+              <button
+                type="button"
+                className="selectOption selectClear"
+                onClick={() => {
+                  onChange('')
+                  setOpen(false)
+                }}
+              >
+                Clear selection
+              </button>
+            ) : null}
+            {filteredOptions.length ? (
+              filteredOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`selectOption ${option.value === value ? 'selectOptionActive' : ''}`}
+                  onClick={() => {
+                    onChange(option.value)
+                    setOpen(false)
+                  }}
+                  disabled={option.disabled}
+                >
+                  {option.label}
+                </button>
+              ))
+            ) : (
+              <div className="selectEmpty">{emptyLabel}</div>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 export default function ConfigurationsPage() {
   const [machineType, setMachineType] = useState<MachineType>('server')
   const [configName, setConfigName] = useState('')
@@ -152,10 +269,6 @@ export default function ConfigurationsPage() {
   const [catalogError, setCatalogError] = useState('')
   const [systemModels, setSystemModels] = useState<SystemModel[]>([])
 
-  const [manufacturerSearch, setManufacturerSearch] = useState('')
-  const [familySearch, setFamilySearch] = useState('')
-  const [modelSearch, setModelSearch] = useState('')
-  const [chassisSearch, setChassisSearch] = useState('')
   const [selectedManufacturer, setSelectedManufacturer] = useState('')
   const [selectedFamily, setSelectedFamily] = useState('')
   const [selectedModelId, setSelectedModelId] = useState('')
@@ -167,7 +280,6 @@ export default function ConfigurationsPage() {
 
   const [selectedComponents, setSelectedComponents] = useState<Record<string, ComponentSelection>>({})
   const [manualOverrides, setManualOverrides] = useState<Record<string, ManualEntry>>({})
-  const [componentSearch, setComponentSearch] = useState<Record<string, string>>({})
   const [advancedValues, setAdvancedValues] = useState<Record<string, string>>({})
   const [stockByPart, setStockByPart] = useState<Record<string, number>>({})
   const [stockLoading, setStockLoading] = useState(false)
@@ -176,35 +288,25 @@ export default function ConfigurationsPage() {
   const filteredModels = useMemo(() => systemModels.filter((m) => m.machine_type === machineType), [systemModels, machineType])
 
   const manufacturerOptions = useMemo(() => {
-    const query = manufacturerSearch.trim().toLowerCase()
     const list = filteredModels.map((model) => model.manufacturer).filter(Boolean)
-    const filtered = query ? list.filter((maker) => maker.toLowerCase().includes(query)) : list
-    return Array.from(new Set(filtered)).sort()
-  }, [filteredModels, manufacturerSearch])
+    return Array.from(new Set(list)).sort()
+  }, [filteredModels])
 
   const familyOptions = useMemo(() => {
-    const query = familySearch.trim().toLowerCase()
     const list = filteredModels
       .filter((model) => !selectedManufacturer || model.manufacturer === selectedManufacturer)
       .map((model) => model.family)
       .filter((family): family is string => Boolean(family && family.trim()))
-    const filtered = query ? list.filter((family) => family.toLowerCase().includes(query)) : list
-    return Array.from(new Set(filtered)).sort()
-  }, [filteredModels, selectedManufacturer, familySearch])
+    return Array.from(new Set(list)).sort()
+  }, [filteredModels, selectedManufacturer])
 
   const modelOptions = useMemo(() => {
-    const query = modelSearch.trim().toLowerCase()
     return filteredModels
       .filter(
         (model) =>
           (!selectedManufacturer || model.manufacturer === selectedManufacturer) &&
           (!selectedFamily || (model.family || '') === selectedFamily)
       )
-      .filter((model) => {
-        if (!query) return true
-        const haystack = [model.manufacturer, model.family || '', model.model, model.form_factor || '', model.tags.join(' ')].join(' ').toLowerCase()
-        return haystack.includes(query)
-      })
       .sort((a, b) => {
         const maker = a.manufacturer.localeCompare(b.manufacturer)
         if (maker !== 0) return maker
@@ -212,7 +314,7 @@ export default function ConfigurationsPage() {
         if (family !== 0) return family
         return a.model.localeCompare(b.model)
       })
-  }, [filteredModels, selectedManufacturer, selectedFamily, modelSearch])
+  }, [filteredModels, selectedManufacturer, selectedFamily])
 
   const formatPlatformLabel = (model: SystemModel) => {
     const family = model.family ? `${model.family} / ` : ''
@@ -262,6 +364,20 @@ export default function ConfigurationsPage() {
     return `${base} - ${stockQty > 0 ? 'In stock' : 'No stock'}`
   }
 
+  const buildComponentSearchText = (component: ComponentModel) => {
+    return `${component.manufacturer || ''} ${component.oem || ''} ${component.category || ''} ${component.model} ${
+      component.part_number || ''
+    } ${component.description || ''} ${component.tags.join(' ')}`.toLowerCase()
+  }
+
+  const buildComponentOptions = (options: ComponentModel[]): SelectOption[] => {
+    return options.map((component) => ({
+      value: component.id,
+      label: formatOptionLabel(component),
+      searchText: buildComponentSearchText(component),
+    }))
+  }
+
   const selectedModel = useMemo(() => filteredModels.find((m) => m.id === selectedModelId) || null, [filteredModels, selectedModelId])
 
   useEffect(() => {
@@ -307,17 +423,12 @@ export default function ConfigurationsPage() {
   }, [machineType])
 
   useEffect(() => {
-    setManufacturerSearch('')
-    setFamilySearch('')
-    setModelSearch('')
-    setChassisSearch('')
     setSelectedManufacturer('')
     setSelectedFamily('')
     setSelectedModelId('')
     setSelectedChassisId('')
     setSelectedComponents({})
     setManualOverrides({})
-    setComponentSearch({})
     setAdvancedValues({})
     setCompatError('')
     setCompatibleComponents([])
@@ -329,10 +440,8 @@ export default function ConfigurationsPage() {
   useEffect(() => {
     setSelectedComponents({})
     setManualOverrides({})
-    setComponentSearch({})
     setAdvancedValues({})
     setCompatError('')
-    setChassisSearch('')
     setSelectedChassisId('')
     setStockByPart({})
     setStockLoading(false)
@@ -560,15 +669,6 @@ export default function ConfigurationsPage() {
       .sort((a, b) => a.model.localeCompare(b.model))
   }, [compatibleComponents])
 
-  const filteredChassisOptions = useMemo(() => {
-    const query = chassisSearch.trim().toLowerCase()
-    if (!query) return chassisOptions
-    return chassisOptions.filter((component) => {
-      const haystack = `${component.manufacturer || ''} ${component.model} ${component.part_number || ''} ${component.tags.join(' ')}`.toLowerCase()
-      return haystack.includes(query)
-    })
-  }, [chassisOptions, chassisSearch])
-
   const getSelectedComponent = (type: string) => {
     const selection = selectedComponents[type]
     if (!selection?.componentId) return null
@@ -623,20 +723,6 @@ export default function ConfigurationsPage() {
     const prefixes = prefixesByType[type]
     if (!prefixes) return null
     return getTagNumber(tags, prefixes)
-  }
-
-  const matchesComponentSearch = (component: ComponentModel, searchValue: string) => {
-    if (!searchValue.trim()) return true
-    const haystack =
-      `${component.manufacturer || ''} ${component.oem || ''} ${component.category || ''} ${component.model} ${component.part_number || ''} ${
-        component.description || ''
-      } ${component.tags.join(' ')}`.toLowerCase()
-    return haystack.includes(searchValue.trim().toLowerCase())
-  }
-
-  const filterComponentsBySearch = (options: ComponentModel[], searchValue: string) => {
-    if (!searchValue.trim()) return options
-    return options.filter((component) => matchesComponentSearch(component, searchValue))
   }
 
   const getInStockOptions = (options: ComponentModel[]) => {
@@ -706,9 +792,6 @@ export default function ConfigurationsPage() {
 
   const handleManufacturerSelect = (value: string) => {
     setSelectedManufacturer(value)
-    setFamilySearch('')
-    setModelSearch('')
-    setChassisSearch('')
     setSelectedFamily('')
     setSelectedModelId('')
     setSelectedChassisId('')
@@ -716,8 +799,6 @@ export default function ConfigurationsPage() {
 
   const handleFamilySelect = (value: string) => {
     setSelectedFamily(value)
-    setModelSearch('')
-    setChassisSearch('')
     setSelectedModelId('')
     setSelectedChassisId('')
   }
@@ -725,7 +806,6 @@ export default function ConfigurationsPage() {
   const handleModelSelect = (value: string) => {
     setSelectedModelId(value)
     setSelectedChassisId('')
-    setChassisSearch('')
     if (!value) return
     const match = filteredModels.find((model) => model.id === value)
     if (!match) return
@@ -787,17 +867,12 @@ export default function ConfigurationsPage() {
   const resetConfigurator = () => {
     setConfigName('')
     setConfigQty('1')
-    setManufacturerSearch('')
-    setFamilySearch('')
-    setModelSearch('')
-    setChassisSearch('')
     setSelectedManufacturer('')
     setSelectedFamily('')
     setSelectedModelId('')
     setSelectedChassisId('')
     setSelectedComponents({})
     setManualOverrides({})
-    setComponentSearch({})
     setAdvancedValues({})
     setCompatError('')
     setCompatibleComponents([])
@@ -813,15 +888,8 @@ export default function ConfigurationsPage() {
     const manual = manualOverrides[type] || { enabled: false, label: '', partNumber: '', qty: '1', notes: '' }
     const manualActive = manual.enabled
     const selection = selectedComponents[type]
-    const searchValue = componentSearch[type] || ''
-    const filteredOptions = hasOptions
-      ? options.filter((option) => {
-          if (!searchValue.trim()) return true
-          const optionLabel = `${option.manufacturer || ''} ${option.model} ${option.part_number || ''} ${option.tags.join(' ')}`.toLowerCase()
-          return optionLabel.includes(searchValue.trim().toLowerCase())
-        })
-      : []
     const selectedComponent = selection?.componentId ? componentLookup.get(selection.componentId) : null
+    const optionItems = buildComponentOptions(options)
 
     return (
       <div key={type} className="componentCard">
@@ -886,26 +954,14 @@ export default function ConfigurationsPage() {
           </div>
         ) : hasOptions ? (
           <div style={{ display: 'grid', gap: 8 }}>
-            {options.length > 6 ? (
-              <input
-                value={searchValue}
-                onChange={(e) => setComponentSearch((prev) => ({ ...prev, [type]: e.target.value }))}
-                placeholder="Search options"
-                style={{ ...controlStyle, padding: '8px 10px' }}
-              />
-            ) : null}
-            <select
+            <SearchableSelect
               value={selection?.componentId || ''}
-              onChange={(e) => updateComponentSelection(type, e.target.value)}
-              style={controlStyle}
-            >
-              <option value="">Select {label}</option>
-              {filteredOptions.map((component) => (
-                <option key={component.id} value={component.id}>
-                  {formatOptionLabel(component)}
-                </option>
-              ))}
-            </select>
+              options={optionItems}
+              placeholder={options.length ? 'Select option' : 'No compatible options'}
+              onChange={(value) => updateComponentSelection(type, value)}
+              searchPlaceholder="Search options"
+              emptyLabel="No matches"
+            />
             <label style={{ display: 'grid', gap: 6 }}>
               <span style={{ fontSize: 11, color: 'var(--muted)' }}>Quantity</span>
               <input
@@ -946,7 +1002,6 @@ export default function ConfigurationsPage() {
   const renderSearchSelect = ({
     label,
     options,
-    searchKey,
     value,
     placeholder,
     disabled,
@@ -955,34 +1010,26 @@ export default function ConfigurationsPage() {
   }: {
     label: string
     options: ComponentModel[]
-    searchKey: string
     value: string
     placeholder: string
     disabled?: boolean
     note?: string
     onChange: (value: string) => void
   }) => {
-    const searchValue = componentSearch[searchKey] || ''
-    const filtered = filterComponentsBySearch(options, searchValue)
+    const resolvedNote = note && note.trim().toLowerCase() !== placeholder.trim().toLowerCase() ? note : undefined
     return (
       <label className="field">
         <span className="fieldLabel">{label}</span>
-        <input
-          value={searchValue}
-          onChange={(e) => setComponentSearch((prev) => ({ ...prev, [searchKey]: e.target.value }))}
-          placeholder="Search part number or description"
-          style={{ ...controlStyle, padding: '8px 10px' }}
+        <SearchableSelect
+          value={value}
+          options={buildComponentOptions(options)}
+          placeholder={placeholder}
           disabled={disabled}
+          onChange={onChange}
+          searchPlaceholder="Search part number or description"
+          emptyLabel="No matches"
         />
-        <select value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} style={controlStyle}>
-          <option value="">{placeholder}</option>
-          {filtered.map((component) => (
-            <option key={component.id} value={component.id}>
-              {formatOptionLabel(component)}
-            </option>
-          ))}
-        </select>
-        {note ? <span className="fieldNote">{note}</span> : null}
+        {resolvedNote ? <span className="fieldNote">{resolvedNote}</span> : null}
       </label>
     )
   }
@@ -1087,13 +1134,14 @@ export default function ConfigurationsPage() {
             </label>
             <label className="field">
               <span className="fieldLabel">Machine Type</span>
-              <select value={machineType} onChange={(e) => setMachineType(e.target.value as MachineType)} style={controlStyle}>
-                {machineOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={machineType}
+                options={machineOptions.map((option) => ({ value: option.value, label: option.label, searchText: option.label }))}
+                placeholder="Select machine type"
+                onChange={(value) => setMachineType(value as MachineType)}
+                searchPlaceholder="Search machine types"
+                emptyLabel="No matches"
+              />
             </label>
             <label className="field">
               <span className="fieldLabel">Quantity</span>
@@ -1119,71 +1167,43 @@ export default function ConfigurationsPage() {
                 <div className="configFieldGrid">
                   <label className="field">
                     <span className="fieldLabel">Manufacturer</span>
-                    <input
-                      value={manufacturerSearch}
-                      onChange={(e) => setManufacturerSearch(e.target.value)}
-                      placeholder="Search manufacturers"
-                      style={{ ...controlStyle, padding: '8px 10px' }}
-                    />
-                    <select
+                    <SearchableSelect
                       value={selectedManufacturer}
-                      onChange={(e) => handleManufacturerSelect(e.target.value)}
+                      onChange={handleManufacturerSelect}
                       disabled={catalogLoading || manufacturerOptions.length === 0}
-                      style={controlStyle}
-                    >
-                      <option value="">Select manufacturer</option>
-                      {manufacturerOptions.map((maker) => (
-                        <option key={maker} value={maker}>
-                          {maker}
-                        </option>
-                      ))}
-                    </select>
+                      options={manufacturerOptions.map((maker) => ({ value: maker, label: maker, searchText: maker }))}
+                      placeholder={manufacturerOptions.length ? 'Select manufacturer' : 'No manufacturers'}
+                      searchPlaceholder="Search manufacturers"
+                      emptyLabel="No matches"
+                    />
                   </label>
                   <label className="field">
                     <span className="fieldLabel">Product family</span>
-                    <input
-                      value={familySearch}
-                      onChange={(e) => setFamilySearch(e.target.value)}
-                      placeholder="Search families"
-                      style={{ ...controlStyle, padding: '8px 10px' }}
-                      disabled={!selectedManufacturer}
-                    />
-                    <select
+                    <SearchableSelect
                       value={selectedFamily}
-                      onChange={(e) => handleFamilySelect(e.target.value)}
+                      onChange={handleFamilySelect}
                       disabled={!selectedManufacturer || familyOptions.length === 0}
-                      style={controlStyle}
-                    >
-                      <option value="">Select family</option>
-                      {familyOptions.map((family) => (
-                        <option key={family} value={family}>
-                          {family}
-                        </option>
-                      ))}
-                    </select>
+                      options={familyOptions.map((family) => ({ value: family, label: family, searchText: family }))}
+                      placeholder={familyOptions.length ? 'Select family' : 'No families'}
+                      searchPlaceholder="Search families"
+                      emptyLabel="No matches"
+                    />
                   </label>
                   <label className="field">
                     <span className="fieldLabel">Model</span>
-                    <input
-                      value={modelSearch}
-                      onChange={(e) => setModelSearch(e.target.value)}
-                      placeholder="Search models"
-                      style={{ ...controlStyle, padding: '8px 10px' }}
-                      disabled={!selectedManufacturer}
-                    />
-                    <select
+                    <SearchableSelect
                       value={selectedModelId}
-                      onChange={(e) => handleModelSelect(e.target.value)}
+                      onChange={handleModelSelect}
                       disabled={!selectedManufacturer || modelOptions.length === 0}
-                      style={controlStyle}
-                    >
-                      <option value="">Select model</option>
-                      {modelOptions.map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {formatPlatformLabel(model)}
-                        </option>
-                      ))}
-                    </select>
+                      options={modelOptions.map((model) => ({
+                        value: model.id,
+                        label: formatPlatformLabel(model),
+                        searchText: `${model.manufacturer} ${model.family || ''} ${model.model} ${model.form_factor || ''} ${model.tags.join(' ')}`,
+                      }))}
+                      placeholder={modelOptions.length ? 'Select model' : 'No models'}
+                      searchPlaceholder="Search models"
+                      emptyLabel="No matches"
+                    />
                   </label>
                 </div>
 
@@ -1195,28 +1215,15 @@ export default function ConfigurationsPage() {
                   <label className="field">
                     <span className="fieldLabel">Chassis model</span>
                     {hasChassisOptions ? (
-                      <>
-                        <input
-                          value={chassisSearch}
-                          onChange={(e) => setChassisSearch(e.target.value)}
-                          placeholder="Search chassis models"
-                          style={{ ...controlStyle, padding: '8px 10px' }}
-                          disabled={!selectedModelId}
-                        />
-                        <select
-                          value={selectedChassisId}
-                          onChange={(e) => setSelectedChassisId(e.target.value)}
-                          disabled={!selectedModelId || chassisOptions.length === 0}
-                          style={controlStyle}
-                        >
-                          <option value="">Select chassis</option>
-                          {filteredChassisOptions.map((component) => (
-                            <option key={component.id} value={component.id}>
-                              {formatOptionLabel(component)}
-                            </option>
-                          ))}
-                        </select>
-                      </>
+                      <SearchableSelect
+                        value={selectedChassisId}
+                        onChange={(value) => setSelectedChassisId(value)}
+                        disabled={!selectedModelId || chassisOptions.length === 0}
+                        options={buildComponentOptions(chassisOptions)}
+                        placeholder={chassisOptions.length ? 'Select chassis' : 'No chassis options'}
+                        searchPlaceholder="Search chassis models"
+                        emptyLabel="No matches"
+                      />
                     ) : (
                       <input
                         readOnly
@@ -1260,7 +1267,6 @@ export default function ConfigurationsPage() {
                       {renderSearchSelect({
                         label: 'Compatible CPUs in stock',
                         options: cpuInStockOptions,
-                        searchKey: 'cpu_stock',
                         value: cpuStockValue,
                         placeholder: cpuInStockOptions.length ? 'Select in-stock CPU' : 'No in-stock options',
                         disabled: !selectedModelId || compatLoading,
@@ -1270,7 +1276,6 @@ export default function ConfigurationsPage() {
                       {renderSearchSelect({
                         label: 'All compatible CPUs',
                         options: cpuOptions,
-                        searchKey: 'cpu_all',
                         value: cpuSelectedId,
                         placeholder: cpuOptions.length ? 'Select compatible CPU' : 'No compatible options',
                         disabled: !selectedModelId || compatLoading,
@@ -1288,18 +1293,18 @@ export default function ConfigurationsPage() {
                             style={{ ...controlStyle, opacity: 0.7 }}
                           />
                         ) : (
-                          <select
+                          <SearchableSelect
                             value={advancedValues.cpu_cores_need || ''}
-                            onChange={(e) => setAdvancedValues((prev) => ({ ...prev, cpu_cores_need: e.target.value }))}
-                            style={controlStyle}
-                          >
-                            <option value="">Select cores</option>
-                            {coresNeedOptions.map((opt) => (
-                              <option key={opt} value={opt}>
-                                {opt} cores
-                              </option>
-                            ))}
-                          </select>
+                            onChange={(value) => setAdvancedValues((prev) => ({ ...prev, cpu_cores_need: value }))}
+                            options={coresNeedOptions.map((opt) => ({
+                              value: opt,
+                              label: `${opt} cores`,
+                              searchText: `${opt} cores`,
+                            }))}
+                            placeholder="Select cores"
+                            searchPlaceholder="Search cores"
+                            emptyLabel="No matches"
+                          />
                         )}
                       </label>
                       <label className="field">
@@ -1331,7 +1336,6 @@ export default function ConfigurationsPage() {
                       {renderSearchSelect({
                         label: 'Compatible DIMMs in stock',
                         options: memoryInStockOptions,
-                        searchKey: 'memory_stock',
                         value: memoryStockValue,
                         placeholder: memoryInStockOptions.length ? 'Select in-stock DIMM' : 'No in-stock options',
                         disabled: !selectedModelId || compatLoading,
@@ -1341,7 +1345,6 @@ export default function ConfigurationsPage() {
                       {renderSearchSelect({
                         label: 'All compatible DIMMs',
                         options: memoryOptions,
-                        searchKey: 'memory_all',
                         value: memorySelectedId,
                         placeholder: memoryOptions.length ? 'Select compatible DIMM' : 'No compatible options',
                         disabled: !selectedModelId || compatLoading,
@@ -1359,18 +1362,18 @@ export default function ConfigurationsPage() {
                             style={{ ...controlStyle, opacity: 0.7 }}
                           />
                         ) : (
-                          <select
+                          <SearchableSelect
                             value={advancedValues.memory_gb_need || ''}
-                            onChange={(e) => setAdvancedValues((prev) => ({ ...prev, memory_gb_need: e.target.value }))}
-                            style={controlStyle}
-                          >
-                            <option value="">Select memory size</option>
-                            {memoryNeedOptions.map((opt) => (
-                              <option key={opt} value={opt}>
-                                {opt} GB
-                              </option>
-                            ))}
-                          </select>
+                            onChange={(value) => setAdvancedValues((prev) => ({ ...prev, memory_gb_need: value }))}
+                            options={memoryNeedOptions.map((opt) => ({
+                              value: opt,
+                              label: `${opt} GB`,
+                              searchText: `${opt} GB`,
+                            }))}
+                            placeholder="Select memory size"
+                            searchPlaceholder="Search memory size"
+                            emptyLabel="No matches"
+                          />
                         )}
                       </label>
                       <label className="field">
@@ -1400,17 +1403,19 @@ export default function ConfigurationsPage() {
                   <div className="accordionBody">
                     <label className="field">
                       <span className="fieldLabel">Controller type</span>
-                      <select
+                      <SearchableSelect
                         value={advancedValues.storage_controller_type || ''}
-                        onChange={(e) => setAdvancedValues((prev) => ({ ...prev, storage_controller_type: e.target.value }))}
-                        style={controlStyle}
-                      >
-                        <option value="">Select controller type</option>
-                        <option value="pcie">PCIe cards</option>
-                        <option value="front">Front cards</option>
-                        <option value="onboard">Onboard</option>
-                        <option value="diskless">Diskless</option>
-                      </select>
+                        onChange={(value) => setAdvancedValues((prev) => ({ ...prev, storage_controller_type: value }))}
+                        options={[
+                          { value: 'pcie', label: 'PCIe cards', searchText: 'pcie cards' },
+                          { value: 'front', label: 'Front cards', searchText: 'front cards' },
+                          { value: 'onboard', label: 'Onboard', searchText: 'onboard' },
+                          { value: 'diskless', label: 'Diskless', searchText: 'diskless' },
+                        ]}
+                        placeholder="Select controller type"
+                        searchPlaceholder="Search controller types"
+                        emptyLabel="No matches"
+                      />
                     </label>
                   </div>
                 </details>
@@ -1422,7 +1427,6 @@ export default function ConfigurationsPage() {
                       {renderSearchSelect({
                         label: 'Compatible drives in stock',
                         options: driveInStockOptions,
-                        searchKey: 'drive_stock',
                         value: driveStockValue,
                         placeholder: driveInStockOptions.length ? 'Select in-stock drive' : 'No in-stock options',
                         disabled: !selectedModelId || compatLoading,
@@ -1432,7 +1436,6 @@ export default function ConfigurationsPage() {
                       {renderSearchSelect({
                         label: 'All compatible drives',
                         options: driveOptions,
-                        searchKey: 'drive_all',
                         value: driveSelectedId,
                         placeholder: driveOptions.length ? 'Select compatible drive' : 'No compatible options',
                         disabled: !selectedModelId || compatLoading,
@@ -1450,18 +1453,18 @@ export default function ConfigurationsPage() {
                             style={{ ...controlStyle, opacity: 0.7 }}
                           />
                         ) : (
-                          <select
+                          <SearchableSelect
                             value={advancedValues.storage_usable_need || ''}
-                            onChange={(e) => setAdvancedValues((prev) => ({ ...prev, storage_usable_need: e.target.value }))}
-                            style={controlStyle}
-                          >
-                            <option value="">Select usable storage</option>
-                            {storageNeedOptions.map((opt) => (
-                              <option key={opt} value={opt}>
-                                {opt}
-                              </option>
-                            ))}
-                          </select>
+                            onChange={(value) => setAdvancedValues((prev) => ({ ...prev, storage_usable_need: value }))}
+                            options={storageNeedOptions.map((opt) => ({
+                              value: opt,
+                              label: opt,
+                              searchText: opt,
+                            }))}
+                            placeholder="Select usable storage"
+                            searchPlaceholder="Search storage targets"
+                            emptyLabel="No matches"
+                          />
                         )}
                       </label>
                       <label className="field">
@@ -1493,7 +1496,6 @@ export default function ConfigurationsPage() {
                       {renderSearchSelect({
                         label: 'Compatible network cards in stock',
                         options: nicInStockOptions,
-                        searchKey: 'nic_stock',
                         value: nicStockValue,
                         placeholder: nicInStockOptions.length ? 'Select in-stock NIC' : 'No in-stock options',
                         disabled: !selectedModelId || compatLoading,
@@ -1503,7 +1505,6 @@ export default function ConfigurationsPage() {
                       {renderSearchSelect({
                         label: 'All compatible network cards',
                         options: nicOptions,
-                        searchKey: 'nic_all',
                         value: nicSelectedId,
                         placeholder: nicOptions.length ? 'Select compatible NIC' : 'No compatible options',
                         disabled: !selectedModelId || compatLoading,
@@ -1521,7 +1522,6 @@ export default function ConfigurationsPage() {
                       {renderSearchSelect({
                         label: 'Compatible GPUs in stock',
                         options: gpuInStockOptions,
-                        searchKey: 'gpu_stock',
                         value: gpuStockValue,
                         placeholder: gpuInStockOptions.length ? 'Select in-stock GPU' : 'No in-stock options',
                         disabled: !selectedModelId || compatLoading,
@@ -1531,7 +1531,6 @@ export default function ConfigurationsPage() {
                       {renderSearchSelect({
                         label: 'All compatible GPUs',
                         options: gpuOptions,
-                        searchKey: 'gpu_all',
                         value: gpuSelectedId,
                         placeholder: gpuOptions.length ? 'Select compatible GPU' : 'No compatible options',
                         disabled: !selectedModelId || compatLoading,
@@ -1549,7 +1548,6 @@ export default function ConfigurationsPage() {
                       {renderSearchSelect({
                         label: 'Compatible power supplies in stock',
                         options: powerInStockOptions,
-                        searchKey: 'power_stock',
                         value: powerStockValue,
                         placeholder: powerInStockOptions.length ? 'Select in-stock PSU' : 'No in-stock options',
                         disabled: !selectedModelId || compatLoading,
@@ -1559,7 +1557,6 @@ export default function ConfigurationsPage() {
                       {renderSearchSelect({
                         label: 'All compatible power supplies',
                         options: powerOptions,
-                        searchKey: 'power_all',
                         value: powerSelectedId,
                         placeholder: powerOptions.length ? 'Select compatible PSU' : 'No compatible options',
                         disabled: !selectedModelId || compatLoading,
@@ -1576,7 +1573,6 @@ export default function ConfigurationsPage() {
                     {renderSearchSelect({
                       label: 'All compatible licenses',
                       options: remoteAccessOptions,
-                      searchKey: 'remote_all',
                       value: remoteSelectedId,
                       placeholder: remoteAccessOptions.length ? 'Select compatible license' : 'No compatible licenses',
                       disabled: !selectedModelId || compatLoading,
@@ -1593,7 +1589,6 @@ export default function ConfigurationsPage() {
                       {renderSearchSelect({
                         label: 'Compatible rail kits in stock',
                         options: railInStockOptions,
-                        searchKey: 'rail_stock',
                         value: railStockValue,
                         placeholder: railInStockOptions.length ? 'Select in-stock rail kit' : 'No in-stock options',
                         disabled: !selectedModelId || compatLoading,
@@ -1603,7 +1598,6 @@ export default function ConfigurationsPage() {
                       {renderSearchSelect({
                         label: 'All compatible rail kits',
                         options: railOptions,
-                        searchKey: 'rail_all',
                         value: railSelectedId,
                         placeholder: railOptions.length ? 'Select compatible rail kit' : 'No compatible options',
                         disabled: !selectedModelId || compatLoading,
@@ -1621,7 +1615,6 @@ export default function ConfigurationsPage() {
                       {renderSearchSelect({
                         label: 'Compatible bezels in stock',
                         options: bezelInStockOptions,
-                        searchKey: 'bezel_stock',
                         value: bezelStockValue,
                         placeholder: bezelInStockOptions.length ? 'Select in-stock bezel' : 'No in-stock options',
                         disabled: !selectedModelId || compatLoading,
@@ -1631,7 +1624,6 @@ export default function ConfigurationsPage() {
                       {renderSearchSelect({
                         label: 'All compatible bezels',
                         options: bezelOptions,
-                        searchKey: 'bezel_all',
                         value: bezelSelectedId,
                         placeholder: bezelOptions.length ? 'Select compatible bezel' : 'No compatible options',
                         disabled: !selectedModelId || compatLoading,
@@ -1702,18 +1694,14 @@ export default function ConfigurationsPage() {
                       return (
                         <label key={field.key} className="advancedField">
                           <span style={{ fontSize: 11, color: 'var(--muted)' }}>{field.label}</span>
-                          <select
+                          <SearchableSelect
                             value={value}
-                            onChange={(e) => setAdvancedValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                            style={{ ...controlStyle, padding: '8px 10px' }}
-                          >
-                            <option value="">Select</option>
-                            {field.options?.map((opt) => (
-                              <option key={opt} value={opt}>
-                                {opt}
-                              </option>
-                            ))}
-                          </select>
+                            onChange={(next) => setAdvancedValues((prev) => ({ ...prev, [field.key]: next }))}
+                            options={(field.options || []).map((opt) => ({ value: opt, label: opt, searchText: opt }))}
+                            placeholder="Select"
+                            searchPlaceholder="Search options"
+                            emptyLabel="No matches"
+                          />
                         </label>
                       )
                     }
@@ -1883,6 +1871,94 @@ export default function ConfigurationsPage() {
         .fieldLabel {
           font-size: 12px;
           color: var(--muted);
+        }
+        .selectWrap {
+          position: relative;
+        }
+        .selectTrigger {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          padding: 10px 12px;
+          border-radius: 10px;
+          border: 1px solid var(--border);
+          background: var(--panel-2);
+          color: var(--text);
+          font-size: 14px;
+          cursor: pointer;
+          text-align: left;
+        }
+        .selectTrigger:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+        .selectValue {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .selectPlaceholder {
+          color: var(--muted);
+        }
+        .selectCaret {
+          color: var(--muted);
+          font-size: 12px;
+        }
+        .selectMenu {
+          position: absolute;
+          top: calc(100% + 6px);
+          left: 0;
+          right: 0;
+          background: var(--panel);
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 8px;
+          display: grid;
+          gap: 8px;
+          z-index: 20;
+          box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+        }
+        .selectSearch {
+          width: 100%;
+          padding: 8px 10px;
+          border-radius: 8px;
+          border: 1px solid var(--border);
+          background: var(--panel-2);
+          color: var(--text);
+          font-size: 13px;
+        }
+        .selectList {
+          max-height: 220px;
+          overflow: auto;
+          display: grid;
+          gap: 4px;
+        }
+        .selectOption {
+          text-align: left;
+          padding: 8px 10px;
+          border-radius: 8px;
+          border: 1px solid transparent;
+          background: transparent;
+          color: var(--text);
+          cursor: pointer;
+        }
+        .selectOption:hover {
+          background: var(--panel-2);
+        }
+        .selectOptionActive {
+          border-color: var(--accent);
+          background: rgba(90, 180, 255, 0.12);
+        }
+        .selectClear {
+          color: var(--muted);
+          font-size: 12px;
+        }
+        .selectEmpty {
+          padding: 6px 8px;
+          color: var(--muted);
+          font-size: 12px;
         }
         .fieldNote {
           font-size: 11px;
