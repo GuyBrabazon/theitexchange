@@ -1,6 +1,7 @@
 ﻿'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '@/lib/supabase'
 
 type MachineType = 'server' | 'storage' | 'network'
@@ -193,7 +194,10 @@ function SearchableSelect(props: SearchableSelectProps) {
   const buttonRef = useRef<HTMLButtonElement | null>(null)
   const searchRef = useRef<HTMLInputElement | null>(null)
   const listRef = useRef<HTMLUListElement | null>(null)
+  const menuRef = useRef<HTMLDivElement | null>(null)
   const listId = useRef(`select-${Math.random().toString(36).slice(2)}`).current
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
+  const [menuStyle, setMenuStyle] = useState<CSSProperties>({})
 
   const selectedValues = Array.isArray(value) ? value : value ? [value] : []
   const selectedOption = !isMulti ? options.find((option) => option.value === value) : null
@@ -219,7 +223,8 @@ function SearchableSelect(props: SearchableSelectProps) {
   useEffect(() => {
     function onDocMouseDown(event: MouseEvent) {
       const target = event.target as Node
-      if (rootRef.current && !rootRef.current.contains(target)) {
+      const menuEl = menuRef.current
+      if (rootRef.current && !rootRef.current.contains(target) && (!menuEl || !menuEl.contains(target))) {
         setOpen(false)
         setQuery('')
         setActiveIndex(-1)
@@ -272,6 +277,73 @@ function SearchableSelect(props: SearchableSelectProps) {
     if (disabled) setOpen(false)
   }, [disabled])
 
+  useEffect(() => {
+    setPortalTarget(document.body)
+  }, [])
+
+  const updateMenuPosition = useCallback(() => {
+    const buttonEl = buttonRef.current
+    if (!buttonEl) return
+    const rect = buttonEl.getBoundingClientRect()
+    const gap = 8
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    const maxWidth = Math.max(0, viewportWidth - gap * 2)
+    const width = Math.min(rect.width, maxWidth)
+    let left = rect.left
+    if (left + width > viewportWidth - gap) {
+      left = Math.max(gap, viewportWidth - gap - width)
+    } else {
+      left = Math.max(gap, left)
+    }
+    let top = rect.bottom + gap
+    const menuEl = menuRef.current
+    if (menuEl) {
+      const menuRect = menuEl.getBoundingClientRect()
+      if (top + menuRect.height > viewportHeight - gap) {
+        const aboveTop = rect.top - gap - menuRect.height
+        if (aboveTop >= gap) {
+          top = aboveTop
+        } else {
+          top = Math.max(gap, viewportHeight - gap - menuRect.height)
+        }
+      }
+    }
+    setMenuStyle({
+      position: 'fixed',
+      top: Math.round(top),
+      left: Math.round(left),
+      width: Math.round(width),
+      zIndex: 9999,
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    const frame = requestAnimationFrame(() => updateMenuPosition())
+    const handleScroll = () => updateMenuPosition()
+    const handleResize = () => updateMenuPosition()
+    window.addEventListener('scroll', handleScroll, true)
+    window.addEventListener('resize', handleResize)
+    let observer: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(() => updateMenuPosition())
+      if (buttonRef.current) observer.observe(buttonRef.current)
+      if (menuRef.current) observer.observe(menuRef.current)
+    }
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', handleScroll, true)
+      window.removeEventListener('resize', handleResize)
+      if (observer) observer.disconnect()
+    }
+  }, [open, updateMenuPosition])
+
+  useEffect(() => {
+    if (!open) return
+    updateMenuPosition()
+  }, [open, filteredOptions.length, updateMenuPosition])
+
   const commit = (option: SelectOption) => {
     if (option.disabled) return
     if (isMulti) {
@@ -291,6 +363,10 @@ function SearchableSelect(props: SearchableSelectProps) {
     if (disabled) return
     if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
+      if (!open) {
+        setQuery('')
+        updateMenuPosition()
+      }
       setOpen(true)
     }
   }
@@ -314,124 +390,130 @@ function SearchableSelect(props: SearchableSelectProps) {
     }
   }
 
-  return (
-    <div className="selectWrap" ref={rootRef} style={rootStyle}>
-      <button
-        ref={buttonRef}
-        type="button"
-        className={`selectTrigger ${open ? 'selectTriggerOpen' : ''}`}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        disabled={disabled}
-        onClick={() => {
-          if (disabled) return
-          setOpen((prev) => !prev)
-          if (!open) setQuery('')
-        }}
-        onKeyDown={onTriggerKeyDown}
-      >
-        <span className={`selectValue ${!hasSelection ? 'selectPlaceholder' : ''}`}>{displayLabel}</span>
-        <svg className={`selectChevron ${open ? 'selectChevronOpen' : ''}`} viewBox="0 0 20 20" aria-hidden="true">
-          <path
-            d="M5.5 7.75L10 12.25L14.5 7.75"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+  const menu = open ? (
+    <div className="selectMenu" ref={menuRef} style={menuStyle} role="dialog" aria-label="Select option">
+      <div className="selectSearchWrap">
+        <svg className="selectSearchIcon" viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M9 15.5a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13Z" stroke="currentColor" strokeWidth="1.6" />
+          <path d="M14.2 14.2 17.5 17.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
         </svg>
-      </button>
+        <input
+          ref={searchRef}
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value)
+            setActiveIndex(0)
+          }}
+          onKeyDown={onSearchKeyDown}
+          placeholder={searchPlaceholder}
+          className="selectSearch"
+          autoComplete="off"
+          aria-label="Search options"
+        />
+      </div>
 
-      {open ? (
-        <div className="selectMenu" role="dialog" aria-label="Select option">
-          <div className="selectSearchWrap">
-            <svg className="selectSearchIcon" viewBox="0 0 20 20" aria-hidden="true">
-              <path d="M9 15.5a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13Z" stroke="currentColor" strokeWidth="1.6" />
-              <path d="M14.2 14.2 17.5 17.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-            </svg>
-            <input
-              ref={searchRef}
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value)
-                setActiveIndex(0)
-              }}
-              onKeyDown={onSearchKeyDown}
-              placeholder={searchPlaceholder}
-              className="selectSearch"
-              autoComplete="off"
-              aria-label="Search options"
-            />
-          </div>
-
-          <ul
-            ref={listRef}
-            className="selectList"
-            role="listbox"
-            aria-multiselectable={isMulti || undefined}
-            aria-activedescendant={activeIndex >= 0 ? `${listId}-opt-${activeIndex}` : undefined}
-          >
-            {filteredOptions.length === 0 ? (
-              <li className="selectEmpty">{emptyLabel}</li>
-            ) : (
-              filteredOptions.map((option, idx) => {
-                const isSelected = selectedValues.includes(option.value)
-                const isActive = idx === activeIndex
-                return (
-                  <li
-                    key={option.value}
-                    id={`${listId}-opt-${idx}`}
-                    data-idx={idx}
-                    role="option"
-                    aria-selected={isSelected}
-                    onMouseEnter={() => setActiveIndex(idx)}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => commit(option)}
-                    className={`selectOption ${isActive ? 'selectOptionFocused' : ''} ${isSelected ? 'selectOptionSelected' : ''} ${
-                      option.disabled ? 'selectOptionDisabled' : ''
-                    }`}
-                  >
-                    <span className={`selectOptionLabel ${!isSelected ? 'selectOptionMuted' : ''}`}>{option.label}</span>
-                    {isMulti ? (
-                      <input className="selectCheckbox" type="checkbox" checked={isSelected} readOnly />
-                    ) : isSelected ? (
-                      <svg className="selectCheck" viewBox="0 0 20 20" aria-hidden="true">
-                        <path
-                          d="M16.5 5.75 8.5 13.75 3.5 8.75"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    ) : null}
-                  </li>
-                )
-              })
-            )}
-          </ul>
-
-          {hasSelection ? (
-            <div className="selectFooter">
-              <button
-                type="button"
-                className="selectFooterBtn"
-                onClick={() => {
-                  if (isMulti) {
-                    ;(props as Extract<SearchableSelectProps, { multiple: true }>).onChange([])
-                    return
-                  }
-                  ;(props as Extract<SearchableSelectProps, { multiple?: false }>).onChange('')
-                  setOpen(false)
-                }}
+      <ul
+        ref={listRef}
+        className="selectList"
+        role="listbox"
+        aria-multiselectable={isMulti || undefined}
+        aria-activedescendant={activeIndex >= 0 ? `${listId}-opt-${activeIndex}` : undefined}
+      >
+        {filteredOptions.length === 0 ? (
+          <li className="selectEmpty">{emptyLabel}</li>
+        ) : (
+          filteredOptions.map((option, idx) => {
+            const isSelected = selectedValues.includes(option.value)
+            const isActive = idx === activeIndex
+            return (
+              <li
+                key={option.value}
+                id={`${listId}-opt-${idx}`}
+                data-idx={idx}
+                role="option"
+                aria-selected={isSelected}
+                onMouseEnter={() => setActiveIndex(idx)}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => commit(option)}
+                className={`selectOption ${isActive ? 'selectOptionFocused' : ''} ${isSelected ? 'selectOptionSelected' : ''} ${
+                  option.disabled ? 'selectOptionDisabled' : ''
+                }`}
               >
-                Clear selection
-              </button>
-            </div>
-          ) : null}
+                <span className={`selectOptionLabel ${!isSelected ? 'selectOptionMuted' : ''}`}>{option.label}</span>
+                {isMulti ? (
+                  <input className="selectCheckbox" type="checkbox" checked={isSelected} readOnly />
+                ) : isSelected ? (
+                  <svg className="selectCheck" viewBox="0 0 20 20" aria-hidden="true">
+                    <path
+                      d="M16.5 5.75 8.5 13.75 3.5 8.75"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : null}
+              </li>
+            )
+          })
+        )}
+      </ul>
+
+      {hasSelection ? (
+        <div className="selectFooter">
+          <button
+            type="button"
+            className="selectFooterBtn"
+            onClick={() => {
+              if (isMulti) {
+                ;(props as Extract<SearchableSelectProps, { multiple: true }>).onChange([])
+                return
+              }
+              ;(props as Extract<SearchableSelectProps, { multiple?: false }>).onChange('')
+              setOpen(false)
+            }}
+          >
+            Clear selection
+          </button>
         </div>
       ) : null}
     </div>
+  ) : null
+
+  return (
+    <>
+      <div className="selectWrap" ref={rootRef} style={rootStyle}>
+        <button
+          ref={buttonRef}
+          type="button"
+          className={`selectTrigger ${open ? 'selectTriggerOpen' : ''}`}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          disabled={disabled}
+          onClick={() => {
+            if (disabled) return
+            if (!open) {
+              setQuery('')
+              updateMenuPosition()
+            }
+            setOpen((prev) => !prev)
+          }}
+          onKeyDown={onTriggerKeyDown}
+        >
+          <span className={`selectValue ${!hasSelection ? 'selectPlaceholder' : ''}`}>{displayLabel}</span>
+          <svg className={`selectChevron ${open ? 'selectChevronOpen' : ''}`} viewBox="0 0 20 20" aria-hidden="true">
+            <path
+              d="M5.5 7.75L10 12.25L14.5 7.75"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
+      {portalTarget ? createPortal(menu, portalTarget) : menu}
+    </>
   )
 }
 
@@ -2247,20 +2329,19 @@ export default function ConfigurationsPage() {
           transform: rotate(180deg);
         }
         .selectMenu {
-          position: absolute;
-          top: calc(100% + 8px);
-          left: 0;
-          right: 0;
+          position: fixed;
           background: var(--panel);
           border: 1px solid var(--border);
           border-radius: 14px;
           display: grid;
           gap: 0;
-          z-index: 20;
-          padding: 10px;
+          z-index: 9999;
+          padding: 0;
+          overflow: hidden;
           box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22), 0 2px 8px rgba(0, 0, 0, 0.14);
         }
         .selectSearchWrap {
+          margin: 10px;
           padding: 8px;
           border-radius: 12px;
           border: 1px solid var(--border);
@@ -2285,19 +2366,19 @@ export default function ConfigurationsPage() {
         }
         .selectList {
           list-style: none;
-          margin: 10px 0 0;
-          padding: 0;
-          max-height: 240px;
+          margin: 0;
+          padding: 6px;
+          max-height: 260px;
           overflow: auto;
-          border-radius: 12px;
+          border-top: 1px solid var(--border);
         }
         .selectOption {
           display: flex;
-          align-items: center;
+          align-items: flex-start;
           justify-content: space-between;
           gap: 10px;
           text-align: left;
-          padding: 10px 10px;
+          padding: 10px 12px;
           border-radius: 10px;
           border: 1px solid transparent;
           background: transparent;
@@ -2308,9 +2389,10 @@ export default function ConfigurationsPage() {
         .selectOptionLabel {
           flex: 1;
           min-width: 0;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          white-space: normal;
+          overflow: visible;
+          text-overflow: unset;
+          line-height: 1.25;
         }
         .selectOptionFocused {
           background: var(--panel-2);
@@ -2346,8 +2428,8 @@ export default function ConfigurationsPage() {
           font-size: 13px;
         }
         .selectFooter {
-          margin-top: 10px;
-          padding-top: 8px;
+          margin-top: 0;
+          padding: 8px 10px 10px;
           border-top: 1px solid var(--border);
         }
         .selectFooterBtn {
