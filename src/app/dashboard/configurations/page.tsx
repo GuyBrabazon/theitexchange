@@ -2375,10 +2375,13 @@ export default function ConfigurationsPage() {
         .selectList {
           list-style: none;
           margin: 0;
-          padding: 6px;
+          padding: 8px;
           max-height: 260px;
           overflow: auto;
           border-top: 1px solid var(--border);
+          background: var(--panel);
+          display: grid;
+          gap: 6px;
         }
         .selectOption {
           display: flex;
@@ -2388,8 +2391,8 @@ export default function ConfigurationsPage() {
           text-align: left;
           padding: 10px 12px;
           border-radius: 10px;
-          border: 1px solid transparent;
-          background: transparent;
+          border: 1px solid var(--border);
+          background: var(--panel-2);
           color: var(--text);
           cursor: pointer;
           font-size: 14px;
@@ -2403,14 +2406,16 @@ export default function ConfigurationsPage() {
           line-height: 1.25;
         }
         .selectOptionFocused {
-          background: var(--panel-2);
+          background: var(--panel);
+          border-color: var(--accent);
         }
         .selectOptionSelected {
           font-weight: 700;
+          background: rgba(90, 180, 255, 0.12);
+          border-color: var(--accent);
         }
         .selectOptionMuted {
-          color: var(--text);
-          opacity: 0.92;
+          color: var(--muted);
         }
         .selectCheckbox {
           width: 16px;
@@ -2428,11 +2433,14 @@ export default function ConfigurationsPage() {
           flex: 0 0 auto;
         }
         .selectOption:hover {
-          background: var(--panel-2);
+          background: var(--panel);
+          border-color: var(--accent);
         }
         .selectOptionDisabled {
           opacity: 0.6;
           cursor: not-allowed;
+          background: var(--panel-2);
+          border-color: var(--border);
         }
         .selectEmpty {
           padding: 12px 10px;
