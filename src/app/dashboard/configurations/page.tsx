@@ -159,6 +159,7 @@ type SearchableSelectBaseProps = {
   disabled?: boolean
   searchPlaceholder?: string
   emptyLabel?: string
+  width?: number | string
 }
 
 type SearchableSelectProps =
@@ -180,36 +181,23 @@ function SearchableSelect(props: SearchableSelectProps) {
     placeholder,
     disabled,
     searchPlaceholder = 'Search',
-    emptyLabel = 'No options found',
+    emptyLabel = 'No results',
+    width = '100%',
   } = props
-  const multiple = props.multiple === true
+  const isMulti = props.multiple === true
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const wrapRef = useRef<HTMLDivElement | null>(null)
+  const [activeIndex, setActiveIndex] = useState(-1)
 
-  useEffect(() => {
-    if (!open) return
-    const handleClick = (event: MouseEvent) => {
-      const target = event.target as Node
-      if (wrapRef.current && !wrapRef.current.contains(target)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [open])
-
-  useEffect(() => {
-    if (!open) setQuery('')
-  }, [open])
-
-  useEffect(() => {
-    if (disabled) setOpen(false)
-  }, [disabled])
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  const buttonRef = useRef<HTMLButtonElement | null>(null)
+  const searchRef = useRef<HTMLInputElement | null>(null)
+  const listRef = useRef<HTMLUListElement | null>(null)
+  const listId = useRef(`select-${Math.random().toString(36).slice(2)}`).current
 
   const selectedValues = Array.isArray(value) ? value : value ? [value] : []
-  const selectedOption = !multiple ? options.find((option) => option.value === value) : null
-  const displayLabel = multiple
+  const selectedOption = !isMulti ? options.find((option) => option.value === value) : null
+  const displayLabel = isMulti
     ? selectedValues.length === 0
       ? placeholder
       : selectedValues.length === 1
@@ -218,96 +206,222 @@ function SearchableSelect(props: SearchableSelectProps) {
     : selectedOption
       ? selectedOption.label
       : placeholder
-  const loweredQuery = query.trim().toLowerCase()
-  const filteredOptions = loweredQuery
-    ? options.filter((option) => (option.searchText || option.label).toLowerCase().includes(loweredQuery))
-    : options
 
-  const hasSelection = multiple ? selectedValues.length > 0 : Boolean(selectedOption)
+  const filteredOptions = useMemo(() => {
+    const loweredQuery = query.trim().toLowerCase()
+    if (!loweredQuery) return options
+    return options.filter((option) => (option.searchText || option.label).toLowerCase().includes(loweredQuery))
+  }, [options, query])
+
+  const hasSelection = isMulti ? selectedValues.length > 0 : Boolean(selectedOption)
+  const rootStyle = typeof width === 'number' ? { width: `${width}px` } : { width }
+
+  useEffect(() => {
+    function onDocMouseDown(event: MouseEvent) {
+      const target = event.target as Node
+      if (rootRef.current && !rootRef.current.contains(target)) {
+        setOpen(false)
+        setQuery('')
+        setActiveIndex(-1)
+      }
+    }
+
+    function onDocKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setOpen(false)
+        setQuery('')
+        setActiveIndex(-1)
+        buttonRef.current?.focus()
+      }
+    }
+
+    document.addEventListener('mousedown', onDocMouseDown)
+    document.addEventListener('keydown', onDocKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onDocMouseDown)
+      document.removeEventListener('keydown', onDocKeyDown)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    const selectedIndex = filteredOptions.findIndex((option) => selectedValues.includes(option.value))
+    setActiveIndex(selectedIndex >= 0 ? selectedIndex : filteredOptions.length ? 0 : -1)
+    requestAnimationFrame(() => searchRef.current?.focus())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    if (!listRef.current) return
+    if (activeIndex < 0) return
+    const el = listRef.current.querySelector<HTMLLIElement>(`li[data-idx="${activeIndex}"]`)
+    el?.scrollIntoView({ block: 'nearest' })
+  }, [activeIndex, open])
+
+  useEffect(() => {
+    if (!open) return
+    if (filteredOptions.length === 0) {
+      setActiveIndex(-1)
+      return
+    }
+    setActiveIndex((prev) => Math.min(Math.max(prev, 0), filteredOptions.length - 1))
+  }, [filteredOptions, open])
+
+  useEffect(() => {
+    if (disabled) setOpen(false)
+  }, [disabled])
+
+  const commit = (option: SelectOption) => {
+    if (option.disabled) return
+    if (isMulti) {
+      const checked = selectedValues.includes(option.value)
+      const next = checked ? selectedValues.filter((item) => item !== option.value) : [...selectedValues, option.value]
+      ;(props as Extract<SearchableSelectProps, { multiple: true }>).onChange(next)
+      return
+    }
+    ;(props as Extract<SearchableSelectProps, { multiple?: false }>).onChange(option.value)
+    setOpen(false)
+    setQuery('')
+    setActiveIndex(-1)
+    buttonRef.current?.focus()
+  }
+
+  const onTriggerKeyDown = (event: React.KeyboardEvent) => {
+    if (disabled) return
+    if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      setOpen(true)
+    }
+  }
+
+  const onSearchKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      setActiveIndex((prev) => Math.min(prev + 1, filteredOptions.length - 1))
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      setActiveIndex((prev) => Math.max(prev - 1, 0))
+    } else if (event.key === 'Enter') {
+      event.preventDefault()
+      if (activeIndex >= 0 && filteredOptions[activeIndex]) {
+        commit(filteredOptions[activeIndex])
+      }
+    } else if (event.key === 'Tab') {
+      setOpen(false)
+      setQuery('')
+      setActiveIndex(-1)
+    }
+  }
 
   return (
-    <div className="selectWrap" ref={wrapRef}>
+    <div className="selectWrap" ref={rootRef} style={rootStyle}>
       <button
+        ref={buttonRef}
         type="button"
-        className="selectTrigger"
-        onClick={() => {
-          if (!disabled) setOpen((prev) => !prev)
-        }}
+        className={`selectTrigger ${open ? 'selectTriggerOpen' : ''}`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
         disabled={disabled}
+        onClick={() => {
+          if (disabled) return
+          setOpen((prev) => !prev)
+          if (!open) setQuery('')
+        }}
+        onKeyDown={onTriggerKeyDown}
       >
         <span className={`selectValue ${!hasSelection ? 'selectPlaceholder' : ''}`}>{displayLabel}</span>
-        <span className="selectCaret">v</span>
+        <svg className={`selectChevron ${open ? 'selectChevronOpen' : ''}`} viewBox="0 0 20 20" aria-hidden="true">
+          <path
+            d="M5.5 7.75L10 12.25L14.5 7.75"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
       </button>
+
       {open ? (
-        <div className="selectMenu">
-          <div className="selectHeader">
+        <div className="selectMenu" role="dialog" aria-label="Select option">
+          <div className="selectSearchWrap">
+            <svg className="selectSearchIcon" viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M9 15.5a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13Z" stroke="currentColor" strokeWidth="1.6" />
+              <path d="M14.2 14.2 17.5 17.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
             <input
+              ref={searchRef}
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(event) => {
+                setQuery(event.target.value)
+                setActiveIndex(0)
+              }}
+              onKeyDown={onSearchKeyDown}
               placeholder={searchPlaceholder}
               className="selectSearch"
               autoComplete="off"
+              aria-label="Search options"
             />
           </div>
-          <div className="selectList">
-            {filteredOptions.length ? (
-              filteredOptions.map((option) => {
-                if (props.multiple) {
-                  const checked = selectedValues.includes(option.value)
-                  return (
-                    <label
-                      key={option.value}
-                      className={`selectOption selectOptionRow ${checked ? 'selectOptionActive' : ''} ${
-                        option.disabled ? 'selectOptionDisabled' : ''
-                      }`}
-                    >
-                      <span className="selectOptionLabel">{option.label}</span>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => {
-                          if (option.disabled) return
-                          const next = checked
-                            ? selectedValues.filter((item) => item !== option.value)
-                            : [...selectedValues, option.value]
-                          props.onChange(next)
-                        }}
-                        className="selectCheckbox"
-                        disabled={option.disabled}
-                      />
-                    </label>
-                  )
-                }
+
+          <ul
+            ref={listRef}
+            className="selectList"
+            role="listbox"
+            aria-multiselectable={isMulti || undefined}
+            aria-activedescendant={activeIndex >= 0 ? `${listId}-opt-${activeIndex}` : undefined}
+          >
+            {filteredOptions.length === 0 ? (
+              <li className="selectEmpty">{emptyLabel}</li>
+            ) : (
+              filteredOptions.map((option, idx) => {
+                const isSelected = selectedValues.includes(option.value)
+                const isActive = idx === activeIndex
                 return (
-                  <button
+                  <li
                     key={option.value}
-                    type="button"
-                    className={`selectOption ${option.value === value ? 'selectOptionActive' : ''}`}
-                    onClick={() => {
-                      props.onChange(option.value)
-                      setOpen(false)
-                    }}
-                    disabled={option.disabled}
+                    id={`${listId}-opt-${idx}`}
+                    data-idx={idx}
+                    role="option"
+                    aria-selected={isSelected}
+                    onMouseEnter={() => setActiveIndex(idx)}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => commit(option)}
+                    className={`selectOption ${isActive ? 'selectOptionFocused' : ''} ${isSelected ? 'selectOptionSelected' : ''} ${
+                      option.disabled ? 'selectOptionDisabled' : ''
+                    }`}
                   >
-                    {option.label}
-                  </button>
+                    <span className={`selectOptionLabel ${!isSelected ? 'selectOptionMuted' : ''}`}>{option.label}</span>
+                    {isMulti ? (
+                      <input className="selectCheckbox" type="checkbox" checked={isSelected} readOnly />
+                    ) : isSelected ? (
+                      <svg className="selectCheck" viewBox="0 0 20 20" aria-hidden="true">
+                        <path
+                          d="M16.5 5.75 8.5 13.75 3.5 8.75"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    ) : null}
+                  </li>
                 )
               })
-            ) : (
-              <div className="selectEmpty">{emptyLabel}</div>
             )}
-          </div>
-          {selectedValues.length ? (
+          </ul>
+
+          {hasSelection ? (
             <div className="selectFooter">
               <button
                 type="button"
                 className="selectFooterBtn"
                 onClick={() => {
-                  if (props.multiple) {
-                    props.onChange([])
+                  if (isMulti) {
+                    ;(props as Extract<SearchableSelectProps, { multiple: true }>).onChange([])
                     return
                   }
-                  props.onChange('')
+                  ;(props as Extract<SearchableSelectProps, { multiple?: false }>).onChange('')
                   setOpen(false)
                 }}
               >
@@ -814,6 +928,12 @@ export default function ConfigurationsPage() {
     return options.some((option) => option.id === selectedId) ? selectedId : ''
   }
 
+  const getSelectionValuesForOptions = (options: ComponentModel[], selectedIds: string[]) => {
+    if (!selectedIds.length) return []
+    const allowed = new Set(options.map((option) => option.id))
+    return selectedIds.filter((id) => allowed.has(id))
+  }
+
   const updateComponentSelection = (type: string, componentId: string | string[]) => {
     setSelectedComponents((prev) => {
       const next = { ...prev }
@@ -854,6 +974,16 @@ export default function ConfigurationsPage() {
       next[type] = [{ ...current[0], qty }]
       return next
     })
+  }
+
+  const mergeInStockSelection = (type: string, inStockOptions: ComponentModel[], inStockIds: string[]) => {
+    if (!multiSelectTypes.has(type)) {
+      updateComponentSelection(type, inStockIds[0] || '')
+      return
+    }
+    const inStockSet = new Set(inStockOptions.map((option) => option.id))
+    const keepIds = getSelectedIds(type).filter((id) => !inStockSet.has(id))
+    updateComponentSelection(type, [...keepIds, ...inStockIds])
   }
 
   const updateManualOverride = (type: string, updates: Partial<ManualEntry>) => {
@@ -1128,7 +1258,9 @@ export default function ConfigurationsPage() {
     onChange: (value: string | string[]) => void
     multiple?: boolean
   }) => {
-    const resolvedNote = note && note.trim().toLowerCase() !== placeholder.trim().toLowerCase() ? note : undefined
+    const normalizedPlaceholder = placeholder.trim().toLowerCase().replace(/\.+$/, '')
+    const normalizedNote = note?.trim().toLowerCase().replace(/\.+$/, '')
+    const resolvedNote = normalizedNote && normalizedNote !== normalizedPlaceholder ? note : undefined
     return (
       <label className="field">
         <span className="fieldLabel">{label}</span>
@@ -1257,6 +1389,8 @@ export default function ConfigurationsPage() {
   const remoteSelectedId = getSelectedIds('remote_access')[0] || ''
 
   const cpuStockValue = getSelectionValueForOptions(cpuInStockOptions, cpuSelectedId)
+  const memoryStockValue = getSelectionValuesForOptions(memoryInStockOptions, memorySelectedIds)
+  const driveStockValue = getSelectionValuesForOptions(driveInStockOptions, driveSelectedIds)
   const nicStockValue = getSelectionValueForOptions(nicInStockOptions, nicSelectedId)
   const gpuStockValue = getSelectionValueForOptions(gpuInStockOptions, gpuSelectedId)
   const powerStockValue = getSelectionValueForOptions(powerInStockOptions, powerSelectedId)
@@ -1506,12 +1640,12 @@ export default function ConfigurationsPage() {
                       {renderSearchSelect({
                         label: 'Compatible DIMMs in stock',
                         options: memoryInStockOptions,
-                        value: memorySelectedIds,
+                        value: memoryStockValue,
                         placeholder: memoryInStockOptions.length ? 'Select in-stock DIMM' : 'No in-stock options',
                         disabled: !selectedModelId || compatLoading,
                         note: !memoryInStockOptions.length ? (stockLoading ? 'Loading stock data.' : 'No in-stock options.') : undefined,
                         multiple: true,
-                        onChange: (value) => updateComponentSelection('memory', value),
+                        onChange: (value) => mergeInStockSelection('memory', memoryInStockOptions, value as string[]),
                       })}
                       {renderSearchSelect({
                         label: 'All compatible DIMMs',
@@ -1597,12 +1731,12 @@ export default function ConfigurationsPage() {
                       {renderSearchSelect({
                         label: 'Compatible drives in stock',
                         options: driveInStockOptions,
-                        value: driveSelectedIds,
+                        value: driveStockValue,
                         placeholder: driveInStockOptions.length ? 'Select in-stock drive' : 'No in-stock options',
                         disabled: !selectedModelId || compatLoading,
                         note: !driveInStockOptions.length ? (stockLoading ? 'Loading stock data.' : 'No in-stock options.') : undefined,
                         multiple: true,
-                        onChange: (value) => updateComponentSelection('drive', value),
+                        onChange: (value) => mergeInStockSelection('drive', driveInStockOptions, value as string[]),
                       })}
                       {renderSearchSelect({
                         label: 'All compatible drives',
@@ -2067,12 +2201,13 @@ export default function ConfigurationsPage() {
         }
         .selectTrigger {
           width: 100%;
+          height: 44px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 8px;
-          padding: 10px 12px;
-          border-radius: 10px;
+          gap: 10px;
+          padding: 0 12px;
+          border-radius: 12px;
           border: 1px solid var(--border);
           background: var(--panel-2);
           color: var(--text);
@@ -2080,14 +2215,18 @@ export default function ConfigurationsPage() {
           font-weight: 600;
           cursor: pointer;
           text-align: left;
+          transition: box-shadow 0.14s ease, border-color 0.14s ease;
         }
         .selectTrigger:disabled {
           opacity: 0.6;
           cursor: not-allowed;
         }
         .selectTrigger:focus-visible {
-          outline: 2px solid var(--accent);
-          outline-offset: 2px;
+          outline: none;
+        }
+        .selectTriggerOpen {
+          border-color: var(--accent);
+          box-shadow: 0 0 0 4px rgba(90, 180, 255, 0.16);
         }
         .selectValue {
           white-space: nowrap;
@@ -2097,44 +2236,60 @@ export default function ConfigurationsPage() {
         .selectPlaceholder {
           color: var(--muted);
         }
-        .selectCaret {
-          color: var(--muted);
-          font-size: 12px;
+        .selectChevron {
+          width: 18px;
+          height: 18px;
+          opacity: 0.7;
+          flex: 0 0 auto;
+          transition: transform 0.14s ease;
+        }
+        .selectChevronOpen {
+          transform: rotate(180deg);
         }
         .selectMenu {
           position: absolute;
-          top: calc(100% + 6px);
+          top: calc(100% + 8px);
           left: 0;
           right: 0;
           background: var(--panel);
           border: 1px solid var(--border);
-          border-radius: 10px;
+          border-radius: 14px;
           display: grid;
           gap: 0;
           z-index: 20;
-          box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
-          overflow: hidden;
+          padding: 10px;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22), 0 2px 8px rgba(0, 0, 0, 0.14);
         }
-        .selectHeader {
+        .selectSearchWrap {
           padding: 8px;
+          border-radius: 12px;
+          border: 1px solid var(--border);
           background: var(--panel-2);
-          border-bottom: 1px solid var(--border);
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .selectSearchIcon {
+          width: 16px;
+          height: 16px;
+          opacity: 0.6;
+          flex: 0 0 auto;
         }
         .selectSearch {
           width: 100%;
-          padding: 8px 10px;
-          border-radius: 8px;
-          border: 1px solid var(--border);
-          background: var(--panel-2);
+          border: none;
+          outline: none;
+          background: transparent;
           color: var(--text);
-          font-size: 13px;
+          font-size: 14px;
         }
         .selectList {
-          max-height: 220px;
+          list-style: none;
+          margin: 10px 0 0;
+          padding: 0;
+          max-height: 240px;
           overflow: auto;
-          display: grid;
-          gap: 4px;
-          padding: 8px;
+          border-radius: 12px;
         }
         .selectOption {
           display: flex;
@@ -2142,15 +2297,13 @@ export default function ConfigurationsPage() {
           justify-content: space-between;
           gap: 10px;
           text-align: left;
-          padding: 8px 10px;
-          border-radius: 8px;
+          padding: 10px 10px;
+          border-radius: 10px;
           border: 1px solid transparent;
           background: transparent;
           color: var(--text);
           cursor: pointer;
-        }
-        .selectOptionRow {
-          cursor: pointer;
+          font-size: 14px;
         }
         .selectOptionLabel {
           flex: 1;
@@ -2159,45 +2312,57 @@ export default function ConfigurationsPage() {
           overflow: hidden;
           text-overflow: ellipsis;
         }
+        .selectOptionFocused {
+          background: var(--panel-2);
+        }
+        .selectOptionSelected {
+          font-weight: 700;
+        }
+        .selectOptionMuted {
+          color: var(--text);
+          opacity: 0.92;
+        }
         .selectCheckbox {
-          width: 14px;
-          height: 14px;
+          width: 16px;
+          height: 16px;
           accent-color: var(--accent);
+        }
+        .selectCheck {
+          width: 18px;
+          height: 18px;
+          opacity: 0.85;
+          flex: 0 0 auto;
         }
         .selectOption:hover {
           background: var(--panel-2);
-        }
-        .selectOptionActive {
-          border-color: var(--accent);
-          background: rgba(90, 180, 255, 0.12);
         }
         .selectOptionDisabled {
           opacity: 0.6;
           cursor: not-allowed;
         }
         .selectEmpty {
-          padding: 6px 8px;
+          padding: 12px 10px;
           color: var(--muted);
-          font-size: 12px;
+          font-size: 13px;
         }
         .selectFooter {
-          padding: 8px;
+          margin-top: 10px;
+          padding-top: 8px;
           border-top: 1px solid var(--border);
-          background: var(--panel-2);
         }
         .selectFooterBtn {
           width: 100%;
           padding: 6px 10px;
-          border-radius: 8px;
+          border-radius: 10px;
           border: 1px solid var(--border);
-          background: var(--panel);
+          background: var(--panel-2);
           color: var(--text);
           font-size: 12px;
           font-weight: 700;
           cursor: pointer;
         }
         .selectFooterBtn:hover {
-          background: var(--panel-2);
+          background: var(--panel);
         }
         .fieldNote {
           font-size: 11px;
@@ -2228,7 +2393,7 @@ export default function ConfigurationsPage() {
           border: 1px solid var(--border);
           border-radius: 12px;
           background: var(--panel);
-          overflow: hidden;
+          overflow: visible;
         }
         .accordion summary {
           list-style: none;
