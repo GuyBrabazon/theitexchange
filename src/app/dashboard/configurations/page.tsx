@@ -610,6 +610,14 @@ export default function ConfigurationsPage() {
               const indicatorEmoji = isRequired ? (filled ? '🟢' : '🔴') : '⚪'
               const stock = row.source === 'auto' ? { label: 'Auto', tone: 'muted' } : stockStatus(row.partNumber, row.qty)
               const partOptions = catalogOptionsForRow(row)
+              const searchTerm = row.partNumber.trim().toLowerCase()
+              const filteredPartOptions =
+                searchTerm === ''
+                  ? partOptions
+                  : partOptions.filter((option) => {
+                      const text = `${option.model} ${option.part_number ?? ''} ${option.manufacturer ?? ''} ${option.description ?? ''}`
+                      return text.toLowerCase().includes(searchTerm)
+                    })
               return (
                 <tr key={row.id} className={row.locked ? 'lockedRow' : ''}>
                   <td>
@@ -650,11 +658,12 @@ export default function ConfigurationsPage() {
                           placeholder="Search part"
                         />
                         <datalist id={`catalog-${row.id}`}>
-                          {partOptions
+                          {filteredPartOptions
                             .filter((option) => option.part_number)
                             .map((option) => (
                               <option key={`${option.id}-${option.part_number}`} value={option.part_number!}>
-                                {option.model}{option.part_number ? ` (${option.part_number})` : ''}
+                                {option.model}
+                                {option.part_number ? ` (${option.part_number})` : ''}
                               </option>
                             ))}
                         </datalist>
@@ -713,6 +722,7 @@ export default function ConfigurationsPage() {
               )
             })}
           </tbody>
+
         </table>
       </div>
 
