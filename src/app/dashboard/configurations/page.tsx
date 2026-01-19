@@ -1,7 +1,8 @@
 ﻿'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { DropDownList, MultiSelect } from '@progress/kendo-react-dropdowns'
+import { filterBy, type CompositeFilterDescriptor, type FilterDescriptor } from '@progress/kendo-data-query'
 import { supabase } from '@/lib/supabase'
 
 type MachineType = 'server' | 'storage' | 'network'
@@ -59,6 +60,13 @@ type SelectOption = {
   value: string
   label: string
   searchText?: string
+  disabled?: boolean
+}
+
+type SelectItem = {
+  value: string
+  label: string
+  searchText: string
   disabled?: boolean
 }
 
@@ -175,345 +183,101 @@ type SearchableSelectProps =
       multiple: true
     })
 
+const buildSearchFilter = (term: string): CompositeFilterDescriptor => ({
+  logic: 'or',
+  filters: [
+    { field: 'label', operator: 'contains', value: term, ignoreCase: true },
+    { field: 'searchText', operator: 'contains', value: term, ignoreCase: true },
+  ],
+})
+
+const readFilterValue = (filter?: FilterDescriptor | CompositeFilterDescriptor) => {
+  if (!filter) return ''
+  if (typeof (filter as FilterDescriptor).value === 'string') {
+    return (filter as FilterDescriptor).value as string
+  }
+  const composite = filter as CompositeFilterDescriptor
+  if (Array.isArray(composite.filters) && composite.filters.length) {
+    const first = composite.filters[0] as FilterDescriptor
+    if (typeof first.value === 'string') return first.value
+    if (first.value != null) return String(first.value)
+  }
+  return ''
+}
+
 function SearchableSelect(props: SearchableSelectProps) {
-  const {
-    value,
-    options,
-    placeholder,
-    disabled,
-    searchPlaceholder = 'Search',
-    emptyLabel = 'No results',
-    width = '100%',
-  } = props
+  const { value, options, placeholder, disabled, width = '100%' } = props
   const isMulti = props.multiple === true
-  const [open, setOpen] = useState(false)
-  const [query, setQuery] = useState('')
-  const [activeIndex, setActiveIndex] = useState(-1)
-
-  const rootRef = useRef<HTMLDivElement | null>(null)
-  const buttonRef = useRef<HTMLButtonElement | null>(null)
-  const searchRef = useRef<HTMLInputElement | null>(null)
-  const listRef = useRef<HTMLUListElement | null>(null)
-  const menuRef = useRef<HTMLDivElement | null>(null)
-  const listId = useRef(`select-${Math.random().toString(36).slice(2)}`).current
-  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
-  const [menuStyle, setMenuStyle] = useState<CSSProperties>({})
-
+  const [filterValue, setFilterValue] = useState('')
   const selectedValues = Array.isArray(value) ? value : value ? [value] : []
-  const selectedOption = !isMulti ? options.find((option) => option.value === value) : null
-  const displayLabel = isMulti
-    ? selectedValues.length === 0
-      ? placeholder
-      : selectedValues.length === 1
-        ? options.find((option) => option.value === selectedValues[0])?.label || '1 selected'
-        : `${selectedValues.length} selected`
-    : selectedOption
-      ? selectedOption.label
-      : placeholder
-
-  const filteredOptions = useMemo(() => {
-    const loweredQuery = query.trim().toLowerCase()
-    if (!loweredQuery) return options
-    return options.filter((option) => (option.searchText || option.label).toLowerCase().includes(loweredQuery))
-  }, [options, query])
-
-  const hasSelection = isMulti ? selectedValues.length > 0 : Boolean(selectedOption)
   const rootStyle = typeof width === 'number' ? { width: `${width}px` } : { width }
 
-  useEffect(() => {
-    function onDocMouseDown(event: MouseEvent) {
-      const target = event.target as Node
-      const menuEl = menuRef.current
-      if (rootRef.current && !rootRef.current.contains(target) && (!menuEl || !menuEl.contains(target))) {
-        setOpen(false)
-        setQuery('')
-        setActiveIndex(-1)
-      }
-    }
+  const data = useMemo<SelectItem[]>(
+    () =>
+      options.map((option) => ({
+        value: option.value,
+        label: option.label,
+        searchText: option.searchText || option.label,
+        disabled: option.disabled,
+      })),
+    [options]
+  )
+  const filteredData = useMemo(() => {
+    const term = filterValue.trim()
+    if (!term) return data
+    return filterBy(data, buildSearchFilter(term))
+  }, [data, filterValue])
 
-    function onDocKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setOpen(false)
-        setQuery('')
-        setActiveIndex(-1)
-        buttonRef.current?.focus()
-      }
-    }
-
-    document.addEventListener('mousedown', onDocMouseDown)
-    document.addEventListener('keydown', onDocKeyDown)
-    return () => {
-      document.removeEventListener('mousedown', onDocMouseDown)
-      document.removeEventListener('keydown', onDocKeyDown)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!open) return
-    const selectedIndex = filteredOptions.findIndex((option) => selectedValues.includes(option.value))
-    setActiveIndex(selectedIndex >= 0 ? selectedIndex : filteredOptions.length ? 0 : -1)
-    requestAnimationFrame(() => searchRef.current?.focus())
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
-
-  useEffect(() => {
-    if (!open) return
-    if (!listRef.current) return
-    if (activeIndex < 0) return
-    const el = listRef.current.querySelector<HTMLLIElement>(`li[data-idx="${activeIndex}"]`)
-    el?.scrollIntoView({ block: 'nearest' })
-  }, [activeIndex, open])
-
-  useEffect(() => {
-    if (!open) return
-    if (filteredOptions.length === 0) {
-      setActiveIndex(-1)
-      return
-    }
-    setActiveIndex((prev) => Math.min(Math.max(prev, 0), filteredOptions.length - 1))
-  }, [filteredOptions, open])
-
-  useEffect(() => {
-    if (disabled) setOpen(false)
-  }, [disabled])
-
-  useEffect(() => {
-    setPortalTarget(document.body)
-  }, [])
-
-  const updateMenuPosition = useCallback(() => {
-    const buttonEl = buttonRef.current
-    if (!buttonEl) return
-    const rect = buttonEl.getBoundingClientRect()
-    const gap = 8
-    const viewportWidth = window.innerWidth
-    const viewportHeight = window.innerHeight
-    const maxWidth = Math.max(0, viewportWidth - gap * 2)
-    const width = Math.min(rect.width, maxWidth)
-    let left = rect.left
-    if (left + width > viewportWidth - gap) {
-      left = Math.max(gap, viewportWidth - gap - width)
-    } else {
-      left = Math.max(gap, left)
-    }
-    let top = rect.bottom + gap
-    const menuEl = menuRef.current
-    if (menuEl) {
-      const menuRect = menuEl.getBoundingClientRect()
-      if (top + menuRect.height > viewportHeight - gap) {
-        const aboveTop = rect.top - gap - menuRect.height
-        if (aboveTop >= gap) {
-          top = aboveTop
-        } else {
-          top = Math.max(gap, viewportHeight - gap - menuRect.height)
-        }
-      }
-    }
-    setMenuStyle({
-      position: 'fixed',
-      top: Math.round(top),
-      left: Math.round(left),
-      width: Math.round(width),
-      zIndex: 9999,
-    })
-  }, [])
-
-  useEffect(() => {
-    if (!open) return
-    const frame = requestAnimationFrame(() => updateMenuPosition())
-    const handleScroll = () => updateMenuPosition()
-    const handleResize = () => updateMenuPosition()
-    window.addEventListener('scroll', handleScroll, true)
-    window.addEventListener('resize', handleResize)
-    let observer: ResizeObserver | null = null
-    if (typeof ResizeObserver !== 'undefined') {
-      observer = new ResizeObserver(() => updateMenuPosition())
-      if (buttonRef.current) observer.observe(buttonRef.current)
-      if (menuRef.current) observer.observe(menuRef.current)
-    }
-    return () => {
-      cancelAnimationFrame(frame)
-      window.removeEventListener('scroll', handleScroll, true)
-      window.removeEventListener('resize', handleResize)
-      if (observer) observer.disconnect()
-    }
-  }, [open, updateMenuPosition])
-
-  useEffect(() => {
-    if (!open) return
-    updateMenuPosition()
-  }, [open, filteredOptions.length, updateMenuPosition])
-
-  const commit = (option: SelectOption) => {
-    if (option.disabled) return
-    if (isMulti) {
-      const checked = selectedValues.includes(option.value)
-      const next = checked ? selectedValues.filter((item) => item !== option.value) : [...selectedValues, option.value]
-      ;(props as Extract<SearchableSelectProps, { multiple: true }>).onChange(next)
-      return
-    }
-    ;(props as Extract<SearchableSelectProps, { multiple?: false }>).onChange(option.value)
-    setOpen(false)
-    setQuery('')
-    setActiveIndex(-1)
-    buttonRef.current?.focus()
+  const handleFilterChange = (event: { filter?: FilterDescriptor | CompositeFilterDescriptor }) => {
+    setFilterValue(readFilterValue(event.filter))
   }
 
-  const onTriggerKeyDown = (event: React.KeyboardEvent) => {
-    if (disabled) return
-    if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      if (!open) {
-        setQuery('')
-        updateMenuPosition()
-      }
-      setOpen(true)
-    }
+  if (isMulti) {
+    const selectedItems = data.filter((item) => selectedValues.includes(item.value))
+    return (
+      <MultiSelect
+        data={filteredData}
+        textField="label"
+        dataItemKey="value"
+        value={selectedItems}
+        filterable
+        onFilterChange={handleFilterChange}
+        placeholder={placeholder}
+        style={rootStyle}
+        className="kendoSelect"
+        disabled={disabled}
+        onChange={(event) => {
+          const items = Array.isArray(event.value) ? (event.value as SelectItem[]) : []
+          const enabledItems = items.filter((item) => !item.disabled)
+          ;(props as Extract<SearchableSelectProps, { multiple: true }>).onChange(enabledItems.map((item) => item.value))
+          setFilterValue('')
+        }}
+      />
+    )
   }
 
-  const onSearchKeyDown = (event: React.KeyboardEvent) => {
-    if (event.key === 'ArrowDown') {
-      event.preventDefault()
-      setActiveIndex((prev) => Math.min(prev + 1, filteredOptions.length - 1))
-    } else if (event.key === 'ArrowUp') {
-      event.preventDefault()
-      setActiveIndex((prev) => Math.max(prev - 1, 0))
-    } else if (event.key === 'Enter') {
-      event.preventDefault()
-      if (activeIndex >= 0 && filteredOptions[activeIndex]) {
-        commit(filteredOptions[activeIndex])
-      }
-    } else if (event.key === 'Tab') {
-      setOpen(false)
-      setQuery('')
-      setActiveIndex(-1)
-    }
-  }
-
-  const menu = open ? (
-    <div className="selectMenu" ref={menuRef} style={menuStyle} role="dialog" aria-label="Select option">
-      <div className="selectSearchWrap">
-        <svg className="selectSearchIcon" width="16" height="16" viewBox="0 0 20 20" aria-hidden="true">
-          <path d="M9 15.5a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13Z" stroke="currentColor" strokeWidth="1.6" />
-          <path d="M14.2 14.2 17.5 17.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-        </svg>
-        <input
-          ref={searchRef}
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value)
-            setActiveIndex(0)
-          }}
-          onKeyDown={onSearchKeyDown}
-          placeholder={searchPlaceholder}
-          className="selectSearch"
-          autoComplete="off"
-          aria-label="Search options"
-        />
-      </div>
-
-      <ul
-        ref={listRef}
-        className="selectList"
-        role="listbox"
-        aria-multiselectable={isMulti || undefined}
-        aria-activedescendant={activeIndex >= 0 ? `${listId}-opt-${activeIndex}` : undefined}
-      >
-        {filteredOptions.length === 0 ? (
-          <li className="selectEmpty">{emptyLabel}</li>
-        ) : (
-          filteredOptions.map((option, idx) => {
-            const isSelected = selectedValues.includes(option.value)
-            const isActive = idx === activeIndex
-            return (
-              <li
-                key={option.value}
-                id={`${listId}-opt-${idx}`}
-                data-idx={idx}
-                role="option"
-                aria-selected={isSelected}
-                onMouseEnter={() => setActiveIndex(idx)}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => commit(option)}
-                className={`selectOption ${isActive ? 'selectOptionFocused' : ''} ${isSelected ? 'selectOptionSelected' : ''} ${
-                  option.disabled ? 'selectOptionDisabled' : ''
-                }`}
-              >
-                <span className={`selectOptionLabel ${!isSelected ? 'selectOptionMuted' : ''}`}>{option.label}</span>
-                {isMulti ? (
-                  <input className="selectCheckbox" type="checkbox" checked={isSelected} readOnly />
-                ) : isSelected ? (
-                  <svg className="selectCheck" width="16" height="16" viewBox="0 0 20 20" aria-hidden="true">
-                    <path
-                      d="M16.5 5.75 8.5 13.75 3.5 8.75"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                ) : null}
-              </li>
-            )
-          })
-        )}
-      </ul>
-
-      {hasSelection ? (
-        <div className="selectFooter">
-          <button
-            type="button"
-            className="selectFooterBtn"
-            onClick={() => {
-              if (isMulti) {
-                ;(props as Extract<SearchableSelectProps, { multiple: true }>).onChange([])
-                return
-              }
-              ;(props as Extract<SearchableSelectProps, { multiple?: false }>).onChange('')
-              setOpen(false)
-            }}
-          >
-            Clear selection
-          </button>
-        </div>
-      ) : null}
-    </div>
-  ) : null
+  const selectedItem = data.find((item) => item.value === value) ?? null
+  const defaultItem: SelectItem = { value: '', label: placeholder, searchText: placeholder }
 
   return (
-    <>
-      <div className="selectWrap" ref={rootRef} style={rootStyle}>
-        <button
-          ref={buttonRef}
-          type="button"
-          className={`selectTrigger ${open ? 'selectTriggerOpen' : ''}`}
-          aria-haspopup="listbox"
-          aria-expanded={open}
-          disabled={disabled}
-          onClick={() => {
-            if (disabled) return
-            if (!open) {
-              setQuery('')
-              updateMenuPosition()
-            }
-            setOpen((prev) => !prev)
-          }}
-          onKeyDown={onTriggerKeyDown}
-        >
-          <span className={`selectValue ${!hasSelection ? 'selectPlaceholder' : ''}`}>{displayLabel}</span>
-          <svg className={`selectChevron ${open ? 'selectChevronOpen' : ''}`} width="16" height="16" viewBox="0 0 20 20" aria-hidden="true">
-            <path
-              d="M5.5 7.75L10 12.25L14.5 7.75"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-      </div>
-      {portalTarget ? createPortal(menu, portalTarget) : menu}
-    </>
+    <DropDownList
+      data={filteredData}
+      textField="label"
+      dataItemKey="value"
+      value={selectedItem}
+      defaultItem={defaultItem}
+      filterable
+      onFilterChange={handleFilterChange}
+      style={rootStyle}
+      className="kendoSelect"
+      disabled={disabled}
+      onChange={(event) => {
+        const item = (event.value as SelectItem | null) ?? null
+        if (item?.disabled) return
+        ;(props as Extract<SearchableSelectProps, { multiple?: false }>).onChange(item?.value || '')
+        setFilterValue('')
+      }}
+    />
   )
 }
 
@@ -2276,6 +2040,80 @@ export default function ConfigurationsPage() {
         }
         .fieldLabel {
           font-size: 12px;
+          color: var(--muted);
+        }
+        :global(.kendoSelect) {
+          width: 100%;
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          background: var(--panel-2);
+          color: var(--text);
+          font: inherit;
+        }
+        :global(.kendoSelect .k-input-inner) {
+          padding: 10px 12px;
+        }
+        :global(.kendoSelect .k-input-button) {
+          border-left: 1px solid var(--border);
+          background: var(--panel-2);
+        }
+        :global(.kendoSelect .k-svg-icon) {
+          width: 16px;
+          height: 16px;
+        }
+        :global(.kendoSelect.k-disabled) {
+          opacity: 0.6;
+        }
+        :global(.k-list-container) {
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          background: var(--panel-2);
+          box-shadow: var(--shadow);
+        }
+        :global(.k-list-container .k-list) {
+          background: var(--panel-2);
+        }
+        :global(.k-list-container .k-list-item) {
+          padding: 8px 10px;
+          border-radius: 8px;
+          color: var(--text);
+        }
+        :global(.k-list-container .k-list-item.k-selected) {
+          background: var(--accent-soft);
+          font-weight: 700;
+        }
+        :global(.k-list-container .k-list-item.k-hover),
+        :global(.k-list-container .k-list-item:hover) {
+          background: var(--panel);
+        }
+        :global(.k-list-container .k-list-item.k-disabled) {
+          opacity: 0.6;
+          color: var(--muted);
+        }
+        :global(.k-list-container .k-list-filter),
+        :global(.k-list-container .k-filter-input),
+        :global(.k-list-container .k-input) {
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          background: var(--panel-2);
+          margin: 8px;
+          padding: 0;
+        }
+        :global(.k-list-container .k-input input),
+        :global(.k-list-container .k-list-filter input),
+        :global(.k-list-container .k-filter-input input) {
+          padding: 10px 12px;
+          border: none;
+          background: transparent;
+          color: var(--text);
+          font: inherit;
+        }
+        :global(.kendoSelect .k-chip) {
+          border: 1px solid var(--border);
+          background: var(--panel);
+          color: var(--text);
+        }
+        :global(.kendoSelect .k-chip .k-chip-actions) {
           color: var(--muted);
         }
         .selectWrap {
