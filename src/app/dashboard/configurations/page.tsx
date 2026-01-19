@@ -245,12 +245,13 @@ function SearchableSelect(props: SearchableSelectProps) {
   }
 
   if (isMulti) {
+    const selectedItems = data.filter((item) => selectedValues.includes(item.value))
     return (
       <MultiSelect
         data={filteredData}
         textField="label"
         dataItemKey="value"
-        value={selectedValues}
+        value={selectedItems}
         filterable
         onFilterChange={handleFilterChange}
         filter={filterValue}
@@ -271,6 +272,7 @@ function SearchableSelect(props: SearchableSelectProps) {
     )
   }
 
+  const selectedItem = data.find((item) => item.value === value) ?? null
   const defaultItem: SelectItem = { value: '', label: placeholder, searchText: placeholder }
 
   return (
@@ -278,7 +280,7 @@ function SearchableSelect(props: SearchableSelectProps) {
       data={filteredData}
       textField="label"
       dataItemKey="value"
-      value={value || ''}
+      value={selectedItem}
       defaultItem={defaultItem}
       filterable
       onFilterChange={handleFilterChange}
