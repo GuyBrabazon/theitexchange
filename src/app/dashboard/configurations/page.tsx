@@ -2099,6 +2099,24 @@ export default function ConfigurationsPage() {
           margin: 8px;
           padding: 0;
         }
+        :global(.k-list-container .k-input) {
+          display: flex;
+          align-items: center;
+        }
+        :global(.k-list-container .k-input-prefix) {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 16px;
+          margin-left: 10px;
+          margin-right: 6px;
+          line-height: 1;
+        }
+        :global(.k-list-container .k-input-prefix .k-svg-icon),
+        :global(.k-list-container .k-input-prefix .k-icon) {
+          width: 14px;
+          height: 14px;
+        }
         :global(.k-list-container .k-input input),
         :global(.k-list-container .k-list-filter input),
         :global(.k-list-container .k-filter-input input) {
