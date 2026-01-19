@@ -91,45 +91,25 @@ export default function TechSpecsPage() {
     setAddError('')
     setAddSuccess('')
     try {
-      const normalizedPart = addPartNumber.trim().toUpperCase()
-      const desc = addDescription.trim()
-      const { data: existing, error: existingError } = await supabase
-        .from('component_models')
-        .select('id')
-        .is('tenant_id', null)
-        .eq('part_number', normalizedPart)
-        .maybeSingle()
-      if (existingError) {
-        throw existingError
-      }
-      let componentId = existing?.id
-      if (!componentId) {
-      const { data: inserted, error: insertError } = await supabase
-        .from('component_models')
-          .insert({
-            manufacturer: addManufacturer,
-            model: normalizedPart,
-            part_number: normalizedPart,
-            description: desc,
-            component_type: addComponentType,
-            tenant_id: null,
-          })
-          .select('id')
-          .single()
-        if (insertError) {
-          throw insertError
-        }
-        componentId = inserted?.id
-      }
-      if (!componentId) throw new Error('Unable to create component')
-      const { error: compatError } = await supabase.from('compat_rules_global_models').insert({
+      const payload = {
+        manufacturer: addManufacturer,
         system_model_id: addSystemId,
-        component_model_id: componentId,
-        component_tag: null,
-        status: 'verified',
+        component_type: addComponentType,
+        part_number: addPartNumber.trim().toUpperCase(),
+        description: addDescription.trim(),
+      }
+      const res = await fetch('/api/catalog/add-part-relationship', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
       })
-      if (compatError) throw compatError
-      setAddSuccess('Component and compatibility relationship saved.')
+      const json = (await res.json()) as { ok: boolean; message?: string }
+      if (!json.ok) {
+        throw new Error(json.message || 'Failed to add part')
+      }
+      setAddSuccess(json.message || 'Component and compatibility relationship saved.')
       setAddPartNumber('')
       setAddDescription('')
       setAddSystemId('')
@@ -308,13 +288,17 @@ export default function TechSpecsPage() {
   }, [compatibleByType])
 
   return (
-    <main style={{ padding: 24, display: 'grid', gap: 16 }}>
-      <div>
-        <h1 style={{ marginBottom: 6 }}>Tech Specs</h1>
-        <div style={{ color: 'var(--muted)' }}>Browse compatibility rules and validate component options.</div>
-      </div>
+    <main className="techPage">
+      <header className="hero">
+        <div>
+          <h1>Tech Specs</h1>
+          <p className="mutedText">Browse compatibility rules and validate component options.</p>
+        </div>
+      </header>
 
-      <div
+      <div className="techGrid">
+          <div className="card">
+        <div
         style={{
           border: '1px solid var(--border)',
           borderRadius: 12,
@@ -442,6 +426,9 @@ export default function TechSpecsPage() {
               })}
             </div>
           ) : null}
+        </div>
+          </div>
+          <div className="card">
         <section className="addPartSection">
           <div className="sectionHeader">
             <h2>Add part numbers & relationships</h2>
@@ -497,9 +484,23 @@ export default function TechSpecsPage() {
           {addError ? <div className="formFeedback error">{addError}</div> : null}
           {addSuccess ? <div className="formFeedback success">{addSuccess}</div> : null}
         </section>
+          </div>
         </div>
       </div>
       <style jsx>{`
+        .techGrid {
+          display: grid;
+          gap: 16px;
+          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        }
+        .card {
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 14px;
+          background: var(--panel);
+          display: grid;
+          gap: 12px;
+        }
         .addPartSection {
           border: 1px solid var(--border);
           border-radius: 12px;

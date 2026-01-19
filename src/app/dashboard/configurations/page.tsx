@@ -62,6 +62,8 @@ type SearchModalState = {
   rowId: string
   term: string
   results: ComponentModel[]
+  loading: boolean
+  error: string
 }
 
 const machineOptions = [
@@ -196,6 +198,8 @@ export default function ConfigurationsPage() {
     rowId: '',
     term: '',
     results: [],
+    loading: false,
+    error: '',
   })
 
   const selectedModel = useMemo(() => systemModels.find((model) => model.id === selectedModelId) ?? null, [systemModels, selectedModelId])
@@ -483,7 +487,7 @@ export default function ConfigurationsPage() {
           description: 'Auto configured',
           qty: '',
           notes: 'Derived from platform',
-          locked: true,
+          locked: !editableAutoTypes.has(row.componentType),
         }
       }
       return {
@@ -525,8 +529,29 @@ export default function ConfigurationsPage() {
     updateRow(id, (row) => ({ ...row, notes: value }))
   }
 
-  const handleOpenSearchModal = (rowId: string, term: string, results: ComponentModel[]) => {
-    setSearchModal({ open: true, rowId, term, results })
+  const handleSearchClick = async (row: ComponentRow) => {
+    const term = row.partNumber.trim()
+    setSearchModal({
+      open: true,
+      rowId: row.id,
+      term,
+      results: [],
+      loading: true,
+      error: '',
+    })
+
+    try {
+      const params = new URLSearchParams()
+      if (term) params.set('term', term)
+      params.set('component_type', row.componentType)
+      const res = await fetch(`/api/catalog/search-components?${params.toString()}`)
+      const json = (await res.json()) as { ok: boolean; items?: ComponentModel[]; message?: string }
+      if (!json.ok) throw new Error(json.message || 'Failed to search components')
+      setSearchModal((prev) => ({ ...prev, loading: false, results: json.items ?? [] }))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to search components'
+      setSearchModal((prev) => ({ ...prev, loading: false, error: message }))
+    }
   }
 
   const handleCloseSearchModal = () => {
@@ -550,8 +575,6 @@ export default function ConfigurationsPage() {
   const removeRow = (id: string) => {
     setRows((prev) => prev.filter((row) => row.id !== id))
   }
-
-  const catalogOptionsForRow = (row: ComponentRow) => catalogGroups[row.componentType] ?? []
 
   const stockStatus = (partNumber: string, qty: string) => {
     if (!partNumber) return { label: 'Stock unknown', tone: 'muted' }
@@ -655,15 +678,6 @@ export default function ConfigurationsPage() {
               const indicatorTone = isRequired ? (filled ? 'good' : 'bad') : 'muted'
               const indicatorEmoji = isRequired ? (filled ? '🟢' : '🔴') : '⚪'
               const stock = row.source === 'auto' ? { label: 'Auto', tone: 'muted' } : stockStatus(row.partNumber, row.qty)
-              const partOptions = catalogOptionsForRow(row)
-              const searchTerm = row.partNumber.trim().toLowerCase()
-              const filteredPartOptions =
-                searchTerm === ''
-                  ? partOptions
-                  : partOptions.filter((option) => {
-                      const text = `${option.model} ${option.part_number ?? ''} ${option.manufacturer ?? ''} ${option.description ?? ''}`
-                      return text.toLowerCase().includes(searchTerm)
-                    })
               const isManualSource = row.source === 'manual'
               return (
                 <tr key={row.id} className={row.locked ? 'lockedRow' : ''}>
@@ -707,8 +721,8 @@ export default function ConfigurationsPage() {
                           <button
                             type="button"
                             className="searchBtn"
-                            onClick={() => handleOpenSearchModal(row.id, searchTerm, filteredPartOptions)}
-                            disabled={!partOptions.length}
+                            onClick={() => void handleSearchClick(row)}
+                            disabled={!row.partNumber.trim()}
                           >
                             Search
                           </button>
@@ -825,7 +839,9 @@ export default function ConfigurationsPage() {
             <div className="modalHeader">
               <div>
                 <strong>Matching parts</strong>
-                <div className="modalSubtitle">{searchModal.term || 'All compatible parts'}</div>
+                <div className="modalSubtitle">
+                  {searchModal.term ? `Search: ${searchModal.term}` : 'All compatible parts'}
+                </div>
               </div>
               <button className="modalClose" type="button" onClick={handleCloseSearchModal}>
                 ×
