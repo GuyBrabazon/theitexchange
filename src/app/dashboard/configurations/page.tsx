@@ -659,6 +659,7 @@ export default function ConfigurationsPage() {
                       const text = `${option.model} ${option.part_number ?? ''} ${option.manufacturer ?? ''} ${option.description ?? ''}`
                       return text.toLowerCase().includes(searchTerm)
                     })
+              const showCatalogInput = row.source === 'catalog' || (row.source === 'auto' && editableAutoTypes.has(row.componentType))
               return (
                 <tr key={row.id} className={row.locked ? 'lockedRow' : ''}>
                   <td>
@@ -687,9 +688,9 @@ export default function ConfigurationsPage() {
                     </select>
                   </td>
                   <td>
-                    {row.source === 'auto' ? (
+                    {row.source === 'auto' && !editableAutoTypes.has(row.componentType) ? (
                       <span className="autoText">Auto</span>
-                    ) : row.source === 'catalog' ? (
+                    ) : showCatalogInput ? (
                       <div className="inputWithDatalist">
                         <div className="partInputRow">
                           <input
