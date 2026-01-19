@@ -659,7 +659,7 @@ export default function ConfigurationsPage() {
                       const text = `${option.model} ${option.part_number ?? ''} ${option.manufacturer ?? ''} ${option.description ?? ''}`
                       return text.toLowerCase().includes(searchTerm)
                     })
-              const showCatalogInput = row.source === 'catalog' || (row.source === 'auto' && editableAutoTypes.has(row.componentType))
+              const isManualSource = row.source === 'manual'
               return (
                 <tr key={row.id} className={row.locked ? 'lockedRow' : ''}>
                   <td>
@@ -690,25 +690,15 @@ export default function ConfigurationsPage() {
                   <td>
                     {row.source === 'auto' && !editableAutoTypes.has(row.componentType) ? (
                       <span className="autoText">Auto</span>
-                    ) : showCatalogInput ? (
+                    ) : row.source === 'catalog' ? (
                       <div className="inputWithDatalist">
-                        <div className="partInputRow">
-                          <input
-                            type="text"
-                            list={`catalog-${row.id}`}
-                            value={row.partNumber}
-                            onChange={(event) => handlePartNumberChange(row.id, event.target.value)}
-                            placeholder="Search part"
-                          />
-                          <button
-                            type="button"
-                            className="searchBtn"
-                            onClick={() => handleOpenSearchModal(row.id, searchTerm, filteredPartOptions)}
-                            disabled={!partOptions.length}
-                          >
-                            Search
-                          </button>
-                        </div>
+                        <input
+                          type="text"
+                          list={`catalog-${row.id}`}
+                          value={row.partNumber}
+                          onChange={(event) => handlePartNumberChange(row.id, event.target.value)}
+                          placeholder="Search part"
+                        />
                         <datalist id={`catalog-${row.id}`}>
                           {filteredPartOptions
                             .filter((option) => option.part_number)
@@ -721,12 +711,24 @@ export default function ConfigurationsPage() {
                         </datalist>
                       </div>
                     ) : (
-                      <input
-                        type="text"
-                        value={row.partNumber}
-                        onChange={(event) => handlePartNumberChange(row.id, event.target.value)}
-                        placeholder="Manually enter part"
-                      />
+                      <div className="partInputRow">
+                        <input
+                          type="text"
+                          value={row.partNumber}
+                          onChange={(event) => handlePartNumberChange(row.id, event.target.value)}
+                          placeholder="Manually enter part"
+                        />
+                        {isManualSource && (
+                          <button
+                            type="button"
+                            className="searchBtn"
+                            onClick={() => handleOpenSearchModal(row.id, searchTerm, filteredPartOptions)}
+                            disabled={!partOptions.length}
+                          >
+                            Search
+                          </button>
+                        )}
+                      </div>
                     )}
                   </td>
                   <td>
