@@ -61,6 +61,8 @@ type SelectOption = {
   disabled?: boolean
 }
 
+const multiSelectTypes = new Set(['memory', 'drive'])
+
 type AdvancedField = {
   key: string
   label: string
@@ -151,25 +153,36 @@ const controlStyle = {
 
 const normalizePartNumber = (value: string) => value.trim().toUpperCase()
 
-type SearchableSelectProps = {
-  value: string
+type SearchableSelectBaseProps = {
   options: SelectOption[]
   placeholder: string
   disabled?: boolean
-  onChange: (value: string) => void
   searchPlaceholder?: string
   emptyLabel?: string
 }
 
-function SearchableSelect({
-  value,
-  options,
-  placeholder,
-  disabled,
-  onChange,
-  searchPlaceholder = 'Search',
-  emptyLabel = 'No options found',
-}: SearchableSelectProps) {
+type SearchableSelectProps =
+  | (SearchableSelectBaseProps & {
+      value: string
+      onChange: (value: string) => void
+      multiple?: false
+    })
+  | (SearchableSelectBaseProps & {
+      value: string[]
+      onChange: (value: string[]) => void
+      multiple: true
+    })
+
+function SearchableSelect(props: SearchableSelectProps) {
+  const {
+    value,
+    options,
+    placeholder,
+    disabled,
+    searchPlaceholder = 'Search',
+    emptyLabel = 'No options found',
+  } = props
+  const multiple = props.multiple === true
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const wrapRef = useRef<HTMLDivElement | null>(null)
@@ -194,12 +207,23 @@ function SearchableSelect({
     if (disabled) setOpen(false)
   }, [disabled])
 
-  const selectedOption = options.find((option) => option.value === value)
-  const displayLabel = selectedOption ? selectedOption.label : placeholder
+  const selectedValues = Array.isArray(value) ? value : value ? [value] : []
+  const selectedOption = !multiple ? options.find((option) => option.value === value) : null
+  const displayLabel = multiple
+    ? selectedValues.length === 0
+      ? placeholder
+      : selectedValues.length === 1
+        ? options.find((option) => option.value === selectedValues[0])?.label || '1 selected'
+        : `${selectedValues.length} selected`
+    : selectedOption
+      ? selectedOption.label
+      : placeholder
   const loweredQuery = query.trim().toLowerCase()
   const filteredOptions = loweredQuery
     ? options.filter((option) => (option.searchText || option.label).toLowerCase().includes(loweredQuery))
     : options
+
+  const hasSelection = multiple ? selectedValues.length > 0 : Boolean(selectedOption)
 
   return (
     <div className="selectWrap" ref={wrapRef}>
@@ -211,50 +235,86 @@ function SearchableSelect({
         }}
         disabled={disabled}
       >
-        <span className={`selectValue ${!selectedOption ? 'selectPlaceholder' : ''}`}>{displayLabel}</span>
+        <span className={`selectValue ${!hasSelection ? 'selectPlaceholder' : ''}`}>{displayLabel}</span>
         <span className="selectCaret">v</span>
       </button>
       {open ? (
         <div className="selectMenu">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={searchPlaceholder}
-            className="selectSearch"
-            autoComplete="off"
-          />
+          <div className="selectHeader">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="selectSearch"
+              autoComplete="off"
+            />
+          </div>
           <div className="selectList">
-            {value ? (
+            {filteredOptions.length ? (
+              filteredOptions.map((option) => {
+                if (props.multiple) {
+                  const checked = selectedValues.includes(option.value)
+                  return (
+                    <label
+                      key={option.value}
+                      className={`selectOption selectOptionRow ${checked ? 'selectOptionActive' : ''} ${
+                        option.disabled ? 'selectOptionDisabled' : ''
+                      }`}
+                    >
+                      <span className="selectOptionLabel">{option.label}</span>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          if (option.disabled) return
+                          const next = checked
+                            ? selectedValues.filter((item) => item !== option.value)
+                            : [...selectedValues, option.value]
+                          props.onChange(next)
+                        }}
+                        className="selectCheckbox"
+                        disabled={option.disabled}
+                      />
+                    </label>
+                  )
+                }
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`selectOption ${option.value === value ? 'selectOptionActive' : ''}`}
+                    onClick={() => {
+                      props.onChange(option.value)
+                      setOpen(false)
+                    }}
+                    disabled={option.disabled}
+                  >
+                    {option.label}
+                  </button>
+                )
+              })
+            ) : (
+              <div className="selectEmpty">{emptyLabel}</div>
+            )}
+          </div>
+          {selectedValues.length ? (
+            <div className="selectFooter">
               <button
                 type="button"
-                className="selectOption selectClear"
+                className="selectFooterBtn"
                 onClick={() => {
-                  onChange('')
+                  if (props.multiple) {
+                    props.onChange([])
+                    return
+                  }
+                  props.onChange('')
                   setOpen(false)
                 }}
               >
                 Clear selection
               </button>
-            ) : null}
-            {filteredOptions.length ? (
-              filteredOptions.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={`selectOption ${option.value === value ? 'selectOptionActive' : ''}`}
-                  onClick={() => {
-                    onChange(option.value)
-                    setOpen(false)
-                  }}
-                  disabled={option.disabled}
-                >
-                  {option.label}
-                </button>
-              ))
-            ) : (
-              <div className="selectEmpty">{emptyLabel}</div>
-            )}
-          </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -278,7 +338,7 @@ export default function ConfigurationsPage() {
   const [compatLoading, setCompatLoading] = useState(false)
   const [compatError, setCompatError] = useState('')
 
-  const [selectedComponents, setSelectedComponents] = useState<Record<string, ComponentSelection>>({})
+  const [selectedComponents, setSelectedComponents] = useState<Record<string, ComponentSelection[]>>({})
   const [manualOverrides, setManualOverrides] = useState<Record<string, ManualEntry>>({})
   const [advancedValues, setAdvancedValues] = useState<Record<string, string>>({})
   const [stockByPart, setStockByPart] = useState<Record<string, number>>({})
@@ -669,15 +729,23 @@ export default function ConfigurationsPage() {
       .sort((a, b) => a.model.localeCompare(b.model))
   }, [compatibleComponents])
 
+  const getSelections = (type: string) => selectedComponents[type] || []
+
+  const getSelectedIds = (type: string) => getSelections(type).map((selection) => selection.componentId)
+
+  const getFirstSelection = (type: string) => getSelections(type)[0]
+
   const getSelectedComponent = (type: string) => {
-    const selection = selectedComponents[type]
+    const selection = getFirstSelection(type)
     if (!selection?.componentId) return null
     return componentLookup.get(selection.componentId) || null
   }
 
-  const getSelectedQty = (type: string) => {
-    const qty = Number(selectedComponents[type]?.qty || 0)
-    return Number.isFinite(qty) ? qty : 0
+  const getSelectedQtyTotal = (type: string) => {
+    return getSelections(type).reduce((total, selection) => {
+      const qty = Number(selection.qty || 0)
+      return Number.isFinite(qty) ? total + qty : total
+    }, 0)
   }
 
   const getTagNumber = (tags: string[], prefixes: string[]) => {
@@ -746,26 +814,45 @@ export default function ConfigurationsPage() {
     return options.some((option) => option.id === selectedId) ? selectedId : ''
   }
 
-  const updateComponentSelection = (type: string, componentId: string) => {
+  const updateComponentSelection = (type: string, componentId: string | string[]) => {
     setSelectedComponents((prev) => {
-      if (!componentId) {
-        const next = { ...prev }
+      const next = { ...prev }
+      if (multiSelectTypes.has(type)) {
+        const ids = Array.isArray(componentId) ? componentId : componentId ? [componentId] : []
+        const current = prev[type] || []
+        const selections = ids.map((id) => current.find((entry) => entry.componentId === id) || { componentId: id, qty: '1' })
+        if (!selections.length) {
+          delete next[type]
+          return next
+        }
+        next[type] = selections
+        return next
+      }
+      const id = Array.isArray(componentId) ? componentId[0] || '' : componentId
+      if (!id) {
         delete next[type]
         return next
       }
-      const existing = prev[type]
-      return {
-        ...prev,
-        [type]: { componentId, qty: existing?.qty || '1' },
-      }
+      const existing = prev[type]?.[0]
+      next[type] = [{ componentId: id, qty: existing?.qty || '1' }]
+      return next
     })
   }
 
-  const updateComponentQty = (type: string, qty: string) => {
+  const updateComponentQty = (type: string, qty: string, componentId?: string) => {
     setSelectedComponents((prev) => {
-      const existing = prev[type]
-      if (!existing) return prev
-      return { ...prev, [type]: { ...existing, qty } }
+      const current = prev[type] || []
+      if (!current.length) return prev
+      const next = { ...prev }
+      if (multiSelectTypes.has(type)) {
+        next[type] = current.map((selection) => {
+          if (componentId && selection.componentId !== componentId) return selection
+          return { ...selection, qty }
+        })
+        return next
+      }
+      next[type] = [{ ...current[0], qty }]
+      return next
     })
   }
 
@@ -814,9 +901,9 @@ export default function ConfigurationsPage() {
   }
 
   const missingRequired = requiredTypes.filter((type) => {
-    const selection = selectedComponents[type]
+    const selections = getSelections(type)
     const manual = manualOverrides[type]
-    if (selection?.componentId) return false
+    if (selections.length) return false
     if (manual?.enabled && manual.label.trim()) return false
     return true
   })
@@ -833,24 +920,26 @@ export default function ConfigurationsPage() {
 
   const canSave = missingRequired.length === 0
 
-  const summaryItems = componentOrder
-    .map((type) => {
-      const selection = selectedComponents[type]
-      if (selection?.componentId) {
-        const component = componentLookup.get(selection.componentId)
-        if (!component) return null
-        const label = `${component.manufacturer ? `${component.manufacturer} ` : ''}${component.model}${
-          component.part_number ? ` (${component.part_number})` : ''
-        }`
-        return { type, label, qty: selection.qty || '1', source: 'catalog' }
-      }
-      const manual = manualOverrides[type]
-      if (manual?.enabled && manual.label.trim()) {
-        return { type, label: manual.label, qty: manual.qty || '1', source: 'manual' }
-      }
-      return null
-    })
-    .filter((item): item is { type: string; label: string; qty: string; source: string } => Boolean(item))
+  const summaryItems = componentOrder.flatMap((type) => {
+    const selections = getSelections(type)
+    if (selections.length) {
+      return selections
+        .map((selection) => {
+          const component = componentLookup.get(selection.componentId)
+          if (!component) return null
+          const label = `${component.manufacturer ? `${component.manufacturer} ` : ''}${component.model}${
+            component.part_number ? ` (${component.part_number})` : ''
+          }`
+          return { type, label, qty: selection.qty || '1', source: 'catalog' }
+        })
+        .filter((item): item is { type: string; label: string; qty: string; source: string } => Boolean(item))
+    }
+    const manual = manualOverrides[type]
+    if (manual?.enabled && manual.label.trim()) {
+      return [{ type, label: manual.label, qty: manual.qty || '1', source: 'manual' }]
+    }
+    return []
+  })
 
   const pcieSummary = useMemo(() => {
     if (!selectedModel) return 'Auto'
@@ -887,9 +976,12 @@ export default function ConfigurationsPage() {
     const hasOptions = options.length > 0
     const manual = manualOverrides[type] || { enabled: false, label: '', partNumber: '', qty: '1', notes: '' }
     const manualActive = manual.enabled
-    const selection = selectedComponents[type]
+    const selections = getSelections(type)
+    const selection = selections[0]
+    const selectedIds = getSelectedIds(type)
     const selectedComponent = selection?.componentId ? componentLookup.get(selection.componentId) : null
     const optionItems = buildComponentOptions(options)
+    const isMulti = multiSelectTypes.has(type)
 
     return (
       <div key={type} className="componentCard">
@@ -954,14 +1046,26 @@ export default function ConfigurationsPage() {
           </div>
         ) : hasOptions ? (
           <div style={{ display: 'grid', gap: 8 }}>
-            <SearchableSelect
-              value={selection?.componentId || ''}
-              options={optionItems}
-              placeholder={options.length ? 'Select option' : 'No compatible options'}
-              onChange={(value) => updateComponentSelection(type, value)}
-              searchPlaceholder="Search options"
-              emptyLabel="No matches"
-            />
+            {isMulti ? (
+              <SearchableSelect
+                value={selectedIds}
+                options={optionItems}
+                placeholder={options.length ? 'Select option' : 'No compatible options'}
+                onChange={(value) => updateComponentSelection(type, value)}
+                multiple
+                searchPlaceholder="Search options"
+                emptyLabel="No matches"
+              />
+            ) : (
+              <SearchableSelect
+                value={selection?.componentId || ''}
+                options={optionItems}
+                placeholder={options.length ? 'Select option' : 'No compatible options'}
+                onChange={(value) => updateComponentSelection(type, value)}
+                searchPlaceholder="Search options"
+                emptyLabel="No matches"
+              />
+            )}
             <label style={{ display: 'grid', gap: 6 }}>
               <span style={{ fontSize: 11, color: 'var(--muted)' }}>Quantity</span>
               <input
@@ -973,7 +1077,13 @@ export default function ConfigurationsPage() {
                 style={{ ...controlStyle, padding: '8px 10px' }}
               />
             </label>
-            {selectedComponent ? (
+            {isMulti ? (
+              selections.length ? (
+                renderSelectionStockPills(type)
+              ) : (
+                <div style={{ fontSize: 11, color: 'var(--muted)' }}>Pick options to see details.</div>
+              )
+            ) : selectedComponent ? (
               <div style={{ display: 'grid', gap: 6 }}>
                 {renderStockPill(selectedComponent.part_number, selection?.qty || '')}
                 <div style={{ fontSize: 11, color: 'var(--muted)' }}>
@@ -1007,30 +1117,65 @@ export default function ConfigurationsPage() {
     disabled,
     note,
     onChange,
+    multiple,
   }: {
     label: string
     options: ComponentModel[]
-    value: string
+    value: string | string[]
     placeholder: string
     disabled?: boolean
     note?: string
-    onChange: (value: string) => void
+    onChange: (value: string | string[]) => void
+    multiple?: boolean
   }) => {
     const resolvedNote = note && note.trim().toLowerCase() !== placeholder.trim().toLowerCase() ? note : undefined
     return (
       <label className="field">
         <span className="fieldLabel">{label}</span>
-        <SearchableSelect
-          value={value}
-          options={buildComponentOptions(options)}
-          placeholder={placeholder}
-          disabled={disabled}
-          onChange={onChange}
-          searchPlaceholder="Search part number or description"
-          emptyLabel="No matches"
-        />
+        {multiple ? (
+          <SearchableSelect
+            value={value as string[]}
+            options={buildComponentOptions(options)}
+            placeholder={placeholder}
+            disabled={disabled}
+            onChange={(next) => onChange(next)}
+            multiple
+            searchPlaceholder="Search part number or description"
+            emptyLabel="No matches"
+          />
+        ) : (
+          <SearchableSelect
+            value={value as string}
+            options={buildComponentOptions(options)}
+            placeholder={placeholder}
+            disabled={disabled}
+            onChange={(next) => onChange(next)}
+            searchPlaceholder="Search part number or description"
+            emptyLabel="No matches"
+          />
+        )}
         {resolvedNote ? <span className="fieldNote">{resolvedNote}</span> : null}
       </label>
+    )
+  }
+
+  const renderSelectionStockPills = (type: string) => {
+    const selections = getSelections(type)
+    if (!selections.length) return null
+    return (
+      <div className="stockPillList">
+        {selections.map((selection) => {
+          const component = componentLookup.get(selection.componentId)
+          if (!component) return null
+          const label = `${component.manufacturer ? `${component.manufacturer} ` : ''}${component.model}`
+          return (
+            <div key={selection.componentId} className="stockPillItem">
+              <span className="fieldNote">{label}</span>
+              {renderStockPill(component.part_number, selection.qty)}
+            </div>
+          )
+        })}
+      </div>
     )
   }
 
@@ -1055,38 +1200,63 @@ export default function ConfigurationsPage() {
   const bezelInStockOptions = getInStockOptions(bezelOptions)
 
   const selectedCpu = getSelectedComponent('cpu')
-  const selectedMemory = getSelectedComponent('memory')
-  const selectedDrive = getSelectedComponent('drive')
+  const selectedPower = getSelectedComponent('power')
+  const cpuSelection = getFirstSelection('cpu')
+  const powerSelection = getFirstSelection('power')
+  const memorySelections = getSelections('memory')
+  const driveSelections = getSelections('drive')
 
-  const cpuQty = getSelectedQty('cpu')
-  const memoryQty = getSelectedQty('memory')
-  const driveQty = getSelectedQty('drive')
+  const cpuQty = getSelectedQtyTotal('cpu')
 
   const cpuCoresPer = selectedCpu ? getTagNumber(selectedCpu.tags, ['cores_', 'core_', 'cpu_cores_', 'corecount_']) : null
-  const memoryGbPer = selectedMemory ? getTagNumber(selectedMemory.tags, ['gb_', 'gib_', 'memory_gb_', 'size_gb_']) : null
-  const driveGbPer = selectedDrive ? getCapacityGbFromTags(selectedDrive.tags) : null
-
   const cpuTotalCores = cpuCoresPer != null && cpuQty > 0 ? cpuCoresPer * cpuQty : null
-  const memoryTotalGb = memoryGbPer != null && memoryQty > 0 ? memoryGbPer * memoryQty : null
-  const driveTotalGb = driveGbPer != null && driveQty > 0 ? driveGbPer * driveQty : null
+
+  const memoryTotalGb = memorySelections.reduce((total, selection) => {
+    const component = componentLookup.get(selection.componentId)
+    if (!component) return total
+    const perGb = getTagNumber(component.tags, ['gb_', 'gib_', 'memory_gb_', 'size_gb_'])
+    if (perGb == null) return total
+    const qty = Number(selection.qty || 0)
+    if (!Number.isFinite(qty) || qty <= 0) return total
+    return total + perGb * qty
+  }, 0)
+  const memoryTotalKnown = memorySelections.some((selection) => {
+    const component = componentLookup.get(selection.componentId)
+    if (!component) return false
+    return getTagNumber(component.tags, ['gb_', 'gib_', 'memory_gb_', 'size_gb_']) != null
+  })
+
+  const driveTotalGb = driveSelections.reduce((total, selection) => {
+    const component = componentLookup.get(selection.componentId)
+    if (!component) return total
+    const perGb = getCapacityGbFromTags(component.tags)
+    if (perGb == null) return total
+    const qty = Number(selection.qty || 0)
+    if (!Number.isFinite(qty) || qty <= 0) return total
+    return total + perGb * qty
+  }, 0)
+  const driveTotalKnown = driveSelections.some((selection) => {
+    const component = componentLookup.get(selection.componentId)
+    if (!component) return false
+    return getCapacityGbFromTags(component.tags) != null
+  })
 
   const cpuMax = getMaxForType('cpu')
   const memoryMax = getMaxForType('memory')
   const driveMax = getMaxForType('drive')
+  const powerMax = getMaxForType('power')
 
-  const cpuSelectedId = selectedComponents.cpu?.componentId || ''
-  const memorySelectedId = selectedComponents.memory?.componentId || ''
-  const driveSelectedId = selectedComponents.drive?.componentId || ''
-  const nicSelectedId = selectedComponents.nic?.componentId || ''
-  const gpuSelectedId = selectedComponents.gpu?.componentId || ''
-  const powerSelectedId = selectedComponents.power?.componentId || ''
-  const railSelectedId = selectedComponents.rail?.componentId || ''
-  const bezelSelectedId = selectedComponents.bezel?.componentId || ''
-  const remoteSelectedId = selectedComponents.remote_access?.componentId || ''
+  const cpuSelectedId = getSelectedIds('cpu')[0] || ''
+  const memorySelectedIds = getSelectedIds('memory')
+  const driveSelectedIds = getSelectedIds('drive')
+  const nicSelectedId = getSelectedIds('nic')[0] || ''
+  const gpuSelectedId = getSelectedIds('gpu')[0] || ''
+  const powerSelectedId = getSelectedIds('power')[0] || ''
+  const railSelectedId = getSelectedIds('rail')[0] || ''
+  const bezelSelectedId = getSelectedIds('bezel')[0] || ''
+  const remoteSelectedId = getSelectedIds('remote_access')[0] || ''
 
   const cpuStockValue = getSelectionValueForOptions(cpuInStockOptions, cpuSelectedId)
-  const memoryStockValue = getSelectionValueForOptions(memoryInStockOptions, memorySelectedId)
-  const driveStockValue = getSelectionValueForOptions(driveInStockOptions, driveSelectedId)
   const nicStockValue = getSelectionValueForOptions(nicInStockOptions, nicSelectedId)
   const gpuStockValue = getSelectionValueForOptions(gpuInStockOptions, gpuSelectedId)
   const powerStockValue = getSelectionValueForOptions(powerInStockOptions, powerSelectedId)
@@ -1313,7 +1483,7 @@ export default function ConfigurationsPage() {
                           type="number"
                           min={0}
                           max={cpuMax ?? undefined}
-                          value={selectedComponents.cpu?.qty || ''}
+                          value={cpuSelection?.qty || ''}
                           onChange={(e) => updateComponentQty('cpu', e.target.value)}
                           placeholder="0"
                           style={{ ...controlStyle, padding: '8px 10px' }}
@@ -1323,7 +1493,7 @@ export default function ConfigurationsPage() {
                     </div>
                     {selectedCpu ? (
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        {renderStockPill(selectedCpu.part_number, selectedComponents.cpu?.qty || '')}
+                        {renderStockPill(selectedCpu.part_number, cpuSelection?.qty || '')}
                       </div>
                     ) : null}
                   </div>
@@ -1336,29 +1506,33 @@ export default function ConfigurationsPage() {
                       {renderSearchSelect({
                         label: 'Compatible DIMMs in stock',
                         options: memoryInStockOptions,
-                        value: memoryStockValue,
+                        value: memorySelectedIds,
                         placeholder: memoryInStockOptions.length ? 'Select in-stock DIMM' : 'No in-stock options',
                         disabled: !selectedModelId || compatLoading,
                         note: !memoryInStockOptions.length ? (stockLoading ? 'Loading stock data.' : 'No in-stock options.') : undefined,
+                        multiple: true,
                         onChange: (value) => updateComponentSelection('memory', value),
                       })}
                       {renderSearchSelect({
                         label: 'All compatible DIMMs',
                         options: memoryOptions,
-                        value: memorySelectedId,
+                        value: memorySelectedIds,
                         placeholder: memoryOptions.length ? 'Select compatible DIMM' : 'No compatible options',
                         disabled: !selectedModelId || compatLoading,
                         note: !memoryOptions.length ? 'No compatible options yet.' : undefined,
+                        multiple: true,
                         onChange: (value) => updateComponentSelection('memory', value),
                       })}
                     </div>
                     <div className="configFieldGrid">
                       <label className="field">
-                        <span className="fieldLabel">{selectedMemory ? 'Gigabytes' : 'How many Gigabytes of memory do you need?'}</span>
-                        {selectedMemory ? (
+                        <span className="fieldLabel">
+                          {memorySelections.length ? 'Gigabytes' : 'How many Gigabytes of memory do you need?'}
+                        </span>
+                        {memorySelections.length ? (
                           <input
                             readOnly
-                            value={memoryTotalGb != null ? `${Math.round(memoryTotalGb)} GB` : 'Auto'}
+                            value={memoryTotalKnown ? `${Math.round(memoryTotalGb)} GB` : 'Auto'}
                             style={{ ...controlStyle, opacity: 0.7 }}
                           />
                         ) : (
@@ -1382,7 +1556,7 @@ export default function ConfigurationsPage() {
                           type="number"
                           min={0}
                           max={memoryMax ?? undefined}
-                          value={selectedComponents.memory?.qty || ''}
+                          value={memorySelections[0]?.qty || ''}
                           onChange={(e) => updateComponentQty('memory', e.target.value)}
                           placeholder="0"
                           style={{ ...controlStyle, padding: '8px 10px' }}
@@ -1390,11 +1564,7 @@ export default function ConfigurationsPage() {
                         <span className="fieldNote">Max: {memoryMax ?? 'Auto'}</span>
                       </label>
                     </div>
-                    {selectedMemory ? (
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        {renderStockPill(selectedMemory.part_number, selectedComponents.memory?.qty || '')}
-                      </div>
-                    ) : null}
+                    {renderSelectionStockPills('memory')}
                   </div>
                 </details>
 
@@ -1427,29 +1597,33 @@ export default function ConfigurationsPage() {
                       {renderSearchSelect({
                         label: 'Compatible drives in stock',
                         options: driveInStockOptions,
-                        value: driveStockValue,
+                        value: driveSelectedIds,
                         placeholder: driveInStockOptions.length ? 'Select in-stock drive' : 'No in-stock options',
                         disabled: !selectedModelId || compatLoading,
                         note: !driveInStockOptions.length ? (stockLoading ? 'Loading stock data.' : 'No in-stock options.') : undefined,
+                        multiple: true,
                         onChange: (value) => updateComponentSelection('drive', value),
                       })}
                       {renderSearchSelect({
                         label: 'All compatible drives',
                         options: driveOptions,
-                        value: driveSelectedId,
+                        value: driveSelectedIds,
                         placeholder: driveOptions.length ? 'Select compatible drive' : 'No compatible options',
                         disabled: !selectedModelId || compatLoading,
                         note: !driveOptions.length ? 'No compatible options yet.' : undefined,
+                        multiple: true,
                         onChange: (value) => updateComponentSelection('drive', value),
                       })}
                     </div>
                     <div className="configFieldGrid">
                       <label className="field">
-                        <span className="fieldLabel">{selectedDrive ? 'Usable storage' : 'How much Usable storage do you need?'}</span>
-                        {selectedDrive ? (
+                        <span className="fieldLabel">
+                          {driveSelections.length ? 'Usable storage' : 'How much Usable storage do you need?'}
+                        </span>
+                        {driveSelections.length ? (
                           <input
                             readOnly
-                            value={driveTotalGb != null ? formatCapacity(driveTotalGb) : 'Auto'}
+                            value={driveTotalKnown ? formatCapacity(driveTotalGb) : 'Auto'}
                             style={{ ...controlStyle, opacity: 0.7 }}
                           />
                         ) : (
@@ -1473,7 +1647,7 @@ export default function ConfigurationsPage() {
                           type="number"
                           min={0}
                           max={driveMax ?? undefined}
-                          value={selectedComponents.drive?.qty || ''}
+                          value={driveSelections[0]?.qty || ''}
                           onChange={(e) => updateComponentQty('drive', e.target.value)}
                           placeholder="0"
                           style={{ ...controlStyle, padding: '8px 10px' }}
@@ -1481,11 +1655,7 @@ export default function ConfigurationsPage() {
                         <span className="fieldNote">Max: {driveMax ?? 'Auto'}</span>
                       </label>
                     </div>
-                    {selectedDrive ? (
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        {renderStockPill(selectedDrive.part_number, selectedComponents.drive?.qty || '')}
-                      </div>
-                    ) : null}
+                    {renderSelectionStockPills('drive')}
                   </div>
                 </details>
 
@@ -1564,6 +1734,26 @@ export default function ConfigurationsPage() {
                         onChange: (value) => updateComponentSelection('power', value),
                       })}
                     </div>
+                    <div className="configFieldGrid">
+                      <label className="field">
+                        <span className="fieldLabel">Quantity</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={powerMax ?? undefined}
+                          value={powerSelection?.qty || ''}
+                          onChange={(e) => updateComponentQty('power', e.target.value)}
+                          placeholder="0"
+                          style={{ ...controlStyle, padding: '8px 10px' }}
+                        />
+                        <span className="fieldNote">Max: {powerMax ?? 'Auto'}</span>
+                      </label>
+                    </div>
+                    {selectedPower ? (
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {renderStockPill(selectedPower.part_number, powerSelection?.qty || '')}
+                      </div>
+                    ) : null}
                   </div>
                 </details>
 
@@ -1887,12 +2077,17 @@ export default function ConfigurationsPage() {
           background: var(--panel-2);
           color: var(--text);
           font-size: 14px;
+          font-weight: 600;
           cursor: pointer;
           text-align: left;
         }
         .selectTrigger:disabled {
           opacity: 0.6;
           cursor: not-allowed;
+        }
+        .selectTrigger:focus-visible {
+          outline: 2px solid var(--accent);
+          outline-offset: 2px;
         }
         .selectValue {
           white-space: nowrap;
@@ -1914,11 +2109,16 @@ export default function ConfigurationsPage() {
           background: var(--panel);
           border: 1px solid var(--border);
           border-radius: 10px;
-          padding: 8px;
           display: grid;
-          gap: 8px;
+          gap: 0;
           z-index: 20;
           box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+          overflow: hidden;
+        }
+        .selectHeader {
+          padding: 8px;
+          background: var(--panel-2);
+          border-bottom: 1px solid var(--border);
         }
         .selectSearch {
           width: 100%;
@@ -1934,8 +2134,13 @@ export default function ConfigurationsPage() {
           overflow: auto;
           display: grid;
           gap: 4px;
+          padding: 8px;
         }
         .selectOption {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
           text-align: left;
           padding: 8px 10px;
           border-radius: 8px;
@@ -1944,6 +2149,21 @@ export default function ConfigurationsPage() {
           color: var(--text);
           cursor: pointer;
         }
+        .selectOptionRow {
+          cursor: pointer;
+        }
+        .selectOptionLabel {
+          flex: 1;
+          min-width: 0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .selectCheckbox {
+          width: 14px;
+          height: 14px;
+          accent-color: var(--accent);
+        }
         .selectOption:hover {
           background: var(--panel-2);
         }
@@ -1951,18 +2171,48 @@ export default function ConfigurationsPage() {
           border-color: var(--accent);
           background: rgba(90, 180, 255, 0.12);
         }
-        .selectClear {
-          color: var(--muted);
-          font-size: 12px;
+        .selectOptionDisabled {
+          opacity: 0.6;
+          cursor: not-allowed;
         }
         .selectEmpty {
           padding: 6px 8px;
           color: var(--muted);
           font-size: 12px;
         }
+        .selectFooter {
+          padding: 8px;
+          border-top: 1px solid var(--border);
+          background: var(--panel-2);
+        }
+        .selectFooterBtn {
+          width: 100%;
+          padding: 6px 10px;
+          border-radius: 8px;
+          border: 1px solid var(--border);
+          background: var(--panel);
+          color: var(--text);
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+        .selectFooterBtn:hover {
+          background: var(--panel-2);
+        }
         .fieldNote {
           font-size: 11px;
           color: var(--muted);
+        }
+        .stockPillList {
+          display: grid;
+          gap: 6px;
+        }
+        .stockPillItem {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
         }
         .configLayout {
           display: grid;
