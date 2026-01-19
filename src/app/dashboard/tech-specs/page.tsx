@@ -96,7 +96,7 @@ export default function TechSpecsPage() {
       const { data: existing, error: existingError } = await supabase
         .from('component_models')
         .select('id')
-        .eq('tenant_id', null)
+        .is('tenant_id', null)
         .eq('part_number', normalizedPart)
         .maybeSingle()
       if (existingError) {
