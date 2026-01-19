@@ -232,31 +232,45 @@ function SearchableSelect(props: SearchableSelectProps) {
     setFilterValue(readFilterValue(event.filter))
   }
 
+  const resolveValue = (item: SelectItem | string | null | undefined) => {
+    if (item && typeof item === 'object') return item.value
+    if (typeof item === 'string') return item
+    return ''
+  }
+
+  const isDisabledValue = (item: SelectItem | string | null | undefined) => {
+    if (item && typeof item === 'object') return Boolean(item.disabled)
+    if (typeof item === 'string') return Boolean(data.find((option) => option.value === item)?.disabled)
+    return false
+  }
+
   if (isMulti) {
-    const selectedItems = data.filter((item) => selectedValues.includes(item.value))
     return (
       <MultiSelect
         data={filteredData}
         textField="label"
         dataItemKey="value"
-        value={selectedItems}
+        value={selectedValues}
         filterable
         onFilterChange={handleFilterChange}
+        filter={filterValue}
         placeholder={placeholder}
         style={rootStyle}
         className="kendoSelect"
         disabled={disabled}
         onChange={(event) => {
-          const items = Array.isArray(event.value) ? (event.value as SelectItem[]) : []
-          const enabledItems = items.filter((item) => !item.disabled)
-          ;(props as Extract<SearchableSelectProps, { multiple: true }>).onChange(enabledItems.map((item) => item.value))
+          const items = Array.isArray(event.value) ? (event.value as Array<SelectItem | string>) : []
+          const nextValues = items
+            .map((item) => resolveValue(item))
+            .filter((val) => val !== '')
+            .filter((val) => !isDisabledValue(val))
+          ;(props as Extract<SearchableSelectProps, { multiple: true }>).onChange(nextValues)
           setFilterValue('')
         }}
       />
     )
   }
 
-  const selectedItem = data.find((item) => item.value === value) ?? null
   const defaultItem: SelectItem = { value: '', label: placeholder, searchText: placeholder }
 
   return (
@@ -264,17 +278,18 @@ function SearchableSelect(props: SearchableSelectProps) {
       data={filteredData}
       textField="label"
       dataItemKey="value"
-      value={selectedItem}
+      value={value || ''}
       defaultItem={defaultItem}
       filterable
       onFilterChange={handleFilterChange}
+      filter={filterValue}
       style={rootStyle}
       className="kendoSelect"
       disabled={disabled}
       onChange={(event) => {
-        const item = (event.value as SelectItem | null) ?? null
-        if (item?.disabled) return
-        ;(props as Extract<SearchableSelectProps, { multiple?: false }>).onChange(item?.value || '')
+        const item = (event.value as SelectItem | string | null) ?? null
+        if (isDisabledValue(item)) return
+        ;(props as Extract<SearchableSelectProps, { multiple?: false }>).onChange(resolveValue(item))
         setFilterValue('')
       }}
     />
