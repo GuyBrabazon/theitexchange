@@ -44,7 +44,7 @@ type AdvancedField = {
   placeholder?: string
 }
 
-type Source = 'catalog' | 'manual' | 'auto'
+type Source = 'manual' | 'auto'
 
 type ComponentRow = {
   id: string
@@ -301,7 +301,7 @@ export default function ConfigurationsPage() {
 
   useEffect(() => {
     const defaults = requiredTypes.map((type) =>
-      createRow({ componentType: type, source: 'catalog', qty: '1', description: '', notes: '' })
+      createRow({ componentType: type, qty: '1', description: '', notes: '' })
     )
     setRows(defaults)
     setAdvancedValues({})
@@ -499,7 +499,7 @@ export default function ConfigurationsPage() {
   const handlePartNumberChange = (id: string, value: string) => {
     updateRow(id, (row) => {
       const next: ComponentRow = { ...row, partNumber: value }
-      if (row.source === 'catalog') {
+      if (row.source === 'manual') {
         const normalized = normalizePartNumber(value)
         const candidates = catalogGroups[row.componentType] ?? []
         const match = candidates.find(
@@ -544,7 +544,7 @@ export default function ConfigurationsPage() {
   }
 
   const addRow = (componentType: string) => {
-    setRows((prev) => [...prev, createRow({ componentType, source: 'catalog', qty: '1' })])
+    setRows((prev) => [...prev, createRow({ componentType, qty: '1' })])
   }
 
   const removeRow = (id: string) => {
@@ -695,26 +695,6 @@ export default function ConfigurationsPage() {
                   <td>
                     {row.source === 'auto' && !editableAutoTypes.has(row.componentType) ? (
                       <span className="autoText">Auto</span>
-                    ) : row.source === 'catalog' ? (
-                      <div className="inputWithDatalist">
-                        <input
-                          type="text"
-                          list={`catalog-${row.id}`}
-                          value={row.partNumber}
-                          onChange={(event) => handlePartNumberChange(row.id, event.target.value)}
-                          placeholder="Search part"
-                        />
-                        <datalist id={`catalog-${row.id}`}>
-                          {filteredPartOptions
-                            .filter((option) => option.part_number)
-                            .map((option) => (
-                              <option key={`${option.id}-${option.part_number}`} value={option.part_number!}>
-                                {option.model}
-                                {option.part_number ? ` (${option.part_number})` : ''}
-                              </option>
-                            ))}
-                        </datalist>
-                      </div>
                     ) : (
                       <div className="partInputRow">
                         <input
