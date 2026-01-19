@@ -9,6 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@progress/kendo-data-query": "^1.7.0",
+    "@progress/kendo-react-dropdowns": "^7.0.0",
     "@supabase/supabase-js": "^2.89.0",
     "@tanstack/react-virtual": "^3.13.14",
     "@react-pdf/renderer": "^3.4.5",
