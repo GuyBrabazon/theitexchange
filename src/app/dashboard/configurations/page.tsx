@@ -327,7 +327,7 @@ export default function ConfigurationsPage() {
         const json = (await res.json()) as CompatibleResp
         if (!json.ok) throw new Error(json.message || 'Failed to load components')
         const mapped = (json.items ?? [])
-          .map((row: unknown) => {
+          .map((row: unknown): ComponentModel | null => {
             const rec = row as Record<string, unknown>
             const rawType = (typeof rec.component_type === 'string' && rec.component_type) ||
               (typeof rec.category === 'string' ? rec.category : '')
@@ -358,7 +358,7 @@ export default function ConfigurationsPage() {
               oem: typeof rec.oem === 'string' ? rec.oem : null,
               description: typeof rec.description === 'string' ? rec.description : null,
               tags,
-            }
+            } satisfies ComponentModel
           })
           .filter((item): item is ComponentModel => Boolean(item))
         if (!cancelled) setCompatibleComponents(mapped)
