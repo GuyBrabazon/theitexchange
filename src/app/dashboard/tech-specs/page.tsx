@@ -71,6 +71,7 @@ export default function TechSpecsPage() {
   const [compatError, setCompatError] = useState<string>('')
   const [addManufacturer, setAddManufacturer] = useState<string>('')
   const [addSystemId, setAddSystemId] = useState<string>('')
+  const [addComponentType, setAddComponentType] = useState<string>(componentTypeOrder[0])
   const [addPartNumber, setAddPartNumber] = useState<string>('')
   const [addDescription, setAddDescription] = useState<string>('')
   const [addLoading, setAddLoading] = useState(false)
@@ -82,7 +83,7 @@ export default function TechSpecsPage() {
   }
 
   const handleAddPart = async () => {
-    if (!addManufacturer || !addSystemId || !addPartNumber.trim() || !addDescription.trim()) {
+    if (!addManufacturer || !addSystemId || !addComponentType || !addPartNumber.trim() || !addDescription.trim()) {
       setAddError('All fields are required.')
       setAddSuccess('')
       return
@@ -104,14 +105,14 @@ export default function TechSpecsPage() {
       }
       let componentId = existing?.id
       if (!componentId) {
-        const { data: inserted, error: insertError } = await supabase
-          .from('component_models')
+      const { data: inserted, error: insertError } = await supabase
+        .from('component_models')
           .insert({
             manufacturer: addManufacturer,
             model: normalizedPart,
             part_number: normalizedPart,
             description: desc,
-            component_type: 'other',
+            component_type: addComponentType,
             tenant_id: null,
           })
           .select('id')
@@ -133,6 +134,7 @@ export default function TechSpecsPage() {
       setAddPartNumber('')
       setAddDescription('')
       setAddSystemId('')
+      setAddComponentType(componentTypeOrder[0])
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Failed to add part'
       setAddError(msg)
@@ -194,6 +196,7 @@ export default function TechSpecsPage() {
     setCompatError('')
     setAddManufacturer('')
     setAddSystemId('')
+    setAddComponentType(componentTypeOrder[0])
     setAddPartNumber('')
     setAddDescription('')
     setAddError('')
@@ -204,6 +207,7 @@ export default function TechSpecsPage() {
     setSelectedFamily('')
     setSelectedModelId('')
     setAddSystemId('')
+    setAddComponentType(componentTypeOrder[0])
   }, [selectedManufacturer])
 
   useEffect(() => {
@@ -463,6 +467,16 @@ export default function TechSpecsPage() {
                 {addSystemOptions.map((model) => (
                   <option key={model.id} value={model.id}>
                     {model.model}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Component type</span>
+              <select value={addComponentType} onChange={(event) => setAddComponentType(event.target.value)}>
+                {componentTypeOrder.map((type) => (
+                  <option key={type} value={type}>
+                    {componentTypeLabels[type] ?? type}
                   </option>
                 ))}
               </select>
