@@ -69,9 +69,76 @@ export default function TechSpecsPage() {
   const [compatibleComponents, setCompatibleComponents] = useState<ComponentModel[]>([])
   const [compatLoading, setCompatLoading] = useState(false)
   const [compatError, setCompatError] = useState<string>('')
+  const [addManufacturer, setAddManufacturer] = useState<string>('')
+  const [addSystemId, setAddSystemId] = useState<string>('')
+  const [addPartNumber, setAddPartNumber] = useState<string>('')
+  const [addDescription, setAddDescription] = useState<string>('')
+  const [addLoading, setAddLoading] = useState(false)
+  const [addError, setAddError] = useState<string>('')
+  const [addSuccess, setAddSuccess] = useState<string>('')
 
   const setValue = (key: string, value: string) => {
     setValues((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const handleAddPart = async () => {
+    if (!addManufacturer || !addSystemId || !addPartNumber.trim() || !addDescription.trim()) {
+      setAddError('All fields are required.')
+      setAddSuccess('')
+      return
+    }
+    setAddLoading(true)
+    setAddError('')
+    setAddSuccess('')
+    try {
+      const normalizedPart = addPartNumber.trim().toUpperCase()
+      const desc = addDescription.trim()
+      const { data: existing, error: existingError } = await supabase
+        .from('component_models')
+        .select('id')
+        .eq('tenant_id', null)
+        .eq('part_number', normalizedPart)
+        .maybeSingle()
+      if (existingError) {
+        throw existingError
+      }
+      let componentId = existing?.id
+      if (!componentId) {
+        const { data: inserted, error: insertError } = await supabase
+          .from('component_models')
+          .insert({
+            manufacturer: addManufacturer,
+            model: normalizedPart,
+            part_number: normalizedPart,
+            description: desc,
+            component_type: 'other',
+            tenant_id: null,
+          })
+          .select('id')
+          .single()
+        if (insertError) {
+          throw insertError
+        }
+        componentId = inserted?.id
+      }
+      if (!componentId) throw new Error('Unable to create component')
+      const { error: compatError } = await supabase.from('compat_rules_global_models').insert({
+        system_model_id: addSystemId,
+        component_model_id: componentId,
+        component_tag: null,
+        status: 'verified',
+      })
+      if (compatError) throw compatError
+      setAddSuccess('Component and compatibility relationship saved.')
+      setAddPartNumber('')
+      setAddDescription('')
+      setAddSystemId('')
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to add part'
+      setAddError(msg)
+    } finally {
+      setAddLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -125,11 +192,18 @@ export default function TechSpecsPage() {
     setSelectedModelId('')
     setCompatibleComponents([])
     setCompatError('')
+    setAddManufacturer('')
+    setAddSystemId('')
+    setAddPartNumber('')
+    setAddDescription('')
+    setAddError('')
+    setAddSuccess('')
   }, [machineType])
 
   useEffect(() => {
     setSelectedFamily('')
     setSelectedModelId('')
+    setAddSystemId('')
   }, [selectedManufacturer])
 
   useEffect(() => {
@@ -160,6 +234,14 @@ export default function TechSpecsPage() {
   }, [filteredModels, selectedManufacturer, selectedFamily])
 
   const selectedModel = useMemo(() => modelOptions.find((m) => m.id === selectedModelId) || null, [modelOptions, selectedModelId])
+  const addSystemOptions = useMemo(
+    () =>
+      filteredModels.filter((model) => {
+        if (addManufacturer && model.manufacturer !== addManufacturer) return false
+        return true
+      }),
+    [filteredModels, addManufacturer]
+  )
 
   useEffect(() => {
     const loadCompat = async () => {
@@ -357,8 +439,111 @@ export default function TechSpecsPage() {
               })}
             </div>
           ) : null}
+        <section className="addPartSection">
+          <div className="sectionHeader">
+            <h2>Add part numbers & relationships</h2>
+            <div>Add part numbers and compatibility relationships.</div>
+          </div>
+          <div className="addFormGrid">
+            <label>
+              <span>OEM</span>
+              <select value={addManufacturer} onChange={(event) => setAddManufacturer(event.target.value)}>
+                <option value="">Select OEM</option>
+                {manufacturerOptions.map((maker) => (
+                  <option key={maker} value={maker}>
+                    {maker}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>System</span>
+              <select value={addSystemId} onChange={(event) => setAddSystemId(event.target.value)} disabled={!addManufacturer}>
+                <option value="">Select system</option>
+                {addSystemOptions.map((model) => (
+                  <option key={model.id} value={model.id}>
+                    {model.model}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Part number</span>
+              <input value={addPartNumber} onChange={(event) => setAddPartNumber(event.target.value)} placeholder="Part number" />
+            </label>
+            <label>
+              <span>Description</span>
+              <input value={addDescription} onChange={(event) => setAddDescription(event.target.value)} placeholder="Description" />
+            </label>
+          </div>
+          <div className="addActions">
+            <button type="button" className="primaryBtn" disabled={addLoading} onClick={handleAddPart}>
+              {addLoading ? 'Adding…' : 'Add'}
+            </button>
+          </div>
+          {addError ? <div className="formFeedback error">{addError}</div> : null}
+          {addSuccess ? <div className="formFeedback success">{addSuccess}</div> : null}
+        </section>
         </div>
       </div>
+      <style jsx>{`
+        .addPartSection {
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 18px;
+          background: var(--panel);
+          display: grid;
+          gap: 12px;
+        }
+        .sectionHeader {
+          display: grid;
+          gap: 4px;
+        }
+        .sectionHeader h2 {
+          margin: 0;
+        }
+        .sectionHeader > div {
+          color: var(--muted);
+          font-size: 12px;
+        }
+        .addFormGrid {
+          display: grid;
+          gap: 10px;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        }
+        .addFormGrid label {
+          display: grid;
+          gap: 6px;
+          font-size: 12px;
+          color: var(--muted);
+        }
+        .addFormGrid select,
+        .addFormGrid input {
+          padding: 10px 12px;
+          border-radius: 10px;
+          border: 1px solid var(--border);
+          background: var(--panel-2);
+          color: var(--text);
+          font: inherit;
+        }
+        .addActions {
+          display: flex;
+          justify-content: flex-end;
+        }
+        .formFeedback {
+          font-size: 12px;
+          padding: 8px 12px;
+          border-radius: 10px;
+        }
+        .formFeedback.error {
+          background: rgba(247, 131, 131, 0.16);
+          color: #f78383;
+        }
+        .formFeedback.success {
+          background: rgba(124, 231, 160, 0.12);
+          color: #7ce7a0;
+        }
+      `}</style>
     </main>
   )
 }
