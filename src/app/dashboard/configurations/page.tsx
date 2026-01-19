@@ -57,6 +57,13 @@ type ComponentRow = {
   locked: boolean
 }
 
+type SearchModalState = {
+  open: boolean
+  rowId: string
+  term: string
+  results: ComponentModel[]
+}
+
 const machineOptions = [
   { value: 'server', label: 'Server' },
   { value: 'storage', label: 'Storage' },
@@ -177,6 +184,12 @@ export default function ConfigurationsPage() {
   const [stockByPart, setStockByPart] = useState<Record<string, number>>({})
   const [stockLoading, setStockLoading] = useState(false)
   const [advancedValues, setAdvancedValues] = useState<Record<string, string>>({})
+  const [searchModal, setSearchModal] = useState<SearchModalState>({
+    open: false,
+    rowId: '',
+    term: '',
+    results: [],
+  })
 
   const selectedModel = useMemo(() => systemModels.find((model) => model.id === selectedModelId) ?? null, [systemModels, selectedModelId])
 
@@ -505,6 +518,24 @@ export default function ConfigurationsPage() {
     updateRow(id, (row) => ({ ...row, notes: value }))
   }
 
+  const handleOpenSearchModal = (rowId: string, term: string, results: ComponentModel[]) => {
+    setSearchModal({ open: true, rowId, term, results })
+  }
+
+  const handleCloseSearchModal = () => {
+    setSearchModal((prev) => ({ ...prev, open: false }))
+  }
+
+  const handleSearchResultClick = (item: ComponentModel) => {
+    if (!searchModal.rowId) return
+    updateRow(searchModal.rowId, (row) => ({
+      ...row,
+      partNumber: item.part_number ?? item.model,
+      description: item.description ?? row.description ?? item.model,
+    }))
+    setSearchModal((prev) => ({ ...prev, open: false }))
+  }
+
   const addRow = (componentType: string) => {
     setRows((prev) => [...prev, createRow({ componentType, source: 'catalog', qty: '1' })])
   }
@@ -589,6 +620,14 @@ export default function ConfigurationsPage() {
         </div>
       </header>
 
+      <div className="templateRow">
+        {componentTemplates.map((type) => (
+          <button type="button" key={type} className="flatBtn" onClick={() => addRow(type)}>
+            + Add {componentTypeLabels[type] ?? type}
+          </button>
+        ))}
+      </div>
+
       <div className="tableWrapper">
         <table className="gridTable">
           <thead>
@@ -650,13 +689,23 @@ export default function ConfigurationsPage() {
                       <span className="autoText">Auto</span>
                     ) : row.source === 'catalog' ? (
                       <div className="inputWithDatalist">
-                        <input
-                          type="text"
-                          list={`catalog-${row.id}`}
-                          value={row.partNumber}
-                          onChange={(event) => handlePartNumberChange(row.id, event.target.value)}
-                          placeholder="Search part"
-                        />
+                        <div className="partInputRow">
+                          <input
+                            type="text"
+                            list={`catalog-${row.id}`}
+                            value={row.partNumber}
+                            onChange={(event) => handlePartNumberChange(row.id, event.target.value)}
+                            placeholder="Search part"
+                          />
+                          <button
+                            type="button"
+                            className="searchBtn"
+                            onClick={() => handleOpenSearchModal(row.id, searchTerm, filteredPartOptions)}
+                            disabled={!partOptions.length}
+                          >
+                            Search
+                          </button>
+                        </div>
                         <datalist id={`catalog-${row.id}`}>
                           {filteredPartOptions
                             .filter((option) => option.part_number)
@@ -726,14 +775,6 @@ export default function ConfigurationsPage() {
         </table>
       </div>
 
-      <div className="templateRow">
-        {componentTemplates.map((type) => (
-          <button type="button" key={type} className="flatBtn" onClick={() => addRow(type)}>
-            + Add {componentTypeLabels[type] ?? type}
-          </button>
-        ))}
-      </div>
-
       <div className={`compatSummary compat${compatibilityTone}`}>
         <strong>Compatibility status:</strong> {compatibilityBadgeText} {compatibilityLabel}
       </div>
@@ -787,6 +828,41 @@ export default function ConfigurationsPage() {
           Save final
         </button>
       </div>
+
+      {searchModal.open && (
+        <div className="modalOverlay" role="dialog" aria-modal="true">
+          <div className="modalDialog">
+            <div className="modalHeader">
+              <div>
+                <strong>Matching parts</strong>
+                <div className="modalSubtitle">{searchModal.term || 'All compatible parts'}</div>
+              </div>
+              <button className="modalClose" type="button" onClick={handleCloseSearchModal}>
+                ×
+              </button>
+            </div>
+            <div className="modalList">
+              {searchModal.results.length ? (
+                searchModal.results.map((item) => (
+                  <button
+                    key={`${item.id}-${item.part_number ?? item.model}`}
+                    type="button"
+                    className="modalItem"
+                    onClick={() => handleSearchResultClick(item)}
+                  >
+                    <span>{item.part_number ?? 'n/a'}</span>
+                    <span className="modalItemMeta">
+                      {item.manufacturer && `${item.manufacturer} —`} {item.model}
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <div className="modalEmpty">No matching parts available.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         .configPage {
@@ -950,6 +1026,24 @@ export default function ConfigurationsPage() {
           cursor: pointer;
           font-weight: 600;
         }
+        .partInputRow {
+          display: flex;
+          gap: 6px;
+          align-items: stretch;
+        }
+        .searchBtn {
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          background: var(--panel);
+          color: var(--text);
+          padding: 0 14px;
+          cursor: pointer;
+          font-weight: 700;
+        }
+        .searchBtn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
         .compatSummary {
           border-radius: 10px;
           padding: 10px 12px;
@@ -1012,6 +1106,75 @@ export default function ConfigurationsPage() {
         .primaryBtn:disabled {
           opacity: 0.6;
           cursor: not-allowed;
+        }
+        .modalOverlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.45);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 999;
+        }
+        .modalDialog {
+          width: min(520px, 100%);
+          background: var(--panel);
+          border-radius: 16px;
+          border: 1px solid var(--border);
+          padding: 20px;
+          display: grid;
+          gap: 16px;
+          box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
+        }
+        .modalHeader {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 16px;
+        }
+        .modalSubtitle {
+          font-size: 12px;
+          color: var(--muted);
+        }
+        .modalList {
+          display: grid;
+          gap: 8px;
+          max-height: 260px;
+          overflow: auto;
+        }
+        .modalItem {
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 10px 14px;
+          background: var(--panel-2);
+          color: var(--text);
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          cursor: pointer;
+          text-align: left;
+        }
+        .modalItem:hover {
+          border-color: var(--accent);
+        }
+        .modalItemMeta {
+          font-size: 12px;
+          color: var(--muted);
+        }
+        .modalClose {
+          border: none;
+          background: transparent;
+          color: var(--muted);
+          font-size: 20px;
+          cursor: pointer;
+        }
+        .modalEmpty {
+          padding: 10px 14px;
+          border-radius: 10px;
+          background: var(--panel-2);
+          color: var(--muted);
+          text-align: center;
+          font-size: 13px;
         }
         @media (max-width: 900px) {
           .gridTable {
