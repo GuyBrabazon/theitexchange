@@ -130,6 +130,8 @@ const autoComponentsByMachine: Record<MachineType, string[]> = {
   network: ['power', 'remote_access'],
 }
 
+const editableAutoTypes = new Set(['power', 'rail', 'bezel'])
+
 const componentTemplates = ['cpu', 'memory', 'drive', 'nic', 'controller']
 
 const sourceOptions: { value: Source; label: string }[] = [
@@ -164,7 +166,7 @@ const createRow = (overrides: Partial<ComponentRow> = {}): ComponentRow => {
   }
   const next = { ...base, ...overrides }
   if (next.source === 'auto') {
-    next.locked = true
+    next.locked = !editableAutoTypes.has(next.componentType)
     if (!overrides.qty) next.qty = ''
   }
   return next
