@@ -77,6 +77,7 @@ export default function TechSpecsPage() {
   const [addLoading, setAddLoading] = useState(false)
   const [addError, setAddError] = useState<string>('')
   const [addSuccess, setAddSuccess] = useState<string>('')
+  const [userRole, setUserRole] = useState<string | null>(null)
 
   const setValue = (key: string, value: string) => {
     setValues((prev) => ({ ...prev, [key]: value }))
@@ -85,6 +86,11 @@ export default function TechSpecsPage() {
   const handleAddPart = async () => {
     if (!addManufacturer || !addSystemId || !addComponentType || !addPartNumber.trim() || !addDescription.trim()) {
       setAddError('All fields are required.')
+      setAddSuccess('')
+      return
+    }
+    if (userRole !== 'admin') {
+      setAddError('Only admin users can add global parts.')
       setAddSuccess('')
       return
     }
@@ -187,6 +193,27 @@ export default function TechSpecsPage() {
     }
     loadCatalog()
   }, [machineType])
+
+  useEffect(() => {
+    let mounted = true
+    const loadProfile = async () => {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const userId = sessionData.session?.user?.id
+      if (!userId) return
+      const { data, error } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle()
+      if (mounted) {
+        if (error) {
+          console.error('failed to load profile', error)
+        } else {
+          setUserRole(data?.role ?? null)
+        }
+      }
+    }
+    loadProfile()
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   useEffect(() => {
     setSelectedManufacturer('')
