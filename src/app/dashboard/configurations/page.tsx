@@ -247,7 +247,7 @@ export default function ConfigurationsPage() {
         if (!json?.ok) throw new Error(json?.message || 'Failed to load models')
         const items = Array.isArray(json.items) ? json.items : []
         const mapped: SystemModel[] = items
-          .map((row: Record<string, unknown>) => {
+          .map((row: Record<string, unknown>): SystemModel | null => {
             const machineTypeRaw = typeof row.machine_type === 'string' ? row.machine_type : ''
             if (machineTypeRaw !== 'server' && machineTypeRaw !== 'storage' && machineTypeRaw !== 'network') return null
             return {
@@ -261,7 +261,7 @@ export default function ConfigurationsPage() {
               tags: Array.isArray(row.tags) ? row.tags.map((tag) => String(tag)) : [],
             }
           })
-          .filter((item): item is SystemModel => Boolean(item))
+          .filter((item: SystemModel | null): item is SystemModel => Boolean(item))
         if (!cancelled) setSystemModels(mapped)
       } catch (error) {
         if (!cancelled) {
