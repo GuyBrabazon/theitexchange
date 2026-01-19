@@ -393,7 +393,7 @@ function SearchableSelect(props: SearchableSelectProps) {
   const menu = open ? (
     <div className="selectMenu" ref={menuRef} style={menuStyle} role="dialog" aria-label="Select option">
       <div className="selectSearchWrap">
-        <svg className="selectSearchIcon" viewBox="0 0 20 20" aria-hidden="true">
+        <svg className="selectSearchIcon" width="16" height="16" viewBox="0 0 20 20" aria-hidden="true">
           <path d="M9 15.5a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13Z" stroke="currentColor" strokeWidth="1.6" />
           <path d="M14.2 14.2 17.5 17.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
         </svg>
@@ -443,7 +443,7 @@ function SearchableSelect(props: SearchableSelectProps) {
                 {isMulti ? (
                   <input className="selectCheckbox" type="checkbox" checked={isSelected} readOnly />
                 ) : isSelected ? (
-                  <svg className="selectCheck" viewBox="0 0 20 20" aria-hidden="true">
+                  <svg className="selectCheck" width="16" height="16" viewBox="0 0 20 20" aria-hidden="true">
                     <path
                       d="M16.5 5.75 8.5 13.75 3.5 8.75"
                       stroke="currentColor"
@@ -501,7 +501,7 @@ function SearchableSelect(props: SearchableSelectProps) {
           onKeyDown={onTriggerKeyDown}
         >
           <span className={`selectValue ${!hasSelection ? 'selectPlaceholder' : ''}`}>{displayLabel}</span>
-          <svg className={`selectChevron ${open ? 'selectChevronOpen' : ''}`} viewBox="0 0 20 20" aria-hidden="true">
+          <svg className={`selectChevron ${open ? 'selectChevronOpen' : ''}`} width="16" height="16" viewBox="0 0 20 20" aria-hidden="true">
             <path
               d="M5.5 7.75L10 12.25L14.5 7.75"
               stroke="currentColor"
@@ -2319,8 +2319,12 @@ export default function ConfigurationsPage() {
           color: var(--muted);
         }
         .selectChevron {
-          width: 18px;
-          height: 18px;
+          width: 16px;
+          height: 16px;
+          min-width: 16px;
+          min-height: 16px;
+          max-width: 16px;
+          max-height: 16px;
           opacity: 0.7;
           flex: 0 0 auto;
           transition: transform 0.14s ease;
@@ -2353,6 +2357,10 @@ export default function ConfigurationsPage() {
         .selectSearchIcon {
           width: 16px;
           height: 16px;
+          min-width: 16px;
+          min-height: 16px;
+          max-width: 16px;
+          max-height: 16px;
           opacity: 0.6;
           flex: 0 0 auto;
         }
@@ -2410,8 +2418,12 @@ export default function ConfigurationsPage() {
           accent-color: var(--accent);
         }
         .selectCheck {
-          width: 18px;
-          height: 18px;
+          width: 16px;
+          height: 16px;
+          min-width: 16px;
+          min-height: 16px;
+          max-width: 16px;
+          max-height: 16px;
           opacity: 0.85;
           flex: 0 0 auto;
         }
