@@ -25,6 +25,7 @@
     "@progress/kendo-react-progressbars": "7.4.0",
     "@progress/kendo-react-treeview": "7.4.0",
     "@progress/kendo-svg-icons": "^2.1.0",
+    "react-transition-group": "^4.4.2",
     "@supabase/supabase-js": "^2.89.0",
     "@tanstack/react-virtual": "^3.13.14",
     "@react-pdf/renderer": "^3.4.5",
