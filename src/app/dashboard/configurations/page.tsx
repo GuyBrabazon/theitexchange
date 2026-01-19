@@ -247,7 +247,7 @@ export default function ConfigurationsPage() {
         if (!json?.ok) throw new Error(json?.message || 'Failed to load models')
         const items = Array.isArray(json.items) ? json.items : []
         const mapped: SystemModel[] = items
-          .map((row) => {
+          .map((row: Record<string, unknown>) => {
             const machineTypeRaw = typeof row.machine_type === 'string' ? row.machine_type : ''
             if (machineTypeRaw !== 'server' && machineTypeRaw !== 'storage' && machineTypeRaw !== 'network') return null
             return {
