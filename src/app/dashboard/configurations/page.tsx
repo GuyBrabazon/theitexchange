@@ -135,10 +135,15 @@ const editableAutoTypes = new Set(['power', 'rail', 'bezel'])
 const componentTemplates = ['cpu', 'memory', 'drive', 'nic', 'controller']
 
 const sourceOptions: { value: Source; label: string }[] = [
-  { value: 'catalog', label: 'Catalog' },
   { value: 'manual', label: 'Manual entry' },
   { value: 'auto', label: 'Auto calculated' },
 ]
+
+const defaultManualTypes = new Set(['cpu', 'memory', 'drive'])
+
+const getDefaultSource = (componentType: string): Source => {
+  return defaultManualTypes.has(componentType) ? 'manual' : 'auto'
+}
 
 const normalizePartNumber = (value: string) => value.trim().toUpperCase()
 
@@ -157,7 +162,7 @@ const createRow = (overrides: Partial<ComponentRow> = {}): ComponentRow => {
   const base: ComponentRow = {
     id: generateRowId(),
     componentType: overrides.componentType ?? 'cpu',
-    source: overrides.source ?? 'catalog',
+    source: overrides.source ?? getDefaultSource(overrides.componentType ?? 'cpu'),
     partNumber: overrides.partNumber ?? '',
     description: overrides.description ?? '',
     qty: overrides.qty ?? '',
