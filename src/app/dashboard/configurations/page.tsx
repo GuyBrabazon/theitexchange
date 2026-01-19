@@ -2283,32 +2283,26 @@ export default function ConfigurationsPage() {
         }
         .selectTrigger {
           width: 100%;
-          height: 44px;
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 10px;
-          padding: 0 12px;
-          border-radius: 12px;
+          padding: 10px 12px;
+          border-radius: 10px;
           border: 1px solid var(--border);
           background: var(--panel-2);
           color: var(--text);
-          font-size: 14px;
-          font-weight: 600;
+          font: inherit;
           cursor: pointer;
           text-align: left;
-          transition: box-shadow 0.14s ease, border-color 0.14s ease;
+          transition: border-color 0.14s ease;
         }
         .selectTrigger:disabled {
           opacity: 0.6;
           cursor: not-allowed;
         }
-        .selectTrigger:focus-visible {
-          outline: none;
-        }
         .selectTriggerOpen {
-          border-color: var(--accent);
-          box-shadow: 0 0 0 4px rgba(90, 180, 255, 0.16);
+          border-color: var(--border);
         }
         .selectValue {
           white-space: nowrap;
@@ -2334,20 +2328,20 @@ export default function ConfigurationsPage() {
         }
         .selectMenu {
           position: fixed;
-          background: var(--panel);
+          background: var(--panel-2);
           border: 1px solid var(--border);
-          border-radius: 14px;
+          border-radius: 10px;
           display: grid;
-          gap: 0;
+          gap: 8px;
           z-index: 9999;
-          padding: 0;
+          padding: 8px;
           overflow: hidden;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22), 0 2px 8px rgba(0, 0, 0, 0.14);
+          box-shadow: var(--shadow);
         }
         .selectSearchWrap {
-          margin: 10px;
-          padding: 8px;
-          border-radius: 12px;
+          margin: 0;
+          padding: 10px 12px;
+          border-radius: 10px;
           border: 1px solid var(--border);
           background: var(--panel-2);
           display: flex;
@@ -2370,18 +2364,16 @@ export default function ConfigurationsPage() {
           outline: none;
           background: transparent;
           color: var(--text);
-          font-size: 14px;
+          font: inherit;
         }
         .selectList {
           list-style: none;
           margin: 0;
-          padding: 8px;
+          padding: 0;
           max-height: 260px;
           overflow: auto;
-          border-top: 1px solid var(--border);
-          background: var(--panel);
-          display: grid;
-          gap: 6px;
+          border-top: none;
+          background: var(--panel-2);
         }
         .selectOption {
           display: flex;
@@ -2390,12 +2382,12 @@ export default function ConfigurationsPage() {
           gap: 10px;
           text-align: left;
           padding: 10px 12px;
-          border-radius: 10px;
-          border: 1px solid var(--border);
-          background: var(--panel-2);
+          border-radius: 8px;
+          border: 1px solid transparent;
+          background: transparent;
           color: var(--text);
           cursor: pointer;
-          font-size: 14px;
+          font: inherit;
         }
         .selectOptionLabel {
           flex: 1;
@@ -2407,15 +2399,13 @@ export default function ConfigurationsPage() {
         }
         .selectOptionFocused {
           background: var(--panel);
-          border-color: var(--accent);
         }
         .selectOptionSelected {
           font-weight: 700;
-          background: rgba(90, 180, 255, 0.12);
-          border-color: var(--accent);
+          background: var(--accent-soft);
         }
         .selectOptionMuted {
-          color: var(--muted);
+          color: var(--text);
         }
         .selectCheckbox {
           width: 16px;
@@ -2434,34 +2424,32 @@ export default function ConfigurationsPage() {
         }
         .selectOption:hover {
           background: var(--panel);
-          border-color: var(--accent);
         }
         .selectOptionDisabled {
           opacity: 0.6;
           cursor: not-allowed;
-          background: var(--panel-2);
-          border-color: var(--border);
+          background: transparent;
         }
         .selectEmpty {
-          padding: 12px 10px;
+          padding: 10px 12px;
           color: var(--muted);
           font-size: 13px;
         }
         .selectFooter {
           margin-top: 0;
-          padding: 8px 10px 10px;
-          border-top: 1px solid var(--border);
+          padding: 0;
+          border-top: none;
         }
         .selectFooterBtn {
           width: 100%;
-          padding: 6px 10px;
-          border-radius: 10px;
-          border: 1px solid var(--border);
-          background: var(--panel-2);
+          padding: 10px 12px;
+          border-radius: 8px;
+          border: 1px solid transparent;
+          background: transparent;
           color: var(--text);
-          font-size: 12px;
-          font-weight: 700;
+          font: inherit;
           cursor: pointer;
+          text-align: left;
         }
         .selectFooterBtn:hover {
           background: var(--panel);
