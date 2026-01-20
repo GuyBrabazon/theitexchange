@@ -51,10 +51,10 @@ export async function GET(request: Request) {
 
     for (const it of items ?? []) {
       const qty = Number(it.qty_available ?? 0)
-      const cost = Number(it.cost ?? 0)
-      if (isFinite(qty) && isFinite(cost)) {
+      const unitCost = Number(it.cost ?? 0)
+      if (isFinite(qty) && isFinite(unitCost)) {
         totalQty += qty
-        totalValue += qty * cost
+        totalValue += qty * unitCost
       }
       const ageDays = Math.max(0, Math.floor((now - new Date(String(it.created_at)).getTime()) / (1000 * 60 * 60 * 24)))
       if (ageDays <= 30) ageingBuckets['0-30'] += qty

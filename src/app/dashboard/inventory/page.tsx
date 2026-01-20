@@ -34,6 +34,23 @@ type UnitRow = {
 const currencyOptions = ['USD', 'EUR', 'GBP', 'ZAR', 'AUD', 'CAD', 'SGD', 'AED']
 const categoryOptions = ['server', 'storage', 'networking', 'component', 'pc', 'laptop']
 
+const formatMoney = (value: number | null, currency?: string | null) => {
+  if (value == null || Number.isNaN(value)) return '—'
+  const cur = currency || 'USD'
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur }).format(value)
+  } catch {
+    return value.toLocaleString(undefined, { maximumFractionDigits: 2 })
+  }
+}
+
+const getExtendedValue = (row: InventoryRow) => {
+  const qty = row.qty_available ?? row.qty_total ?? 0
+  const unit = row.cost ?? 0
+  if (!Number.isFinite(qty) || !Number.isFinite(unit)) return null
+  return qty * unit
+}
+
 export default function InventoryPage() {
   const router = useRouter()
   const [rows, setRows] = useState<InventoryRow[]>([])
@@ -202,18 +219,18 @@ export default function InventoryPage() {
 
   const insertInventory = async (payloads: Partial<InventoryRow>[]) => {
     if (!tenantId) throw new Error('Tenant not loaded')
-    const normalized = payloads.map((p) => ({
-      tenant_id: tenantId,
-      model: p.model || null,
-      description: p.description || p.model || null,
-      oem: p.oem || null,
-      condition: p.condition || null,
-      category: categoryOptions.includes((p.category || '').toString().toLowerCase()) ? (p.category as string) : 'component',
-      location: p.location || null,
-      status: p.status || 'available',
-      qty_total: null,
-      qty_available: p.qty_available ?? null,
-      cost: p.cost ?? null,
+      const normalized = payloads.map((p) => ({
+        tenant_id: tenantId,
+        model: p.model || null,
+        description: p.description || p.model || null,
+        oem: p.oem || null,
+        condition: p.condition || null,
+        category: categoryOptions.includes((p.category || '').toString().toLowerCase()) ? (p.category as string) : 'component',
+        location: p.location || null,
+        status: p.status || 'available',
+        qty_total: p.qty_total ?? p.qty_available ?? null,
+        qty_available: p.qty_available ?? null,
+        cost: p.cost ?? null,
       currency: p.currency || tenantCurrency || 'USD',
       specs: p.specs ?? {},
     }))
@@ -271,6 +288,7 @@ export default function InventoryPage() {
             location: manual.location,
             category: manual.category,
             qty_available,
+            qty_total: qty_available,
             cost,
             currency: manual.currency || tenantCurrency || 'USD',
           },
@@ -667,7 +685,7 @@ export default function InventoryPage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '0.25fr 0.85fr 0.7fr 1.1fr 0.6fr 0.6fr 0.6fr 0.7fr 0.7fr 0.7fr',
+            gridTemplateColumns: '0.25fr 0.85fr 0.7fr 1.1fr 0.6fr 0.6fr 0.6fr 0.7fr 0.7fr 0.7fr 0.7fr',
             gap: 0,
             background: 'var(--surface-2)',
             fontWeight: 900,
@@ -683,6 +701,7 @@ export default function InventoryPage() {
           <div style={{ padding: 8 }}>Category</div>
           <div style={{ padding: 8 }}>Available QTY</div>
           <div style={{ padding: 8 }}>Cost</div>
+          <div style={{ padding: 8 }}>Extended value</div>
           <div style={{ padding: 8 }}>Status</div>
         </div>
 
@@ -691,7 +710,7 @@ export default function InventoryPage() {
             key={r.id}
             style={{
               display: 'grid',
-              gridTemplateColumns: '0.25fr 0.85fr 0.7fr 1.1fr 0.6fr 0.6fr 0.6fr 0.7fr 0.7fr 0.7fr',
+              gridTemplateColumns: '0.25fr 0.85fr 0.7fr 1.1fr 0.6fr 0.6fr 0.6fr 0.7fr 0.7fr 0.7fr 0.7fr',
               gap: 0,
               borderTop: `1px solid var(--border)`,
               background: 'var(--panel)',
@@ -765,6 +784,9 @@ export default function InventoryPage() {
                 style={{ width: '100%', padding: '6px 8px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
               />
               <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>{r.currency || 'USD'}</div>
+            </div>
+            <div style={{ padding: 8 }}>
+              <div style={{ fontWeight: 700 }}>{formatMoney(getExtendedValue(r), r.currency)}</div>
             </div>
             <div style={{ padding: 8 }}>
               <select
