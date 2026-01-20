@@ -501,7 +501,7 @@ export default function InventoryPage() {
       'Location',
       'Serial',
       'Qty_available',
-      'Cost',
+      'Per unit cost',
       'Currency',
       'CPU_model',
       'CPU_qty',
@@ -700,7 +700,7 @@ export default function InventoryPage() {
           <div style={{ padding: 8 }}>Condition</div>
           <div style={{ padding: 8 }}>Category</div>
           <div style={{ padding: 8 }}>Available QTY</div>
-          <div style={{ padding: 8 }}>Cost</div>
+          <div style={{ padding: 8 }}>Per unit cost</div>
           <div style={{ padding: 8 }}>Extended value</div>
           <div style={{ padding: 8 }}>Status</div>
         </div>
@@ -779,7 +779,7 @@ export default function InventoryPage() {
               <input
                 type="number"
                 value={r.cost ?? ''}
-                placeholder="Cost"
+                placeholder="Per unit cost"
                 onChange={(e) => updateInventory(r.id, { cost: e.target.value === '' ? null : Number(e.target.value) })}
                 style={{ width: '100%', padding: '6px 8px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
               />
@@ -876,7 +876,7 @@ export default function InventoryPage() {
                 { key: 'condition', label: 'Condition' },
                 { key: 'category', label: 'Type / Category' },
                 { key: 'quantity', label: 'Quantity (available)' },
-                { key: 'cost', label: 'Cost' },
+                { key: 'cost', label: 'Per unit cost' },
                 { key: 'status', label: 'Status' },
               ].map((field) => (
                 <div key={field.key} style={{ display: 'grid', gap: 6 }}>
@@ -1151,10 +1151,10 @@ export default function InventoryPage() {
                 />
               </label>
               <label style={{ display: 'grid', gap: 6 }}>
-                <span style={{ fontSize: 12, color: 'var(--muted)' }}>Cost</span>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>Per unit cost</span>
                 <input
                   type="number"
-                  placeholder="Cost"
+                  placeholder="Per unit cost"
                   value={manual.cost}
                   onChange={(e) => setManual((prev) => ({ ...prev, cost: e.target.value }))}
                   style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
@@ -1270,7 +1270,7 @@ export default function InventoryPage() {
                 Download Proforma Stock XLSX
               </button>
               <div style={{ color: 'var(--muted)', fontSize: 12 }}>
-                Headers: Type, Kind, Model, OEM, Condition, Location, Serial, Qty_available, Cost, Currency, CPU/Memory/NIC/Drive/GPU/Cable fields, Compat_tags.
+                Headers: Type, Kind, Model, OEM, Condition, Location, Serial, Qty_available, Per unit cost, Currency, CPU/Memory/NIC/Drive/GPU/Cable fields, Compat_tags.
               </div>
             </div>
 

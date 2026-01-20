@@ -175,8 +175,8 @@ export default function ReportsPage() {
         description: r.description,
         oem: r.oem,
         qty: r.qty,
-        cost: r.cost,
-        value: r.value,
+        per_unit_cost: r.cost,
+        extended_value: r.value,
       }))
       csv = toCsv(rows)
     } else if (key === 'exceptions') {
@@ -383,7 +383,7 @@ export default function ReportsPage() {
             {activeReport === 'inventory' ? (
               <div style={{ display: 'grid', gap: 10 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 10 }}>
-                  <Kpi title="On-hand value (cost)" value={fmtCurrency(invData?.summary?.total_value)} />
+                  <Kpi title="On-hand value (derived from per-unit cost)" value={fmtCurrency(invData?.summary?.total_value)} />
                   <Kpi title="On-hand qty" value={fmtNumber(invData?.summary?.total_qty)} />
                   {invData?.ageing ? (
                     <Kpi
@@ -395,7 +395,7 @@ export default function ReportsPage() {
                   ) : null}
                 </div>
                 <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 12, background: 'var(--panel)' }}>
-                  <div style={{ fontWeight: 800, marginBottom: 6 }}>Top items by value</div>
+                  <div style={{ fontWeight: 800, marginBottom: 6 }}>Top items by extended value</div>
                   {topInventory.length ? (
                     <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
                       <thead>
@@ -403,8 +403,8 @@ export default function ReportsPage() {
                           <th style={{ textAlign: 'left', padding: 6 }}>Part</th>
                           <th style={{ textAlign: 'left', padding: 6 }}>OEM</th>
                           <th style={{ textAlign: 'right', padding: 6 }}>Qty</th>
-                          <th style={{ textAlign: 'right', padding: 6 }}>Cost</th>
-                          <th style={{ textAlign: 'right', padding: 6 }}>Value</th>
+                          <th style={{ textAlign: 'right', padding: 6 }}>Per unit cost</th>
+                          <th style={{ textAlign: 'right', padding: 6 }}>Extended value</th>
                         </tr>
                       </thead>
                       <tbody>
