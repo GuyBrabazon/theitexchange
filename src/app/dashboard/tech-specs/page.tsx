@@ -297,145 +297,126 @@ export default function TechSpecsPage() {
       </header>
 
       <div className="techGrid">
-          <div className="card">
-        <div
-        style={{
-          border: '1px solid var(--border)',
-          borderRadius: 12,
-          padding: 14,
-          background: 'var(--panel)',
-          display: 'grid',
-          gap: 12,
-        }}
-      >
-        <div>
-          <div style={{ fontWeight: 900 }}>Compatibility lookup</div>
-          <div style={{ color: 'var(--muted)', fontSize: 12 }}>Select a platform to view compatible parts.</div>
-        </div>
-        {catalogLoading ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>Loading catalog...</div> : null}
-        {catalogError ? <div style={{ color: 'var(--bad)', fontSize: 12 }}>{catalogError}</div> : null}
-        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-          <label style={{ display: 'grid', gap: 6 }}>
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>Machine type</span>
-            <select
-              value={machineType}
-              onChange={(e) => setMachineType(e.target.value)}
-              style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)' }}
-            >
-              {machineOptions.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label style={{ display: 'grid', gap: 6 }}>
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>Manufacturer</span>
-            <select
-              value={selectedManufacturer}
-              onChange={(e) => setSelectedManufacturer(e.target.value)}
-              disabled={catalogLoading || manufacturerOptions.length === 0}
-              style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)' }}
-            >
-              <option value="">Select manufacturer</option>
-              {manufacturerOptions.map((maker) => (
-                <option key={maker} value={maker}>
-                  {maker}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label style={{ display: 'grid', gap: 6 }}>
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>Family</span>
-            <select
-              value={selectedFamily}
-              onChange={(e) => setSelectedFamily(e.target.value)}
-              disabled={catalogLoading || familyOptions.length === 0}
-              style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)' }}
-            >
-              <option value="">Select family</option>
-              {familyOptions.map((family) => (
-                <option key={family} value={family}>
-                  {family}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label style={{ display: 'grid', gap: 6 }}>
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>Model</span>
-            <select
-              value={selectedModelId}
-              onChange={(e) => setSelectedModelId(e.target.value)}
-              disabled={catalogLoading || modelOptions.length === 0}
-              style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)' }}
-            >
-              <option value="">Select model</option>
-              {modelOptions.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.model}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div style={{ display: 'grid', gap: 8 }}>
-          {selectedModel ? (
-            <div style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-              <div>
-                <strong>Selected:</strong> {selectedModel.manufacturer} {selectedModel.model}
-              </div>
-              <div style={{ color: 'var(--muted)' }}>
-                Form factor: {selectedModel.form_factor || 'n/a'} - Tags: {selectedModel.tags.length ? selectedModel.tags.join(', ') : 'none'}
-              </div>
-            </div>
-          ) : (
-            <div style={{ color: 'var(--muted)', fontSize: 12 }}>Select a model to load compatibility.</div>
-          )}
-          <div style={{ fontWeight: 900, marginTop: 6 }}>Compatible components</div>
-          {compatLoading ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>Loading compatible parts...</div> : null}
-          {compatError ? <div style={{ color: 'var(--bad)', fontSize: 12 }}>{compatError}</div> : null}
-          {selectedModelId && compatibleTypes.length === 0 && !compatLoading ? (
-            <div style={{ color: 'var(--muted)', fontSize: 12 }}>No compatibility rules yet for this model.</div>
-          ) : null}
-          {compatibleTypes.length ? (
-            <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-              {compatibleTypes.map((type) => {
-                const options = compatibleByType[type] || []
-                const fieldKey = `compat_${type}`
-                const value = values[fieldKey] || ''
-                return (
-                  <label key={type} style={{ display: 'grid', gap: 6 }}>
-                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>{componentTypeLabels[type] || type}</span>
-                    <select
-                      value={value}
-                      onChange={(e) => setValue(fieldKey, e.target.value)}
-                      style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)' }}
-                    >
-                      <option value="">Select {componentTypeLabels[type] || type}</option>
-                      {options.map((component) => (
-                        <option key={component.id} value={component.id}>
-                          {(component.manufacturer ? `${component.manufacturer} ` : '') + component.model}
-                          {component.part_number ? ` (${component.part_number})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>{options.length} compatible options</span>
-                  </label>
-                )
-              })}
-            </div>
-          ) : null}
-        </div>
+        <section className="card compatCard">
+          <div className="sectionHeader">
+            <h2>Compatibility lookup</h2>
+            <p className="sectionDescription">Select a platform to view compatible parts.</p>
           </div>
-          <div className="card">
-        <section className="addPartSection">
+          {catalogLoading ? <p className="statusNote">Loading catalog...</p> : null}
+          {catalogError ? <p className="statusNote error">{catalogError}</p> : null}
+          <div className="formGrid">
+            <label className="fieldGroup">
+              <span>Machine type</span>
+              <select value={machineType} onChange={(e) => setMachineType(e.target.value)}>
+                {machineOptions.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="fieldGroup">
+              <span>Manufacturer</span>
+              <select
+                value={selectedManufacturer}
+                onChange={(e) => setSelectedManufacturer(e.target.value)}
+                disabled={catalogLoading || manufacturerOptions.length === 0}
+              >
+                <option value="">Select manufacturer</option>
+                {manufacturerOptions.map((maker) => (
+                  <option key={maker} value={maker}>
+                    {maker}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="fieldGroup">
+              <span>Family</span>
+              <select
+                value={selectedFamily}
+                onChange={(e) => setSelectedFamily(e.target.value)}
+                disabled={catalogLoading || familyOptions.length === 0}
+              >
+                <option value="">Select family</option>
+                {familyOptions.map((family) => (
+                  <option key={family} value={family}>
+                    {family}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="fieldGroup">
+              <span>Model</span>
+              <select
+                value={selectedModelId}
+                onChange={(e) => setSelectedModelId(e.target.value)}
+                disabled={catalogLoading || modelOptions.length === 0}
+              >
+                <option value="">Select model</option>
+                {modelOptions.map((model) => (
+                  <option key={model.id} value={model.id}>
+                    {model.model}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="compatSummary">
+            {selectedModel ? (
+              <div className="modelDetails">
+                <div>
+                  <strong>Selected:</strong> {selectedModel.manufacturer} {selectedModel.model}
+                </div>
+                <div className="mutedText">
+                  Form factor: {selectedModel.form_factor || 'n/a'} - Tags:{' '}
+                  {selectedModel.tags.length ? selectedModel.tags.join(', ') : 'none'}
+                </div>
+              </div>
+            ) : (
+              <p className="statusNote muted">Select a model to load compatibility.</p>
+            )}
+            <div className="compatListHeader">
+              <strong>Compatible components</strong>
+            </div>
+            {compatLoading ? <p className="statusNote">Loading compatible parts...</p> : null}
+            {compatError ? <p className="statusNote error">{compatError}</p> : null}
+            {selectedModelId && compatibleTypes.length === 0 && !compatLoading ? (
+              <p className="statusNote muted">No compatibility rules yet for this model.</p>
+            ) : null}
+            {compatibleTypes.length ? (
+              <div className="compatGrid">
+                {compatibleTypes.map((type) => {
+                  const options = compatibleByType[type] || []
+                  const fieldKey = `compat_${type}`
+                  const value = values[fieldKey] || ''
+                  return (
+                    <label key={type} className="compatField">
+                      <span>{componentTypeLabels[type] || type}</span>
+                      <select value={value} onChange={(e) => setValue(fieldKey, e.target.value)}>
+                        <option value="">Select {componentTypeLabels[type] || type}</option>
+                        {options.map((component) => (
+                          <option key={component.id} value={component.id}>
+                            {(component.manufacturer ? `${component.manufacturer} ` : '') + component.model}
+                            {component.part_number ? ` (${component.part_number})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="optionMeta">{options.length} compatible options</span>
+                    </label>
+                  )
+                })}
+              </div>
+            ) : null}
+          </div>
+        </section>
+
+        <section className="card">
           <div className="sectionHeader">
             <h2>Add part numbers & relationships</h2>
-            <div>Add part numbers and compatibility relationships.</div>
+            <p className="sectionDescription">Add part numbers and compatibility relationships.</p>
           </div>
-          <div className="addFormGrid">
-            <label>
+          <div className="formGrid">
+            <label className="fieldGroup">
               <span>OEM</span>
               <select value={addManufacturer} onChange={(event) => setAddManufacturer(event.target.value)}>
                 <option value="">Select OEM</option>
@@ -446,7 +427,7 @@ export default function TechSpecsPage() {
                 ))}
               </select>
             </label>
-            <label>
+            <label className="fieldGroup">
               <span>System</span>
               <select value={addSystemId} onChange={(event) => setAddSystemId(event.target.value)} disabled={!addManufacturer}>
                 <option value="">Select system</option>
@@ -457,7 +438,7 @@ export default function TechSpecsPage() {
                 ))}
               </select>
             </label>
-            <label>
+            <label className="fieldGroup">
               <span>Component type</span>
               <select value={addComponentType} onChange={(event) => setAddComponentType(event.target.value)}>
                 {componentTypeOrder.map((type) => (
@@ -467,27 +448,43 @@ export default function TechSpecsPage() {
                 ))}
               </select>
             </label>
-            <label>
+            <label className="fieldGroup">
               <span>Part number</span>
               <input value={addPartNumber} onChange={(event) => setAddPartNumber(event.target.value)} placeholder="Part number" />
             </label>
-            <label>
+            <label className="fieldGroup">
               <span>Description</span>
               <input value={addDescription} onChange={(event) => setAddDescription(event.target.value)} placeholder="Description" />
             </label>
           </div>
           <div className="addActions">
             <button type="button" className="primaryBtn" disabled={addLoading} onClick={handleAddPart}>
-              {addLoading ? 'Adding…' : 'Add'}
+              {addLoading ? 'Adding...' : 'Add'}
             </button>
           </div>
           {addError ? <div className="formFeedback error">{addError}</div> : null}
           {addSuccess ? <div className="formFeedback success">{addSuccess}</div> : null}
         </section>
-          </div>
-        </div>
       </div>
       <style jsx>{`
+        .techPage {
+          padding: 24px;
+          display: grid;
+          gap: 16px;
+        }
+        .hero {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-end;
+        }
+        .hero h1 {
+          margin: 0;
+          font-size: 28px;
+        }
+        .mutedText {
+          color: var(--muted);
+          font-size: 14px;
+        }
         .techGrid {
           display: grid;
           gap: 16px;
@@ -496,18 +493,10 @@ export default function TechSpecsPage() {
         .card {
           border: 1px solid var(--border);
           border-radius: 12px;
-          padding: 14px;
-          background: var(--panel);
-          display: grid;
-          gap: 12px;
-        }
-        .addPartSection {
-          border: 1px solid var(--border);
-          border-radius: 12px;
           padding: 18px;
           background: var(--panel);
           display: grid;
-          gap: 12px;
+          gap: 16px;
         }
         .sectionHeader {
           display: grid;
@@ -515,30 +504,77 @@ export default function TechSpecsPage() {
         }
         .sectionHeader h2 {
           margin: 0;
+          font-size: 20px;
         }
-        .sectionHeader > div {
+        .sectionDescription {
           color: var(--muted);
-          font-size: 12px;
+          font-size: 13px;
         }
-        .addFormGrid {
+        .formGrid {
           display: grid;
-          gap: 10px;
+          gap: 12px;
           grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         }
-        .addFormGrid label {
+        .fieldGroup {
           display: grid;
           gap: 6px;
           font-size: 12px;
           color: var(--muted);
         }
-        .addFormGrid select,
-        .addFormGrid input {
+        .fieldGroup span,
+        .compatField span {
+          font-size: 11px;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
+        }
+        .formGrid select,
+        .formGrid input,
+        .compatField select {
           padding: 10px 12px;
           border-radius: 10px;
           border: 1px solid var(--border);
           background: var(--panel-2);
           color: var(--text);
           font: inherit;
+        }
+        .statusNote {
+          margin: 0;
+          font-size: 12px;
+          color: var(--muted);
+        }
+        .statusNote.error {
+          color: var(--bad);
+        }
+        .statusNote.muted {
+          color: var(--muted);
+        }
+        .compatSummary {
+          display: grid;
+          gap: 12px;
+        }
+        .modelDetails {
+          display: grid;
+          gap: 3px;
+          font-size: 13px;
+        }
+        .compatListHeader {
+          font-weight: 600;
+          font-size: 14px;
+        }
+        .compatGrid {
+          display: grid;
+          gap: 12px;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        }
+        .compatField {
+          display: grid;
+          gap: 6px;
+          font-size: 12px;
+          color: var(--muted);
+        }
+        .optionMeta {
+          font-size: 11px;
+          color: var(--muted);
         }
         .addActions {
           display: flex;
@@ -557,7 +593,26 @@ export default function TechSpecsPage() {
           background: rgba(124, 231, 160, 0.12);
           color: #7ce7a0;
         }
+        .primaryBtn {
+          padding: 10px 16px;
+          border-radius: 10px;
+          border: 1px solid var(--border);
+          background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+          color: #fff;
+          font-weight: 700;
+          cursor: pointer;
+        }
+        .primaryBtn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+        @media (max-width: 600px) {
+          .techGrid {
+            grid-template-columns: 1fr;
+          }
+        }
       `}</style>
+
     </main>
   )
 }
