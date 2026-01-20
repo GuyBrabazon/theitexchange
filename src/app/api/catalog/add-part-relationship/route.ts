@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 
     for (const field of SOURCE_FIELDS) {
       if (!payload[field] || typeof payload[field] !== 'string' || !payload[field].trim()) {
-        return NextResponse.json({ ok: false, message: ${field} is required }, { status: 400 })
+        return NextResponse.json({ ok: false, message: `${field} is required` }, { status: 400 })
       }
     }
 
@@ -119,4 +119,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, message }, { status: 500 })
   }
 }
-
