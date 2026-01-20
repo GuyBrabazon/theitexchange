@@ -121,11 +121,17 @@ export default function TechSpecsPage() {
         part_number: addPartNumber.trim().toUpperCase(),
         description: addDescription.trim(),
       }
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      if (token) {
+        headers.Authorization = `Bearer ${token}`
+      }
       const res = await fetch('/api/catalog/add-part-relationship', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(payload),
       })
       const json = (await res.json()) as { ok: boolean; message?: string }
