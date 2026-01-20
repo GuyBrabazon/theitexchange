@@ -57,29 +57,52 @@ const machineOptions = [
   { value: 'network', label: 'Network device' },
 ] as const
 
+
+const normalizePartNumber = (value: string) => value.trim().toUpperCase()
+
 export default function TechSpecsPage() {
+
   const [machineType, setMachineType] = useState<string>('server')
-  const [values, setValues] = useState<Record<string, string>>({})
+
   const [catalogLoading, setCatalogLoading] = useState(false)
+
   const [catalogError, setCatalogError] = useState<string>('')
+
   const [systemModels, setSystemModels] = useState<SystemModel[]>([])
+
   const [selectedManufacturer, setSelectedManufacturer] = useState<string>('')
+
   const [selectedFamily, setSelectedFamily] = useState<string>('')
+
   const [selectedModelId, setSelectedModelId] = useState<string>('')
+
   const [compatibleComponents, setCompatibleComponents] = useState<ComponentModel[]>([])
+
   const [compatLoading, setCompatLoading] = useState(false)
+
   const [compatError, setCompatError] = useState<string>('')
+
+  const [compatSearchTerm, setCompatSearchTerm] = useState<string>('')
+
+  const [compatSearchStatus, setCompatSearchStatus] = useState<'idle' | 'compatible' | 'missing'>('idle')
+
+  const [compatSearchComponent, setCompatSearchComponent] = useState<ComponentModel | null>(null)
+
   const [addManufacturer, setAddManufacturer] = useState<string>('')
+
   const [addSystemId, setAddSystemId] = useState<string>('')
+
   const [addComponentType, setAddComponentType] = useState<string>(componentTypeOrder[0])
+
   const [addPartNumber, setAddPartNumber] = useState<string>('')
+
   const [addDescription, setAddDescription] = useState<string>('')
+
   const [addLoading, setAddLoading] = useState(false)
+
   const [addError, setAddError] = useState<string>('')
+
   const [addSuccess, setAddSuccess] = useState<string>('')
-  const setValue = (key: string, value: string) => {
-    setValues((prev) => ({ ...prev, [key]: value }))
-  }
 
   const handleAddPart = async () => {
     if (!addManufacturer || !addSystemId || !addComponentType || !addPartNumber.trim() || !addDescription.trim()) {
@@ -119,6 +142,40 @@ export default function TechSpecsPage() {
       setAddError(msg)
     } finally {
       setAddLoading(false)
+    }
+  }
+
+  const handleCompatSearch = () => {
+    const term = compatSearchTerm.trim()
+    if (!term || !selectedModelId) {
+      setCompatSearchStatus('idle')
+      setCompatSearchComponent(null)
+      return
+    }
+    const lookup = normalizePartNumber(term)
+    const match = compatibleComponents.find((component) => {
+      if (!component.part_number) return false
+      return normalizePartNumber(component.part_number) === lookup
+    })
+    if (match) {
+      setCompatSearchStatus('compatible')
+      setCompatSearchComponent(match)
+    } else {
+      setCompatSearchStatus('missing')
+      setCompatSearchComponent(null)
+    }
+  }
+
+  const handleCompatAdd = () => {
+    if (!selectedModelId) return
+    setAddManufacturer(selectedManufacturer || selectedModel?.manufacturer || '')
+    setAddSystemId(selectedModelId)
+    setAddPartNumber(compatSearchTerm.trim().toUpperCase())
+    setAddDescription('')
+    if (compatSearchComponent?.component_type) {
+      setAddComponentType(compatSearchComponent.component_type)
+    } else {
+      setAddComponentType(componentTypeOrder[0])
     }
   }
 
@@ -192,6 +249,11 @@ export default function TechSpecsPage() {
   useEffect(() => {
     setSelectedModelId('')
   }, [selectedFamily])
+
+  useEffect(() => {
+    setCompatSearchStatus('idle')
+    setCompatSearchComponent(null)
+  }, [selectedModelId])
 
   const filteredModels = useMemo(() => systemModels.filter((m) => m.machine_type === machineType), [systemModels, machineType])
 
@@ -269,23 +331,6 @@ export default function TechSpecsPage() {
     }
     loadCompat()
   }, [selectedModelId])
-
-  const compatibleByType = useMemo(() => {
-    const groups: Record<string, ComponentModel[]> = {}
-    for (const component of compatibleComponents) {
-      const key = component.component_type || 'other'
-      if (!groups[key]) groups[key] = []
-      groups[key].push(component)
-    }
-    return groups
-  }, [compatibleComponents])
-
-  const compatibleTypes = useMemo(() => {
-    const keys = Object.keys(compatibleByType)
-    const ordered = componentTypeOrder.filter((type) => keys.includes(type))
-    const extra = keys.filter((type) => !ordered.includes(type)).sort()
-    return [...ordered, ...extra]
-  }, [compatibleByType])
 
   return (
     <main className="techPage">
@@ -375,39 +420,49 @@ export default function TechSpecsPage() {
             ) : (
               <p className="statusNote muted">Select a model to load compatibility.</p>
             )}
-            <div className="compatListHeader">
-              <strong>Compatible components</strong>
-            </div>
             {compatLoading ? <p className="statusNote">Loading compatible parts...</p> : null}
             {compatError ? <p className="statusNote error">{compatError}</p> : null}
-            {selectedModelId && compatibleTypes.length === 0 && !compatLoading ? (
-              <p className="statusNote muted">No compatibility rules yet for this model.</p>
-            ) : null}
-            {compatibleTypes.length ? (
-              <div className="compatGrid">
-                {compatibleTypes.map((type) => {
-                  const options = compatibleByType[type] || []
-                  const fieldKey = `compat_${type}`
-                  const value = values[fieldKey] || ''
-                  return (
-                    <label key={type} className="compatField">
-                      <span>{componentTypeLabels[type] || type}</span>
-                      <select value={value} onChange={(e) => setValue(fieldKey, e.target.value)}>
-                        <option value="">Select {componentTypeLabels[type] || type}</option>
-                        {options.map((component) => (
-                          <option key={component.id} value={component.id}>
-                            {(component.manufacturer ? `${component.manufacturer} ` : '') + component.model}
-                            {component.part_number ? ` (${component.part_number})` : ''}
-                          </option>
-                        ))}
-                      </select>
-                      <span className="optionMeta">{options.length} compatible options</span>
-                    </label>
-                  )
-                })}
-              </div>
+            <div className="compatSearchRow">
+              <label className="fieldGroup">
+                <span>Part number</span>
+                <div className="searchRow">
+                  <input
+                    type="text"
+                    value={compatSearchTerm}
+                    onChange={(event) => setCompatSearchTerm(event.target.value)}
+                    placeholder="Enter part number"
+                    disabled={!selectedModelId || !!compatLoading}
+                  />
+                  <button
+                    type="button"
+                    className="searchBtn"
+                    onClick={handleCompatSearch}
+                    disabled={!compatSearchTerm.trim() || !selectedModelId}
+                  >
+                    Assess
+                  </button>
+                </div>
+              </label>
+            </div>
+            {compatSearchStatus === 'compatible' && (
+              <p className="statusNote success">This part is labelled as compatible.</p>
+            )}
+            {compatSearchStatus === 'missing' && (
+              <>
+                <p className="statusNote error">No compatibility relationships exist for this part.</p>
+                <div className="compatAddPrompt">
+                  <span>Add this part to the compatible list for the selected system?</span>
+                  <button type="button" className="secondaryBtn" onClick={handleCompatAdd}>
+                    Add
+                  </button>
+                </div>
+              </>
+            )}
+            {compatSearchStatus === 'idle' && !selectedModelId && compatSearchTerm.trim() ? (
+              <p className="statusNote error">Select a model to evaluate compatibility.</p>
             ) : null}
           </div>
+
         </section>
 
         <section className="card">
@@ -521,15 +576,13 @@ export default function TechSpecsPage() {
           font-size: 12px;
           color: var(--muted);
         }
-        .fieldGroup span,
-        .compatField span {
+        .fieldGroup span {
           font-size: 11px;
           letter-spacing: 0.05em;
           text-transform: uppercase;
         }
         .formGrid select,
-        .formGrid input,
-        .compatField select {
+        .formGrid input {
           padding: 10px 12px;
           border-radius: 10px;
           border: 1px solid var(--border);
@@ -545,6 +598,9 @@ export default function TechSpecsPage() {
         .statusNote.error {
           color: var(--bad);
         }
+        .statusNote.success {
+          color: #7ce7a0;
+        }
         .statusNote.muted {
           color: var(--muted);
         }
@@ -557,25 +613,46 @@ export default function TechSpecsPage() {
           gap: 3px;
           font-size: 13px;
         }
-        .compatListHeader {
-          font-weight: 600;
-          font-size: 14px;
-        }
-        .compatGrid {
-          display: grid;
-          gap: 12px;
-          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        }
-        .compatField {
+        .compatSearchRow {
           display: grid;
           gap: 6px;
+        }
+        .searchRow {
+          display: flex;
+          gap: 8px;
+        }
+        .searchRow input {
+          flex: 1;
+        }
+        .searchBtn,
+        .secondaryBtn {
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          background: var(--panel-2);
+          color: var(--text);
+          font: inherit;
+          font-weight: 600;
+          cursor: pointer;
+          padding: 0 14px;
+        }
+        .searchBtn {
+          min-height: 42px;
+        }
+        .searchBtn:disabled,
+        .secondaryBtn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        .compatAddPrompt {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
           font-size: 12px;
           color: var(--muted);
         }
-        .optionMeta {
-          font-size: 11px;
-          color: var(--muted);
-        }
+
         .addActions {
           display: flex;
           justify-content: flex-end;
