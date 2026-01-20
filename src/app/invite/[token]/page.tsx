@@ -327,8 +327,6 @@ export default function InviteTokenPage() {
       currency: string | null
     }>
 
-    const combinedNotes = [notes].filter((v) => v && v.trim().length).join('\n\n')
-
     const usingLineMode = lineMode && linePayload.length > 0
     const totalFromLines = usingLineMode ? lineOfferTotal : null
     if (lineMode && linePayload.length === 0) {

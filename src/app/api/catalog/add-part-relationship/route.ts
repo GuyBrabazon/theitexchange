@@ -47,7 +47,18 @@ export async function POST(request: Request) {
       .maybeSingle()
     if (profileErr) throw profileErr
 
-    if (profile?.role !== 'admin') {
+    let role = profile?.role ?? null
+    if (!role) {
+      const { data: userRecord, error: userRecordErr } = await supa
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle()
+      if (userRecordErr) throw userRecordErr
+      role = userRecord?.role ?? null
+    }
+
+    if (role !== 'admin') {
       return NextResponse.json({ ok: false, message: 'Only admin users can add global parts' }, { status: 403 })
     }
 

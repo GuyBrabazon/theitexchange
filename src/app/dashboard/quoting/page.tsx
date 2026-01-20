@@ -1,5 +1,4 @@
 'use client'
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -56,13 +55,6 @@ export default function QuotingPage() {
   const [userId, setUserId] = useState<string>('')
   const [defaultCurrency, setDefaultCurrency] = useState<string>('USD')
   const [historyItemId, setHistoryItemId] = useState<string | null>(null)
-  const [quotes, setQuotes] = useState<
-    { id: string; buyer: Buyer | null; subject: string | null; status: string; created_at: string; sent_at: string | null }[]
-  >([])
-  const [quoteFilterBuyer, setQuoteFilterBuyer] = useState<string>('')
-  const [quoteFilterText, setQuoteFilterText] = useState<string>('')
-  const [quoteStart, setQuoteStart] = useState<string>('')
-  const [quoteEnd, setQuoteEnd] = useState<string>('')
   const [rfqs, setRfqs] = useState<RfqListItem[]>([])
   const [rfqLoading, setRfqLoading] = useState(false)
 
@@ -136,7 +128,6 @@ export default function QuotingPage() {
           setDefaultCurrency(settingsData.default_currency)
         }
 
-        await loadQuotes(tenantId, { buyerId: quoteFilterBuyer, text: quoteFilterText, start: quoteStart, end: quoteEnd })
         await loadRfqs(tenantId)
       } catch (e) {
         console.error(e)
@@ -148,7 +139,7 @@ export default function QuotingPage() {
     }
 
     init()
-  }, [quoteEnd, quoteFilterBuyer, quoteFilterText, quoteStart])
+  }, [])
 
   const visibleItems = useMemo(() => {
     if (!search.trim()) return items
@@ -222,49 +213,6 @@ export default function QuotingPage() {
       next[itemId].push(payload)
     }
     setHistory((prev) => ({ ...prev, ...next }))
-  }
-
-  const loadQuotes = async (
-    tenantId: string,
-    filters: { buyerId?: string; text?: string; start?: string; end?: string } = {}
-  ) => {
-    let query = supabase
-      .from('quotes')
-      .select('id,buyer_id,status,subject,created_at,sent_at,buyers(id,name,email,company)')
-      .eq('tenant_id', tenantId)
-      .order('created_at', { ascending: false })
-      .limit(200)
-    if (filters.buyerId) query = query.eq('buyer_id', filters.buyerId)
-    if (filters.start) query = query.gte('created_at', filters.start)
-    if (filters.end) query = query.lte('created_at', filters.end)
-    const { data, error } = await query
-    if (error) {
-      console.error(error)
-      return
-    }
-    const text = (filters.text ?? '').toLowerCase()
-    const mapped =
-      (data ?? []).map((r: Record<string, unknown>) => {
-        const buyerRaw = Array.isArray(r.buyers) ? r.buyers[0] : r.buyers
-        const buyerObj: Buyer | null = buyerRaw
-          ? { id: String(buyerRaw.id ?? ''), name: buyerRaw.name ?? null, email: buyerRaw.email ?? null, company: buyerRaw.company ?? null }
-          : null
-        return {
-          id: String(r.id ?? ''),
-          buyer: buyerObj,
-          subject: r.subject === null || r.subject === undefined ? null : String(r.subject),
-          status: r.status === null || r.status === undefined ? 'sent' : String(r.status),
-          created_at: r.created_at ? String(r.created_at) : new Date().toISOString(),
-          sent_at: r.sent_at ? String(r.sent_at) : null,
-        }
-      }) ?? []
-    const filtered = text
-      ? mapped.filter((q) => {
-          const hay = `${q.subject ?? ''} ${q.buyer?.name ?? ''} ${q.buyer?.company ?? ''}`.toLowerCase()
-          return hay.includes(text)
-        })
-      : mapped
-    setQuotes(filtered)
   }
 
   const loadRfqs = async (tenant: string) => {
@@ -371,37 +319,9 @@ export default function QuotingPage() {
       setSuccess('Quote sent via Outlook')
       setSelected({})
       void loadHistory(payloadItems.map((p) => p.inventory_item_id))
-      if (tenantId) {
-        await loadQuotes(tenantId, { buyerId: quoteFilterBuyer, text: quoteFilterText, start: quoteStart, end: quoteEnd })
-      }
     } catch (e) {
       console.error(e)
       const msg = e instanceof Error ? e.message : 'Failed to send quote'
-      setError(msg)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const convertQuote = async (quoteId: string) => {
-    setError('')
-    setSuccess('')
-    try {
-      setLoading(true)
-      const res = await fetch('/api/quotes/convert', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quote_id: quoteId, user_id: userId }),
-      })
-      const json = (await res.json()) as { ok: boolean; message?: string; sales_order_id?: string }
-      if (!res.ok || !json.ok) throw new Error(json.message || 'Convert failed')
-      setSuccess(`Converted to Sales Order ${json.sales_order_id}`)
-      if (tenantId) {
-        await loadQuotes(tenantId, { buyerId: quoteFilterBuyer, text: quoteFilterText, start: quoteStart, end: quoteEnd })
-      }
-    } catch (e) {
-      console.error(e)
-      const msg = e instanceof Error ? e.message : 'Failed to convert quote'
       setError(msg)
     } finally {
       setLoading(false)

@@ -165,14 +165,7 @@ export default function OrgSetupPage() {
       ...prev,
       registered_address: buildRegisteredAddress(registeredAddr),
     }))
-  }, [
-    registeredAddr.line1,
-    registeredAddr.line2,
-    registeredAddr.city,
-    registeredAddr.state,
-    registeredAddr.country,
-    registeredAddr.postcode,
-  ])
+  }, [registeredAddr])
 
   const saveSettings = async () => {
     if (!tenantId) return

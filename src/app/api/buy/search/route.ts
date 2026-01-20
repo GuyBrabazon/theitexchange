@@ -194,7 +194,11 @@ export async function GET(request: Request) {
       }
     })
 
-    const aggregatedList: ItemResult[] = Array.from(aggregated.values()).map(({ component_signature, ...row }) => row)
+    const aggregatedList: ItemResult[] = Array.from(aggregated.values()).map((row) => {
+      const { component_signature, ...rest } = row
+      void component_signature
+      return rest
+    })
 
     const grouped = aggregatedList.reduce<Record<string, Group>>((acc, row) => {
       const sid = String(row.tenant_id)
