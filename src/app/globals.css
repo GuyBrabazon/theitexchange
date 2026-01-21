@@ -38,6 +38,15 @@
 
   --r-md: 12px;
   --r-lg: 16px;
+  --font-body: "Geist Sans", "Inter", system-ui, sans-serif;
+  --font-heading: "Geist Sans", "Inter", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Monaco, monospace;
+  --text-size-base: 14px;
+  --text-size-sm: 12px;
+  --text-size-lg: 16px;
+  --font-weight-regular: 400;
+  --font-weight-semibold: 600;
+  --font-weight-strong: 700;
 }
 
 :root[data-theme='dark'] {
@@ -75,7 +84,34 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-body);
+  font-size: var(--text-size-base);
+  line-height: 1.6;
+  font-weight: var(--font-weight-regular);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
+  font-weight: var(--font-weight-strong);
+  margin: 0;
+  color: var(--text);
+}
+
+p,
+span,
+label,
+button,
+input,
+select,
+textarea,
+div {
+  font-family: inherit;
+  font-size: inherit;
 }
 
 * {
@@ -214,4 +250,28 @@ button:hover {
   outline: none;
   box-shadow: var(--ring);
   border-color: rgba(228, 102, 9, 0.35);
+}
+
+.text-strong {
+  font-weight: var(--font-weight-strong);
+}
+
+.text-semibold {
+  font-weight: var(--font-weight-semibold);
+}
+
+.text-muted {
+  color: var(--muted);
+}
+
+.text-small {
+  font-size: var(--text-size-sm);
+}
+
+.text-lg {
+  font-size: var(--text-size-lg);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
 }
