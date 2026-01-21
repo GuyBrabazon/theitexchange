@@ -34,22 +34,6 @@ type UnitRow = {
 const currencyOptions = ['USD', 'EUR', 'GBP', 'ZAR', 'AUD', 'CAD', 'SGD', 'AED']
 const categoryOptions = ['server', 'storage', 'networking', 'component', 'pc', 'laptop']
 
-const formatMoney = (value: number | null, currency?: string | null) => {
-  if (value == null || Number.isNaN(value)) return '—'
-  const cur = currency || 'USD'
-  try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur }).format(value)
-  } catch {
-    return value.toLocaleString(undefined, { maximumFractionDigits: 2 })
-  }
-}
-
-const getExtendedValue = (row: InventoryRow) => {
-  const qty = row.qty_available ?? row.qty_total ?? 0
-  const unit = row.cost ?? 0
-  if (!Number.isFinite(qty) || !Number.isFinite(unit)) return null
-  return qty * unit
-}
 
 export default function InventoryPage() {
   const router = useRouter()
