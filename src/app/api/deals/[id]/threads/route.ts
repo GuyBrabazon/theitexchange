@@ -9,23 +9,31 @@ export async function POST(request: Request, { params }: { params: { id: string 
   if (auth instanceof NextResponse) {
     return auth
   }
+  const { supa, tenantId, user } = auth
+  const dealId = params?.id
+  if (!dealId) {
+    return NextResponse.json({ ok: false, message: 'Deal id missing' }, { status: 400 })
+  }
+
   try {
-    const body = await request.json()
-    const { buyer_email, subject_template } = body
-    if (!buyer_email || !subject_template) {
-      return NextResponse.json({ ok: false, message: 'buyer_email and subject_template are required' }, { status: 400 })
+    const payload = await request.json()
+    const buyerEmail = (payload.buyer_email ?? '').trim().toLowerCase()
+    const subjectTemplate = payload.subject_template ?? 'Deal conversation'
+    if (!buyerEmail) {
+      return NextResponse.json({ ok: false, message: 'Buyer email required' }, { status: 400 })
     }
-    const subjectKey = generateDealSubjectKey()
-    const thread = await ensureDealThread(auth.supa, {
-      tenant_id: auth.tenantId,
-      deal_id: params.id,
-      buyer_email: buyer_email.toLowerCase(),
+    const subjectKey = payload.subject_key ?? generateDealSubjectKey()
+    const thread = await ensureDealThread(supa, {
+      tenant_id: tenantId,
+      deal_id: dealId,
+      buyer_email: buyerEmail,
       subject_key: subjectKey,
-      subject_template,
-      created_by: auth.user.id,
+      subject_template: subjectTemplate,
+      created_by: user.id,
+      status: 'active',
     })
     return NextResponse.json({ ok: true, thread })
   } catch (error) {
-    return NextResponse.json({ ok: false, message: (error as Error).message }, { status: 500 })
+    return NextResponse.json({ ok: false, message: (error as Error).message ?? 'Unable to create thread' }, { status: 500 })
   }
 }

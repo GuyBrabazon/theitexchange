@@ -1,6 +1,6 @@
 'use client'
 
-import { Dispatch, FormEvent, SetStateAction, useEffect, useMemo, useState } from 'react'
+import { Dispatch, FormEvent, SetStateAction, useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { buildDealBody, buildDealSubject, getCurrencySymbol } from '@/lib/dealEmail'
 
@@ -49,6 +49,7 @@ type OfferLine = {
   offer_amount: number | null
   offer_type: string | null
   qty: number | null
+  parse_notes?: string | null
 }
 
 type EmailOffer = {
@@ -130,9 +131,10 @@ export default function DealDetailPage() {
   const [bodyCopyMessage, setBodyCopyMessage] = useState('')
   const [sendLoading, setSendLoading] = useState(false)
   const [sendStatus, setSendStatus] = useState('')
+  const [optimizeLoading, setOptimizeLoading] = useState(false)
+  const [optimizeStatus, setOptimizeStatus] = useState('')
   const [expandedBuyer, setExpandedBuyer] = useState<string | null>(null)
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const hydrateDealPayload = useCallback((payload: DealPayload) => {
     setDeal(payload.deal ?? null)
     setLines(payload.lines ?? [])
@@ -144,7 +146,6 @@ export default function DealDetailPage() {
     setSubjectKey(payload.threads?.[0]?.subject_key ?? null)
   }, [])
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const fetchDealPayload = useCallback(async (): Promise<DealPayload | null> => {
     if (!dealId) return null
     const response = await fetch(`/api/deals/${dealId}`)
@@ -153,9 +154,8 @@ export default function DealDetailPage() {
       throw new Error(data.message ?? 'Failed to fetch deal')
     }
     return data
-  }, [dealId, fetchDealPayload, hydrateDealPayload])
+  }, [dealId])
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const refreshDeal = useCallback(async () => {
     if (!dealId) return
     try {
@@ -166,9 +166,8 @@ export default function DealDetailPage() {
     } catch (error) {
       console.error('refresh deal error', error)
     }
-  }, [dealId])
+  }, [dealId, fetchDealPayload, hydrateDealPayload])
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!dealId) {
       setDeal(null)
@@ -185,14 +184,7 @@ export default function DealDetailPage() {
       setLoading(true)
       setError('')
       try {
-        const payload = await fetchDealPayload()
-        if (!active) return
-        if (payload?.ok) {
-          hydrateDealPayload(payload)
-        } else {
-          setError(payload?.message ?? 'Deal not found')
-          setDeal(null)
-        }
+        await refreshDeal()
       } catch {
         if (active) {
           setError('Unable to load deal')
@@ -209,13 +201,15 @@ export default function DealDetailPage() {
     }
   }, [dealId, refreshDeal])
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!dealId) return
     let active = true
     const pollReplies = async () => {
       try {
-        await fetch('/api/email/poll', { method: 'POST' })
+        await fetch('/api/email/poll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        })
         if (active) {
           await refreshDeal()
         }
@@ -224,10 +218,15 @@ export default function DealDetailPage() {
       }
     }
     pollReplies()
+    const interval = setInterval(() => {
+      if (!active) return
+      pollReplies()
+    }, 60_000)
     return () => {
       active = false
+      clearInterval(interval)
     }
-  }, [dealId])
+  }, [dealId, refreshDeal])
 
   const totalQuantity = useMemo(() => lines.reduce((sum, line) => sum + (line.qty ?? 0), 0), [lines])
   const parsedOfferCount = offers.length
@@ -284,10 +283,15 @@ export default function DealDetailPage() {
   }, [buyers, lines, scoringTokens])
 
   const buyersOffers = useMemo(() => {
-    const map = new Map<
-      string,
-      { buyer: string; email: string | null; total: number; status: string; lines: OfferLine[] }
-    >()
+    type BuyerOfferEntry = {
+      buyer: string
+      email: string | null
+      total: number
+      status: string
+      lines: OfferLine[]
+      notes: string[]
+    }
+    const map = new Map<string, BuyerOfferEntry>()
     offers.forEach((offer) => {
       const buyerKey = offer.buyer_email ?? offer.buyer_name ?? `offer-${offer.id}`
       const entry = map.get(buyerKey) ?? {
@@ -296,11 +300,22 @@ export default function DealDetailPage() {
         total: 0,
         status: offer.status,
         lines: [],
+        notes: [],
       }
-      const lineTotal = offer.email_offer_lines.reduce((sum, line) => (line.offer_amount ?? 0) + sum, 0)
-      entry.total += lineTotal
       entry.status = offer.status
-      entry.lines = [...entry.lines, ...offer.email_offer_lines]
+      offer.email_offer_lines.forEach((line) => {
+        const lineTotal =
+          line.offer_amount == null
+            ? 0
+            : line.offer_type === 'per_unit'
+            ? (line.qty ?? 1) * line.offer_amount
+            : line.offer_amount
+        entry.total += lineTotal
+        entry.lines.push(line)
+        if (line.parse_notes) {
+          entry.notes.push(line.parse_notes)
+        }
+      })
       map.set(buyerKey, entry)
     })
     return Array.from(map.values())
@@ -338,8 +353,29 @@ export default function DealDetailPage() {
     setExpandedBuyer((prev) => (prev === key ? null : key))
   }
 
-  const handleOptimize = (buyer: string) => {
-    setSendStatus(`Optimize triggered for ${buyer}`)
+  const handleOptimize = async (buyer: string) => {
+    if (!dealId) return
+    setOptimizeLoading(true)
+    setOptimizeStatus(`Optimizing for ${buyer}...`)
+    try {
+      const response = await fetch(`/api/deals/${dealId}/optimize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buyer }),
+      })
+      const payload = await response.json()
+      if (payload.ok) {
+        setOptimizeStatus(`Optimize logged for ${buyer}`)
+        await refreshDeal()
+      } else {
+        setOptimizeStatus(payload.message ?? 'Optimize failed')
+      }
+    } catch (error) {
+      console.error('optimize error', error)
+      setOptimizeStatus('Optimize request failed')
+    } finally {
+      setOptimizeLoading(false)
+    }
   }
 
   const handleSendEmail = async () => {
@@ -789,6 +825,9 @@ export default function DealDetailPage() {
                 Latest reply status: {latestStatus || 'pending'}
               </span>
             </div>
+            {optimizeStatus ? (
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>{optimizeStatus}</div>
+            ) : null}
             {buyersOffers.length ? (
               <div style={{ display: 'grid', gap: 12 }}>
                 {buyersOffers.map((entry) => {
@@ -827,8 +866,9 @@ export default function DealDetailPage() {
                             className="ui-btn ui-btn-outline"
                             style={{ padding: '4px 10px', fontSize: 11 }}
                             onClick={() => handleOptimize(entry.buyer)}
+                            disabled={optimizeLoading}
                           >
-                            Optimize
+                            {optimizeLoading ? 'Optimizing…' : 'Optimize'}
                           </button>
                         </div>
                       </div>
@@ -844,6 +884,11 @@ export default function DealDetailPage() {
                               <span>{line.offer_type ?? 'per unit'}</span>
                             </div>
                           ))}
+                          {entry.notes.length ? (
+                            <div style={{ fontSize: 11, color: 'var(--muted)', paddingLeft: 8 }}>
+                              Notes: {entry.notes.join(' · ')}
+                            </div>
+                          ) : null}
                         </div>
                       ) : null}
                     </div>

@@ -51,6 +51,76 @@ export function generateDealSubjectKey() {
   return `DL-${key}`
 }
 
+export async function fetchDealDetail(supa: SupabaseClient, tenantId: string, dealId: string) {
+  const { data, error } = await supa
+    .from('deals')
+    .select(
+      [
+        'id',
+        'title',
+        'status',
+        'currency',
+        'source',
+        'last_activity_at',
+        'expected_close_date',
+        'stage_notes',
+        'buyer:buyers(id,name,company,email,oem_tags,model_tags,tags)',
+      ].join(',')
+    )
+    .eq('id', dealId)
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
+  if (error) throw error
+  return data ?? null
+}
+
+export async function fetchDealLinesForDeal(supa: SupabaseClient, tenantId: string, dealId: string) {
+  const { data, error } = await supa
+    .from('deal_lines')
+    .select(
+      'id,line_ref,source,qty,ask_price,currency,status,model,description,oem,inventory_item_id,inventory_items(id,sku,model,description)'
+    )
+    .eq('deal_id', dealId)
+    .eq('tenant_id', tenantId)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function fetchDealThreadsForDeal(supa: SupabaseClient, tenantId: string, dealId: string) {
+  const { data, error } = await supa
+    .from('deal_threads')
+    .select('id,buyer_email,subject_key,subject_template,status,created_at')
+    .eq('deal_id', dealId)
+    .eq('tenant_id', tenantId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function fetchEmailOffersForDeal(supa: SupabaseClient, tenantId: string, dealId: string) {
+  const { data, error } = await supa
+    .from('email_offers')
+    .select('id,buyer_email,buyer_name,received_at,status,deal_thread_id,email_offer_lines(line_ref,offer_amount,offer_type,qty,parse_notes)')
+    .eq('tenant_id', tenantId)
+    .eq('deal_id', dealId)
+    .order('received_at', { ascending: false })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function updateDealStatus(supa: SupabaseClient, dealId: string, status: string) {
+  const now = new Date().toISOString()
+  const { data, error } = await supa
+    .from('deals')
+    .update({ status, updated_at: now, last_activity_at: now })
+    .eq('id', dealId)
+    .select('*')
+    .maybeSingle()
+  if (error) throw error
+  return data ?? null
+}
+
 export async function insertDeal(supa: SupabaseClient, payload: DealInsertPayload) {
   const { data, error } = await supa.from('deals').insert([{ ...payload }]).select('*').single()
   if (error) throw error

@@ -1,45 +1,118 @@
 import { NextResponse } from 'next/server'
-import { supabaseServer } from '@/lib/supabaseServer'
+import { requireAuth } from '@/lib/auth'
 import { sendOutlookMail } from '@/lib/outlook'
-import { EmailLine, getCurrencySymbol, buildBatchBody, buildBatchSubject } from '@/lib/emailBatch'
+import { EmailLine, getCurrencySymbol as getBatchCurrencySymbol, buildBatchBody, buildBatchSubject } from '@/lib/emailBatch'
+import { buildDealBody, buildDealSubject, getCurrencySymbol as getDealCurrencySymbol } from '@/lib/dealEmail'
 
 export const runtime = 'nodejs'
 
 export async function POST(request: Request) {
+  const auth = await requireAuth(request)
+  if (auth instanceof NextResponse) {
+    return auth
+  }
+
   try {
-    const { batchId, toEmail, buyerName } = (await request.json()) as {
-      batchId?: string
-      toEmail?: string
-      buyerName?: string
-    }
-    if (!batchId || !toEmail) {
-      return NextResponse.json({ ok: false, message: 'batchId and toEmail are required' }, { status: 400 })
-    }
-
-    const supa = supabaseServer()
-    const authHeader =
-      request.headers.get('Authorization') ?? request.headers.get('authorization') ?? undefined
-    const token =
-      authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring('Bearer '.length) : undefined
+    const { supa, user, tenantId } = auth
+    const payload = await request.json()
     const {
-      data: { user },
-      error: userErr,
-    } = await supa.auth.getUser(token)
-    if (userErr) throw userErr
-    if (!user) return NextResponse.json({ ok: false, message: 'Not authenticated' }, { status: 401 })
+      batchId,
+      dealId,
+      threadId,
+      toEmail,
+      buyerName,
+      subject,
+      personalMessage,
+      subjectTemplate,
+      subjectKey,
+    } = payload
 
-    const [
-      { data: profile, error: profileErr },
-      { data: userRow, error: userRowErr },
-    ] = await Promise.all([
-      supa.from('profiles').select('tenant_id').eq('id', user.id).maybeSingle(),
-      supa.from('users').select('tenant_id').eq('id', user.id).maybeSingle(),
-    ])
-    if (profileErr) throw profileErr
-    if (userRowErr) throw userRowErr
-    const tenantId = profile?.tenant_id ?? userRow?.tenant_id
-    if (!tenantId) {
-      return NextResponse.json({ ok: false, message: 'Tenant not found' }, { status: 400 })
+    if (!toEmail) {
+      return NextResponse.json({ ok: false, message: 'Recipient email required' }, { status: 400 })
+    }
+
+    if (dealId && threadId) {
+      const { data: deal, error: dealErr } = await supa
+        .from('deals')
+        .select('id,title,currency,status,buyer:buyers(id,name,email,company)')
+        .eq('id', dealId)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (dealErr || !deal) {
+        return NextResponse.json(
+          { ok: false, message: dealErr?.message || 'Deal not found' },
+          { status: 404 }
+        )
+      }
+
+      const { data: thread, error: threadErr } = await supa
+        .from('deal_threads')
+        .select('id,subject_key')
+        .eq('id', threadId)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (threadErr || !thread) {
+        return NextResponse.json(
+          { ok: false, message: threadErr?.message || 'Thread not found' },
+          { status: 404 }
+        )
+      }
+
+      const { data: dealLines, error: linesErr } = await supa
+        .from('deal_lines')
+        .select(
+          'line_ref,qty,ask_price,currency,model,description,oem,inventory_item_id,inventory_items(id,sku,model,description)'
+        )
+        .eq('deal_id', dealId)
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: true })
+      if (linesErr) throw linesErr
+
+      const linesForEmail = (dealLines ?? []).map((line) => {
+        const inventory = (line as { inventory_items?: { sku?: string; model?: string; description?: string } })
+          ?.inventory_items
+        const partNumber =
+          inventory?.sku ?? inventory?.model ?? line.oem ?? line.model ?? ''
+        const description =
+          line.description ?? inventory?.description ?? line.model ?? null
+        return {
+          line_ref: line.line_ref,
+          part_number: partNumber || line.model || 'Item',
+          model: line.model,
+          description,
+          qty: line.qty ?? 1,
+          ask_price: line.ask_price ?? null,
+          currency: line.currency ?? deal.currency ?? 'USD',
+        }
+      })
+
+      const dealCurrency = deal.currency ?? 'USD'
+      const currencySymbol = getDealCurrencySymbol(dealCurrency)
+      const finalSubject =
+        subject ??
+        buildDealSubject(subjectTemplate || deal.title || 'Deal conversation', subjectKey ?? thread.subject_key)
+      const body = buildDealBody({
+        lines: linesForEmail,
+        buyerName: buyerName ?? deal.buyer?.name ?? deal.buyer?.company ?? undefined,
+        message: personalMessage,
+        currencySymbol,
+      })
+
+      await sendOutlookMail(user.id, toEmail, finalSubject, body)
+
+      await supa
+        .from('deals')
+        .update({ last_activity_at: new Date().toISOString() })
+        .eq('id', dealId)
+
+      return NextResponse.json({ ok: true })
+    }
+
+    if (!batchId) {
+      return NextResponse.json(
+        { ok: false, message: 'batchId or dealId plus threadId are required' },
+        { status: 400 }
+      )
     }
 
     const { data: batch, error: batchErr } = await supa
@@ -94,11 +167,11 @@ export async function POST(request: Request) {
     })
 
     const currency = batch.currency ?? lot.currency ?? 'USD'
-    const currencySymbol = getCurrencySymbol(currency)
-    const subject = batch.subject || buildBatchSubject(batch.batch_key, lot.type || lot.title || 'Lot')
+    const currencySymbol = getBatchCurrencySymbol(currency)
+    const subjectLine = batch.subject || buildBatchSubject(batch.batch_key, lot.type || lot.title || 'Lot')
     const body = buildBatchBody({ lines, currencySymbol, buyerName })
 
-    await sendOutlookMail(user.id, toEmail, subject, body)
+    await sendOutlookMail(user.id, toEmail, subjectLine, body)
 
     await supa.from('lot_email_batches').update({ status: 'sent' }).eq('id', batch.id)
 
