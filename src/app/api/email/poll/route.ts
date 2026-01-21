@@ -5,6 +5,16 @@ import { requireAuth } from '@/lib/auth'
 
 export const runtime = 'nodejs'
 
+type ParsedOfferRow = {
+  lineRefRaw: string
+  normalizedLineRef: string | null
+  qty: number | null
+  offerAmount: number | null
+  offerType: 'per_unit' | 'total_line' | null
+  parseNotes: string[]
+  lineItemId: string | null
+}
+
 const GRAPH_MESSAGES_URL = 'https://graph.microsoft.com/v1.0/me/messages'
 const GRAPH_SELECT = 'id,subject,receivedDateTime,from,body,bodyPreview'
 const GRAPH_FILTER = "contains(subject,'LOT-')"
