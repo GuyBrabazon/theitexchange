@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 
 type DealRow = {
   id: string
@@ -62,7 +63,15 @@ export default function DealsPage() {
       setLoading(true)
       setError('')
       try {
-        const res = await fetch('/api/deals')
+        const { data: session } = await supabase.auth.getSession()
+        const res = await fetch('/api/deals', {
+          headers: session?.access_token
+            ? {
+                Authorization: `Bearer ${session.access_token}`,
+              }
+            : undefined,
+          credentials: 'include',
+        })
         const payload = await res.json()
         if (!isMounted) return
         if (payload.ok) {
