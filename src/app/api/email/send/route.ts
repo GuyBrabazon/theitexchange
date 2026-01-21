@@ -7,11 +7,10 @@ export const runtime = 'nodejs'
 
 export async function POST(request: Request) {
   try {
-    const { batchId, toEmail, buyerName, customBody } = (await request.json()) as {
+    const { batchId, toEmail, buyerName } = (await request.json()) as {
       batchId?: string
       toEmail?: string
       buyerName?: string
-      customBody?: string
     }
     if (!batchId || !toEmail) {
       return NextResponse.json({ ok: false, message: 'batchId and toEmail are required' }, { status: 400 })

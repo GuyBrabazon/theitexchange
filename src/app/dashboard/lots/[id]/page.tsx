@@ -48,6 +48,23 @@ type OfferRow = {
   invite_id: string | null
 }
 
+type EmailOfferLineRow = {
+  line_ref: string | null
+  offer_amount: number | null
+  offer_type: string | null
+  qty: number | null
+}
+
+type EmailOfferRow = {
+  id: string
+  buyer_email: string | null
+  buyer_name: string | null
+  received_at: string | null
+  status: string | null
+  buyers?: { name: string | null; company: string | null }
+  email_offer_lines?: EmailOfferLineRow[]
+}
+
 type BatchRow = {
   id: string
   lot_id: string
@@ -70,6 +87,9 @@ export default function LotDetailPage() {
   const [invites, setInvites] = useState<InviteRow[]>([])
   const [offers, setOffers] = useState<OfferRow[]>([])
   const [tenantId, setTenantId] = useState('')
+  const [emailOffers, setEmailOffers] = useState<EmailOfferRow[]>([])
+  const [selectedEmailOffer, setSelectedEmailOffer] = useState<EmailOfferRow | null>(null)
+  const [showOfferModal, setShowOfferModal] = useState(false)
   const [batches, setBatches] = useState<BatchRow[]>([])
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null)
   const [recipientEmail, setRecipientEmail] = useState('')
@@ -140,7 +160,7 @@ export default function LotDetailPage() {
         setLot(lotData as LotRow)
         setTenantId(tenantId)
 
-        const [linesRes, invitesRes, offersRes] = await Promise.all([
+        const [linesRes, invitesRes, offersRes, emailOffersRes] = await Promise.all([
           supabase
             .from('line_items')
             .select('id,description,qty,asking_price,serial_tag,model,line_ref,inventory_items:inventory_items(id,sku,model,description)')
@@ -158,11 +178,20 @@ export default function LotDetailPage() {
             .eq('lot_id', lotId)
             .eq('tenant_id', tenantId)
             .order('created_at', { ascending: false }),
+          supabase
+            .from('email_offers')
+            .select(
+              'id,buyer_email,buyer_name,received_at,status,buyers(name,company),email_offer_lines(line_ref,offer_amount,offer_type,qty)'
+            )
+            .eq('lot_id', lotId)
+            .eq('tenant_id', tenantId)
+            .order('received_at', { ascending: false }),
         ])
 
         if (linesRes.error) throw linesRes.error
         if (invitesRes.error) throw invitesRes.error
         if (offersRes.error) throw offersRes.error
+        if (emailOffersRes.error) throw emailOffersRes.error
 
         setLines((linesRes.data as LineItemRow[]) || [])
 
@@ -208,6 +237,33 @@ export default function LotDetailPage() {
             } as OfferRow
           }) ?? []
         setOffers(offerRows)
+        const emailRows =
+          (Array.isArray(emailOffersRes.data) ? emailOffersRes.data : []).map((row) => {
+            const buyersData = (row as any)?.buyers
+            const buyerObj = Array.isArray(buyersData) ? buyersData[0] : buyersData
+            return {
+              id: String((row as any)?.id ?? ''),
+              buyer_email: (row as any)?.buyer_email ?? null,
+              buyer_name: (row as any)?.buyer_name ?? null,
+              received_at: (row as any)?.received_at ?? null,
+              status: (row as any)?.status ?? null,
+              buyers: buyerObj
+                ? {
+                    name: buyerObj.name ?? null,
+                    company: buyerObj.company ?? null,
+                  }
+                : undefined,
+              email_offer_lines: Array.isArray((row as any)?.email_offer_lines)
+                ? (row as any)?.email_offer_lines.map((line: any) => ({
+                    line_ref: line?.line_ref ?? null,
+                    offer_amount: typeof line?.offer_amount === 'number' ? line.offer_amount : null,
+                    offer_type: line?.offer_type ?? null,
+                    qty: typeof line?.qty === 'number' ? line.qty : null,
+                  }))
+                : [],
+            }
+          })
+        setEmailOffers(emailRows)
         await fetchBatches(tenantId)
       } catch (e: unknown) {
         console.error(e)
@@ -235,6 +291,19 @@ export default function LotDetailPage() {
       suffix += chars[Math.floor(Math.random() * chars.length)]
     }
     return `LOT-${suffix}`
+  }
+
+  const formatMoney = (value: number | null) => {
+    if (value == null) return 'n/a'
+    try {
+      const formatter = new Intl.NumberFormat('en-GB', {
+        style: 'currency',
+        currency: lot?.currency ?? 'USD',
+      })
+      return formatter.format(value)
+    } catch {
+      return value.toFixed(2)
+    }
   }
 
   const emailLines = useMemo<EmailLine[]>(() => {
@@ -286,7 +355,6 @@ export default function LotDetailPage() {
       setBuyerName(derivedBuyerName)
     }
   }, [derivedBuyerName, buyerNameDirty])
-  const displayedEmailBody = emailBody
 
   const handleCreateBatch = async () => {
     if (!tenantId || !lot) return
@@ -342,11 +410,10 @@ export default function LotDetailPage() {
       const headers: HeadersInit = { 'Content-Type': 'application/json' }
       if (token) headers.Authorization = `Bearer ${token}`
 
-      const bodyToSend = displayedEmailBody
       const resp = await fetch('/api/email/send', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ batchId: selectedBatchId, toEmail: recipientEmail, buyerName, customBody: bodyToSend }),
+        body: JSON.stringify({ batchId: selectedBatchId, toEmail: recipientEmail, buyerName }),
       })
       const payload = await resp.json().catch(() => ({}))
       if (!resp.ok) {
@@ -792,7 +859,185 @@ export default function LotDetailPage() {
             </div>
           )}
         </section>
+
+        <section
+          style={{
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--r-lg)' as CSSProperties['borderRadius'],
+            padding: 14,
+            background: 'var(--panel)',
+            boxShadow: 'var(--shadow)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline', flexWrap: 'wrap' }}>
+            <div style={{ fontWeight: 950 }}>Customers who’ve offered</div>
+            <Link href={`/dashboard/lots/${lot.id}/optimize`} style={{ textDecoration: 'none', fontWeight: 900 }}>
+              Jump to optimizer
+            </Link>
+          </div>
+          {emailOffers.length === 0 ? (
+            <div style={{ color: 'var(--muted)', marginTop: 8 }}>No email-based offers have been parsed yet.</div>
+          ) : (
+            <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: 8, fontSize: 12, color: 'var(--muted)' }}>
+                <div>Name</div>
+                <div>Company</div>
+                <div>Lines with offers</div>
+                <div />
+              </div>
+              {emailOffers.map((offer) => {
+                const name = offer.buyers?.name ?? offer.buyer_name ?? offer.buyer_email ?? 'Unknown'
+                const company = offer.buyers?.company ?? '—'
+                const lineSummary = (offer.email_offer_lines ?? [])
+                  .map((line) => `${line.line_ref || 'Line'}: ${formatMoney(line.offer_amount ?? null)}`)
+                  .join(' • ')
+                const receivedAt = offer.received_at ? fmtDate(offer.received_at) : null
+                return (
+                  <div
+                    key={offer.id}
+                    style={{
+                      border: '1px solid var(--border)',
+                      borderRadius: 10,
+                      padding: 10,
+                      background: 'rgba(15,23,42,0.02)',
+                      display: 'grid',
+                      gridTemplateColumns: '2fr 1fr 1fr auto',
+                      gap: 8,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 900 }}>{name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>{offer.buyer_email || ''}</div>
+                    </div>
+                    <div>{company}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text)' }}>{lineSummary || 'No line offers yet'}</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <button
+                        onClick={() => {
+                          setSelectedEmailOffer(offer)
+                          setShowOfferModal(true)
+                        }}
+                        style={{
+                          padding: '6px 10px',
+                          borderRadius: 8,
+                          border: '1px solid var(--border)',
+                          background: 'var(--panel)',
+                          cursor: 'pointer',
+                          fontSize: 12,
+                          fontWeight: 700,
+                        }}
+                      >
+                        View lines
+                      </button>
+                      {receivedAt ? (
+                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>{receivedAt}</span>
+                      ) : null}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </section>
       </div>
+      {showOfferModal && selectedEmailOffer ? (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.35)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 20,
+            zIndex: 50,
+          }}
+        >
+          <div
+            style={{
+              width: 'min(560px, 100%)',
+              background: 'var(--panel)',
+              border: '1px solid var(--border)',
+              borderRadius: 16,
+              padding: 20,
+              boxShadow: '0 20px 45px rgba(0,0,0,0.35)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div>
+                <div style={{ fontWeight: 900 }}>Offer lines</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  {selectedEmailOffer.buyers?.name || selectedEmailOffer.buyer_name || selectedEmailOffer.buyer_email}
+                </div>
+              </div>
+              <button
+                onClick={() => setShowOfferModal(false)}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: 'var(--muted)',
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+            <div style={{ marginBottom: 12, fontSize: 12, color: 'var(--muted)' }}>
+              Status: {selectedEmailOffer.status || 'parsed'}
+              {selectedEmailOffer.received_at ? ` • Received ${fmtDate(selectedEmailOffer.received_at)}` : ''}
+            </div>
+            <div style={{ maxHeight: 260, overflow: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr>
+                    <th style={{ borderBottom: '1px solid var(--border)', textAlign: 'left', paddingBottom: 6 }}>Line</th>
+                    <th style={{ borderBottom: '1px solid var(--border)', textAlign: 'right', paddingBottom: 6 }}>Qty</th>
+                    <th style={{ borderBottom: '1px solid var(--border)', textAlign: 'right', paddingBottom: 6 }}>Offer</th>
+                    <th style={{ borderBottom: '1px solid var(--border)', textAlign: 'left', paddingBottom: 6 }}>Type</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(selectedEmailOffer.email_offer_lines ?? []).map((line) => (
+                    <tr key={`${selectedEmailOffer.id}-${line.line_ref}-${line.offer_type}`}>
+                      <td style={{ padding: '6px 4px', borderBottom: '1px solid var(--border)' }}>{line.line_ref || 'Line'}</td>
+                      <td style={{ padding: '6px 4px', borderBottom: '1px solid var(--border)', textAlign: 'right' }}>
+                        {line.qty ?? '—'}
+                      </td>
+                      <td style={{ padding: '6px 4px', borderBottom: '1px solid var(--border)', textAlign: 'right' }}>
+                        {formatMoney(line.offer_amount ?? null)}
+                      </td>
+                      <td style={{ padding: '6px 4px', borderBottom: '1px solid var(--border)' }}>{line.offer_type || 'per_unit'}</td>
+                    </tr>
+                  ))}
+                  {(selectedEmailOffer.email_offer_lines ?? []).length === 0 ? (
+                    <tr>
+                      <td colSpan={4} style={{ padding: 6, textAlign: 'center', color: 'var(--muted)' }}>
+                        No lines parsed yet.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ marginTop: 16, textAlign: 'right' }}>
+              <Link
+                href={`/dashboard/lots/${lot.id}/optimize`}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                  background: 'var(--panel)',
+                  textDecoration: 'none',
+                  fontWeight: 700,
+                }}
+              >
+                Open optimizer
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   )
 }
