@@ -19,16 +19,12 @@ export async function POST(request: Request) {
     const supa = supabaseServer()
     const authHeader =
       request.headers.get('Authorization') ?? request.headers.get('authorization') ?? undefined
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring('Bearer '.length)
-      if (token) {
-        await supa.auth.setSession({ access_token: token })
-      }
-    }
+    const token =
+      authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring('Bearer '.length) : undefined
     const {
       data: { user },
       error: userErr,
-    } = await supa.auth.getUser()
+    } = await supa.auth.getUser(token)
     if (userErr) throw userErr
     if (!user) return NextResponse.json({ ok: false, message: 'Not authenticated' }, { status: 401 })
 
