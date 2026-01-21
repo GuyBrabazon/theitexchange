@@ -74,6 +74,9 @@ export default function LotDetailPage() {
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null)
   const [recipientEmail, setRecipientEmail] = useState('')
   const [buyerName, setBuyerName] = useState('')
+  const [buyerNameDirty, setBuyerNameDirty] = useState(false)
+  const [customEmailBody, setCustomEmailBody] = useState('')
+  const [bodyDirty, setBodyDirty] = useState(false)
   const [batchMessage, setBatchMessage] = useState('')
   const [isCreatingBatch, setIsCreatingBatch] = useState(false)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
@@ -138,11 +141,11 @@ export default function LotDetailPage() {
         setTenantId(tenantId)
 
         const [linesRes, invitesRes, offersRes] = await Promise.all([
-        supabase
-          .from('line_items')
-          .select('id,description,qty,asking_price,serial_tag,model,line_ref,inventory_items:inventory_items(id,sku,model,description)')
-          .eq('lot_id', lotId)
-          .order('created_at', { ascending: true }),
+          supabase
+            .from('line_items')
+            .select('id,description,qty,asking_price,serial_tag,model,line_ref,inventory_items:inventory_items(id,sku,model,description)')
+            .eq('lot_id', lotId)
+            .order('created_at', { ascending: true }),
           supabase
             .from('lot_invites')
             .select('id,status,created_at,token,buyers(name,company,email)')
@@ -182,7 +185,9 @@ export default function LotDetailPage() {
             } as InviteRow
           }) ?? []
         setInvites(inviteRows)
-        setRecipientEmail((prev) => prev || inviteRows[0]?.buyers?.email || '')
+        const preferredEmail = inviteRows[0]?.buyers?.email ?? ''
+        setRecipientEmail((prev) => prev || preferredEmail)
+        setBuyerNameDirty(false)
 
         const offerRows =
           (Array.isArray(offersRes.data) ? offersRes.data : []).map((row) => {
@@ -252,6 +257,33 @@ export default function LotDetailPage() {
   const batchCurrencySymbol = getCurrencySymbol(activeBatch?.currency ?? lot?.currency)
   const emailSubject = activeBatch?.subject ?? ''
   const emailBody = activeBatch ? buildBatchBody({ lines: emailLines, currencySymbol: batchCurrencySymbol, buyerName }) : ''
+  const derivedBuyerName = useMemo(() => {
+    if (!recipientEmail) return ''
+    const target = recipientEmail.trim().toLowerCase()
+    const match = invites.find(
+      (inv) => inv.buyers?.email && inv.buyers.email.toLowerCase() === target
+    )
+    const name = match?.buyers?.name?.trim()
+    if (name) {
+      const first = name.split(/\s+/)[0]
+      return first.charAt(0).toUpperCase() + first.slice(1)
+    }
+    const localPart = recipientEmail.split('@')[0] || ''
+    const fallback = localPart.split(/[._-]/)[0] || ''
+    if (!fallback) return ''
+    return fallback.charAt(0).toUpperCase() + fallback.slice(1)
+  }, [recipientEmail, invites])
+  useEffect(() => {
+    if (!buyerNameDirty) {
+      setBuyerName(derivedBuyerName)
+    }
+  }, [derivedBuyerName, buyerNameDirty])
+  useEffect(() => {
+    if (!bodyDirty) {
+      setCustomEmailBody(emailBody)
+    }
+  }, [emailBody, bodyDirty])
+  const displayedEmailBody = bodyDirty ? customEmailBody : emailBody
 
   const handleCreateBatch = async () => {
     if (!tenantId || !lot) return
@@ -307,10 +339,11 @@ export default function LotDetailPage() {
       const headers: HeadersInit = { 'Content-Type': 'application/json' }
       if (token) headers.Authorization = `Bearer ${token}`
 
+      const bodyToSend = displayedEmailBody
       const resp = await fetch('/api/email/send', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ batchId: selectedBatchId, toEmail: recipientEmail, buyerName }),
+        body: JSON.stringify({ batchId: selectedBatchId, toEmail: recipientEmail, buyerName, customBody: bodyToSend }),
       })
       const payload = await resp.json().catch(() => ({}))
       if (!resp.ok) {
@@ -500,7 +533,10 @@ export default function LotDetailPage() {
                 <label style={{ fontSize: 12, color: 'var(--muted)' }}>Buyer name (optional)</label>
                 <input
                   value={buyerName}
-                  onChange={(e) => setBuyerName(e.target.value)}
+                  onChange={(e) => {
+                    setBuyerName(e.target.value)
+                    setBuyerNameDirty(true)
+                  }}
                   placeholder="Buyer Name"
                   style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
                 />
@@ -543,14 +579,14 @@ export default function LotDetailPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ fontSize: 12, color: 'var(--muted)' }}>HTML body preview</div>
                   <button
-                    onClick={() => copyText(emailBody)}
-                    disabled={!emailBody}
+                    onClick={() => copyText(displayedEmailBody)}
+                    disabled={!displayedEmailBody}
                     style={{
                       padding: '6px 10px',
                       borderRadius: 8,
                       border: '1px solid var(--border)',
                       background: 'var(--surface-2)',
-                      cursor: emailBody ? 'pointer' : 'not-allowed',
+                      cursor: displayedEmailBody ? 'pointer' : 'not-allowed',
                     }}
                   >
                     Copy body
@@ -567,8 +603,50 @@ export default function LotDetailPage() {
                     maxHeight: 240,
                     overflow: 'auto',
                   }}
-                  dangerouslySetInnerHTML={{ __html: emailBody }}
+                  dangerouslySetInnerHTML={{ __html: displayedEmailBody }}
                 />
+                <div style={{ marginTop: 8 }}>
+                  <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>
+                    Edit HTML body preview
+                  </label>
+                  <textarea
+                    value={customEmailBody}
+                    onChange={(e) => {
+                      setCustomEmailBody(e.target.value)
+                      setBodyDirty(true)
+                    }}
+                    style={{
+                      width: '100%',
+                      minHeight: 160,
+                      borderRadius: 12,
+                      border: '1px solid var(--border)',
+                      padding: 10,
+                      background: 'var(--panel)',
+                      color: 'var(--text)',
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    }}
+                  />
+                  {bodyDirty ? (
+                    <button
+                      onClick={() => {
+                        setBodyDirty(false)
+                        setCustomEmailBody(emailBody)
+                      }}
+                      style={{
+                        marginTop: 6,
+                        padding: '6px 10px',
+                        borderRadius: 8,
+                        border: '1px solid var(--border)',
+                        background: 'var(--surface-2)',
+                        cursor: 'pointer',
+                        fontSize: 12,
+                      }}
+                    >
+                      Reset preview
+                    </button>
+                  ) : null}
+                </div>
               </div>
 
               <div>

@@ -7,10 +7,11 @@ export const runtime = 'nodejs'
 
 export async function POST(request: Request) {
   try {
-    const { batchId, toEmail, buyerName } = (await request.json()) as {
+    const { batchId, toEmail, buyerName, customBody } = (await request.json()) as {
       batchId?: string
       toEmail?: string
       buyerName?: string
+      customBody?: string
     }
     if (!batchId || !toEmail) {
       return NextResponse.json({ ok: false, message: 'batchId and toEmail are required' }, { status: 400 })
@@ -96,7 +97,7 @@ export async function POST(request: Request) {
     const currency = batch.currency ?? lot.currency ?? 'USD'
     const currencySymbol = getCurrencySymbol(currency)
     const subject = batch.subject || buildBatchSubject(batch.batch_key, lot.type || lot.title || 'Lot')
-    const body = buildBatchBody({ lines, currencySymbol, buyerName })
+    const body = customBody ?? buildBatchBody({ lines, currencySymbol, buyerName })
 
     await sendOutlookMail(user.id, toEmail, subject, body)
 
