@@ -227,16 +227,15 @@ export default function LotDetailPage() {
     return `LOT-${suffix}`
   }
 
-  const emailLines = useMemo<EmailLine[]>(
-    () =>
-      lines.map((line) => ({
-        lineRef: line.line_ref ?? '',
-        model: line.model,
-        description: line.description,
-        qty: typeof line.qty === 'number' ? line.qty : null,
-      })),
-    [lines]
-  )
+  const emailLines = useMemo<EmailLine[]>(() => {
+    return lines.map((line) => ({
+      lineRef: line.line_ref ?? '',
+      partNumber: line.model ?? '',
+      description: line.description ?? '',
+      qty: typeof line.qty === 'number' ? line.qty : null,
+      askingPrice: line.asking_price ?? null,
+    }))
+  }, [lines])
 
   const activeBatch = useMemo(
     () => batches.find((batch) => batch.id === selectedBatchId) ?? batches[0] ?? null,
