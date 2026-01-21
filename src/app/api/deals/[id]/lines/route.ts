@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { insertDealLine } from '@/lib/deals'
 
 export const runtime = 'nodejs'
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, context: { params: { id: string } }) {
   const auth = await requireAuth(request)
   if (auth instanceof NextResponse) {
     return auth
@@ -29,7 +29,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       return NextResponse.json({ ok: false, message: 'source and line_ref are required' }, { status: 400 })
     }
     const dealLine = await insertDealLine(auth.supa, {
-      deal_id: params.id,
+      deal_id: context.params.id,
       tenant_id: auth.tenantId,
       source,
       line_ref,
