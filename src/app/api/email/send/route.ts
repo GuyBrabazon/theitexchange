@@ -28,9 +28,16 @@ export async function POST(request: Request) {
     if (userErr) throw userErr
     if (!user) return NextResponse.json({ ok: false, message: 'Not authenticated' }, { status: 401 })
 
-    const { data: profile, error: profileErr } = await supa.from('profiles').select('tenant_id').eq('id', user.id).maybeSingle()
+    const [
+      { data: profile, error: profileErr },
+      { data: userRow, error: userErr },
+    ] = await Promise.all([
+      supa.from('profiles').select('tenant_id').eq('id', user.id).maybeSingle(),
+      supa.from('users').select('tenant_id').eq('id', user.id).maybeSingle(),
+    ])
     if (profileErr) throw profileErr
-    const tenantId = profile?.tenant_id
+    if (userErr) throw userErr
+    const tenantId = profile?.tenant_id ?? userRow?.tenant_id
     if (!tenantId) {
       return NextResponse.json({ ok: false, message: 'Tenant not found' }, { status: 400 })
     }
