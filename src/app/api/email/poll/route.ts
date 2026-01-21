@@ -196,13 +196,13 @@ export async function POST(request: Request) {
 
     const [
       { data: profile, error: profileErr },
-      { data: userRow, error: userErr },
+      { data: userRow, error: userRowErr },
     ] = await Promise.all([
       supa.from('profiles').select('tenant_id').eq('id', user.id).maybeSingle(),
       supa.from('users').select('tenant_id').eq('id', user.id).maybeSingle(),
     ])
     if (profileErr) throw profileErr
-    if (userErr) throw userErr
+    if (userRowErr) throw userRowErr
     const tenantId = profile?.tenant_id ?? userRow?.tenant_id
     if (!tenantId) {
       return NextResponse.json({ ok: false, message: 'Tenant not found' }, { status: 400 })
