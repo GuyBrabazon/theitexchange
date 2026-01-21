@@ -1,4 +1,4 @@
-const currencySymbols: Record<string, string> = {
+﻿const currencySymbols: Record<string, string> = {
   USD: '$',
   EUR: '€',
   GBP: '£',
@@ -12,6 +12,10 @@ const currencySymbols: Record<string, string> = {
 const inlineTableStyle = `border-collapse:collapse;font-family:var(--font-body);width:100%;`
 const headerStyle = `font-weight:600;border:1px solid #ccc;padding:8px;background:#f5f5f5;text-align:left;`
 const cellStyle = `border:1px solid #ccc;padding:8px;text-align:left;`
+
+function escapeHtml(value: string) {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
 
 export function getCurrencySymbol(code?: string | null) {
   if (!code) return '$'
@@ -30,24 +34,24 @@ export function buildDealSubject(subjectTemplate: string, subjectKey: string) {
 }
 
 export function buildDealBody(options: {
-  lines: { line_ref: string; model: string | null; description: string | null; qty: number | null; ask_price: number | null; currency: string | null }[]
+  lines: { line_ref: string; part_number?: string | null; model: string | null; description: string | null; qty: number | null; ask_price: number | null; currency: string | null }[]
   buyerName?: string | null
   message?: string
   currencySymbol: string
 }) {
-  const greeting = options.buyerName ? `Hi ${options.buyerName},` : 'Hi there,'
-  const intro = options.message ?? 'Reply to this email with your offer in the “Offer” column.'
+  const greeting = options.buyerName ? `Hi ${escapeHtml(options.buyerName)},` : 'Hi there,'
+  const intro = escapeHtml(options.message ?? 'Reply to this email with your offer in the Offer column.')
   const tableRows = options.lines
     .map((line) => {
-      const model = line.model ?? line.description ?? '-'
+      const model = line.part_number ?? line.model ?? '-' 
       const desc = line.description ?? line.model ?? '-'
       const ask = line.ask_price != null ? `${line.ask_price.toFixed(2)} ${line.currency ?? ''}`.trim() : 'TBD'
       return `<tr>
-        <td style="${cellStyle}">${line.line_ref}</td>
-        <td style="${cellStyle}">${model}</td>
-        <td style="${cellStyle}">${desc}</td>
+        <td style="${cellStyle}">${escapeHtml(line.line_ref)}</td>
+        <td style="${cellStyle}">${escapeHtml(model)}</td>
+        <td style="${cellStyle}">${escapeHtml(desc)}</td>
         <td style="${cellStyle};text-align:right">${line.qty ?? 1}</td>
-        <td style="${cellStyle};text-align:right">${ask}</td>
+        <td style="${cellStyle};text-align:right">${escapeHtml(ask)}</td>
         <td style="${cellStyle}">&nbsp;</td>
       </tr>`
     })
@@ -70,9 +74,9 @@ export function buildDealBody(options: {
   </table>`
 
   return `
-    <div style="font-family:${'Geist Sans'},'Inter',sans-serif;font-size:14px;line-height:1.5;">
-      <p>${greeting}</p>
-      <p>${intro}</p>
+    <div style="font-family:'Geist Sans','Inter',sans-serif;font-size:14px;line-height:1.5;">
+      <p style="margin:0 0 8px">${greeting}</p>
+      <p style="margin:0 0 12px">${intro}</p>
       <div style="margin:12px 0;">
         ${table}
       </div>

@@ -464,7 +464,7 @@ export default function DealDetailPage() {
                   Subject key <span style={{ fontWeight: 700 }}>{computedSubjectKey}</span> is required for replies.
                 </p>
               </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                 <button
                   type="button"
                   className="ui-btn"
@@ -480,6 +480,15 @@ export default function DealDetailPage() {
                   onClick={() => copyToClipboard(bodyHtml, setBodyCopyMessage)}
                 >
                   Copy body
+                </button>
+                <button
+                  type="button"
+                  className="ui-btn ui-btn-primary"
+                  style={{ padding: '6px 12px' }}
+                  onClick={handleSendEmail}
+                  disabled={sendLoading}
+                >
+                  {sendLoading ? 'Sending...' : 'Send via Outlook'}
                 </button>
               </div>
             </div>
@@ -507,16 +516,15 @@ export default function DealDetailPage() {
               ) : null}
             </form>
             <div style={{ display: 'grid', gap: 6 }}>
-              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Personal note (included above the table)</label>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>
+                HTML body preview (edit the text above the table; the table itself is locked)
+              </label>
               <textarea
                 value={personalMessage}
                 onChange={(e) => setPersonalMessage(e.target.value)}
                 className="ui-textarea"
                 rows={3}
               />
-            </div>
-            <div style={{ display: 'grid', gap: 6 }}>
-              <label style={{ fontSize: 12, color: 'var(--muted)' }}>HTML body preview</label>
               <div
                 style={{
                   border: '1px solid var(--border)',
@@ -529,6 +537,7 @@ export default function DealDetailPage() {
                 dangerouslySetInnerHTML={{ __html: bodyHtml }}
               />
               {bodyCopyMessage ? <span style={{ fontSize: 12, color: 'var(--muted)' }}>{bodyCopyMessage}</span> : null}
+              {sendStatus ? <span style={{ fontSize: 12, color: 'var(--muted)' }}>{sendStatus}</span> : null}
             </div>
           </section>
 

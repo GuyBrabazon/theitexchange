@@ -1,4 +1,4 @@
-export type EmailLine = {
+﻿export type EmailLine = {
   lineRef: string
   partNumber: string
   description: string | null
@@ -6,7 +6,7 @@ export type EmailLine = {
   askingPrice: number | null
 }
 
-type BatchBodyOptions = {
+export type BatchBodyOptions = {
   lines: EmailLine[]
   currencySymbol: string
   buyerName?: string | null
@@ -47,9 +47,7 @@ export function buildBatchBody({ lines, currencySymbol, buyerName, customIntro, 
   const headerRow = headers
     .map(
       (col) =>
-        `<th style="border:1px solid #d1d5db;background:#f9fafb;padding:8px;text-align:left;font-size:13px">${escapeHtml(
-          col
-        )}</th>`
+        `<th style="border:1px solid #d1d5db;background:#f9fafb;padding:8px;text-align:left;font-size:13px">${escapeHtml(col)}</th>`
     )
     .join('')
   const tableRows = lines
@@ -82,4 +80,3 @@ export function buildBatchBody({ lines, currencySymbol, buyerName, customIntro, 
     : ''
   return `<div>${greeting}${introParagraph}${instruction}${table}${footer}${parseInfo}${outroParagraph}</div>`
 }
-
