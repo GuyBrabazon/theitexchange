@@ -685,7 +685,7 @@ export default function InventoryPage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '0.25fr 0.85fr 0.7fr 1.1fr 0.6fr 0.6fr 0.6fr 0.7fr 0.7fr 0.7fr 0.7fr',
+            gridTemplateColumns: '0.25fr 0.85fr 0.7fr 1.1fr 0.6fr 0.6fr 0.6fr 0.7fr 0.7fr 0.7fr',
             gap: 0,
             background: 'var(--surface-2)',
             fontWeight: 900,
@@ -701,7 +701,6 @@ export default function InventoryPage() {
           <div style={{ padding: 8 }}>Category</div>
           <div style={{ padding: 8 }}>Available QTY</div>
           <div style={{ padding: 8 }}>Per unit cost</div>
-          <div style={{ padding: 8 }}>Extended value</div>
           <div style={{ padding: 8 }}>Status</div>
         </div>
 
@@ -710,7 +709,7 @@ export default function InventoryPage() {
             key={r.id}
             style={{
               display: 'grid',
-              gridTemplateColumns: '0.25fr 0.85fr 0.7fr 1.1fr 0.6fr 0.6fr 0.6fr 0.7fr 0.7fr 0.7fr 0.7fr',
+              gridTemplateColumns: '0.25fr 0.85fr 0.7fr 1.1fr 0.6fr 0.6fr 0.6fr 0.7fr 0.7fr 0.7fr',
               gap: 0,
               borderTop: `1px solid var(--border)`,
               background: 'var(--panel)',
@@ -784,9 +783,6 @@ export default function InventoryPage() {
                 style={{ width: '100%', padding: '6px 8px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
               />
               <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>{r.currency || 'USD'}</div>
-            </div>
-            <div style={{ padding: 8 }}>
-              <div style={{ fontWeight: 700 }}>{formatMoney(getExtendedValue(r), r.currency)}</div>
             </div>
             <div style={{ padding: 8 }}>
               <select

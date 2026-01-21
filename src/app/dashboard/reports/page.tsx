@@ -404,7 +404,6 @@ export default function ReportsPage() {
                           <th style={{ textAlign: 'left', padding: 6 }}>OEM</th>
                           <th style={{ textAlign: 'right', padding: 6 }}>Qty</th>
                           <th style={{ textAlign: 'right', padding: 6 }}>Per unit cost</th>
-                          <th style={{ textAlign: 'right', padding: 6 }}>Extended value</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -414,7 +413,6 @@ export default function ReportsPage() {
                             <td style={{ padding: 6 }}>{r.oem || '—'}</td>
                             <td style={{ padding: 6, textAlign: 'right' }}>{fmtNumber(r.qty)}</td>
                             <td style={{ padding: 6, textAlign: 'right' }}>{fmtCurrency(r.cost)}</td>
-                            <td style={{ padding: 6, textAlign: 'right' }}>{fmtCurrency(r.value)}</td>
                           </tr>
                         ))}
                       </tbody>
