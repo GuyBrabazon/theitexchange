@@ -54,18 +54,30 @@ export async function POST(request: Request) {
 
     const { data: lineRows, error: lineErr } = await supa
       .from('line_items')
-      .select('line_ref,model,description,qty,asking_price')
+      .select('line_ref,model,description,qty,asking_price,inventory_items!line_items_inventory_item_id_fkey(part_number,description)')
       .eq('lot_id', batch.lot_id)
       .order('created_at', { ascending: true })
     if (lineErr) throw lineErr
 
-    const lines: EmailLine[] = (lineRows ?? []).map((row) => ({
-      lineRef: (row as { line_ref?: string })?.line_ref || '',
-      partNumber: (row as { model?: string })?.model ?? '',
-      description: (row as { description?: string })?.description ?? null,
-      qty: typeof (row as { qty?: number })?.qty === 'number' ? (row as { qty?: number }).qty ?? null : null,
-      askingPrice: typeof (row as { asking_price?: number })?.asking_price === 'number' ? (row as { asking_price?: number }).asking_price ?? null : null,
-    }))
+    const lines: EmailLine[] = (lineRows ?? []).map((row) => {
+      const inventory = (row as { inventory_items?: { part_number?: string; description?: string } })?.inventory_items
+      const partNumber = inventory?.part_number ?? (row as { model?: string })?.model ?? ''
+      const description =
+        (row as { description?: string })?.description ?? inventory?.description ?? null
+      return {
+        lineRef: (row as { line_ref?: string })?.line_ref || '',
+        partNumber,
+        description,
+        qty:
+          typeof (row as { qty?: number })?.qty === 'number'
+            ? (row as { qty?: number }).qty ?? null
+            : null,
+        askingPrice:
+          typeof (row as { asking_price?: number })?.asking_price === 'number'
+            ? (row as { asking_price?: number }).asking_price ?? null
+            : null,
+      }
+    })
 
     const currency = batch.currency ?? lot.currency ?? 'USD'
     const currencySymbol = getCurrencySymbol(currency)
