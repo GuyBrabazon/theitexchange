@@ -10,6 +10,8 @@ type BatchBodyOptions = {
   lines: EmailLine[]
   currencySymbol: string
   buyerName?: string | null
+  customIntro?: string
+  customOutro?: string
 }
 
 const currencySymbols: Record<string, string> = {
@@ -33,11 +35,14 @@ function escapeHtml(value: string) {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-export function buildBatchBody({ lines, currencySymbol, buyerName }: BatchBodyOptions) {
+export function buildBatchBody({ lines, currencySymbol, buyerName, customIntro, customOutro }: BatchBodyOptions) {
   const buyerLabel = (buyerName?.trim() || '{Buyer_Name}')
   const greeting = `Hi ${escapeHtml(buyerLabel)},`
   const instruction =
     '<p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;margin-top:0">Reply to this email and fill the Offer column. Keep the table intact.</p>'
+  const introParagraph = customIntro
+    ? `<p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;margin:8px 0">${escapeHtml(customIntro)}</p>`
+    : ''
   const headers = ['Line Ref', 'P/N', 'Description', 'QTY', 'Asking', `Offer (${currencySymbol})`]
   const headerRow = headers
     .map(
@@ -72,6 +77,9 @@ export function buildBatchBody({ lines, currencySymbol, buyerName }: BatchBodyOp
     '<p style="font-family:Arial,Helvetica,sans-serif;font-size:12px;margin-top:8px">Do not change the Line Ref column — it uniquely identifies each row.</p>'
   const parseInfo =
     '<p style="font-family:Arial,Helvetica,sans-serif;font-size:12px;margin-top:4px;color:#6b7280">Offer interpretation: plain numeric values are treated as per-unit pricing; prefix with total: if you are quoting a line total.</p>'
-  return `<div>${greeting}${instruction}${table}${footer}${parseInfo}</div>`
+  const outroParagraph = customOutro
+    ? `<p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;margin:8px 0">${escapeHtml(customOutro)}</p>`
+    : ''
+  return `<div>${greeting}${introParagraph}${instruction}${table}${footer}${parseInfo}${outroParagraph}</div>`
 }
 

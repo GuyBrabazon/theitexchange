@@ -75,8 +75,8 @@ export default function LotDetailPage() {
   const [recipientEmail, setRecipientEmail] = useState('')
   const [buyerName, setBuyerName] = useState('')
   const [buyerNameDirty, setBuyerNameDirty] = useState(false)
-  const [customEmailBody, setCustomEmailBody] = useState('')
-  const [bodyDirty, setBodyDirty] = useState(false)
+  const [introText, setIntroText] = useState('')
+  const [outroText, setOutroText] = useState('')
   const [batchMessage, setBatchMessage] = useState('')
   const [isCreatingBatch, setIsCreatingBatch] = useState(false)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
@@ -256,7 +256,15 @@ export default function LotDetailPage() {
   )
   const batchCurrencySymbol = getCurrencySymbol(activeBatch?.currency ?? lot?.currency)
   const emailSubject = activeBatch?.subject ?? ''
-  const emailBody = activeBatch ? buildBatchBody({ lines: emailLines, currencySymbol: batchCurrencySymbol, buyerName }) : ''
+  const emailBody = activeBatch
+    ? buildBatchBody({
+        lines: emailLines,
+        currencySymbol: batchCurrencySymbol,
+        buyerName,
+        customIntro: introText,
+        customOutro: outroText,
+      })
+    : ''
   const derivedBuyerName = useMemo(() => {
     if (!recipientEmail) return ''
     const target = recipientEmail.trim().toLowerCase()
@@ -278,12 +286,7 @@ export default function LotDetailPage() {
       setBuyerName(derivedBuyerName)
     }
   }, [derivedBuyerName, buyerNameDirty])
-  useEffect(() => {
-    if (!bodyDirty) {
-      setCustomEmailBody(emailBody)
-    }
-  }, [emailBody, bodyDirty])
-  const displayedEmailBody = bodyDirty ? customEmailBody : emailBody
+  const displayedEmailBody = emailBody
 
   const handleCreateBatch = async () => {
     if (!tenantId || !lot) return
@@ -579,14 +582,14 @@ export default function LotDetailPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ fontSize: 12, color: 'var(--muted)' }}>HTML body preview</div>
                   <button
-                    onClick={() => copyText(displayedEmailBody)}
-                    disabled={!displayedEmailBody}
+                    onClick={() => copyText(emailBody)}
+                    disabled={!emailBody}
                     style={{
                       padding: '6px 10px',
                       borderRadius: 8,
                       border: '1px solid var(--border)',
                       background: 'var(--surface-2)',
-                      cursor: displayedEmailBody ? 'pointer' : 'not-allowed',
+                      cursor: emailBody ? 'pointer' : 'not-allowed',
                     }}
                   >
                     Copy body
@@ -603,49 +606,49 @@ export default function LotDetailPage() {
                     maxHeight: 240,
                     overflow: 'auto',
                   }}
-                  dangerouslySetInnerHTML={{ __html: displayedEmailBody }}
+                  dangerouslySetInnerHTML={{ __html: emailBody }}
                 />
                 <div style={{ marginTop: 8 }}>
                   <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>
-                    Edit HTML body preview
+                    Custom introduction text (table is locked)
                   </label>
                   <textarea
-                    value={customEmailBody}
-                    onChange={(e) => {
-                      setCustomEmailBody(e.target.value)
-                      setBodyDirty(true)
-                    }}
+                    value={introText}
+                    onChange={(e) => setIntroText(e.target.value)}
+                    placeholder="Add a short greeting or note before the table. Table rows stay locked."
                     style={{
                       width: '100%',
-                      minHeight: 160,
+                      minHeight: 80,
                       borderRadius: 12,
                       border: '1px solid var(--border)',
                       padding: 10,
                       background: 'var(--panel)',
                       color: 'var(--text)',
-                      fontFamily: 'monospace',
-                      fontSize: 12,
+                      fontFamily: 'inherit',
+                      fontSize: 13,
                     }}
                   />
-                  {bodyDirty ? (
-                    <button
-                      onClick={() => {
-                        setBodyDirty(false)
-                        setCustomEmailBody(emailBody)
-                      }}
-                      style={{
-                        marginTop: 6,
-                        padding: '6px 10px',
-                        borderRadius: 8,
-                        border: '1px solid var(--border)',
-                        background: 'var(--surface-2)',
-                        cursor: 'pointer',
-                        fontSize: 12,
-                      }}
-                    >
-                      Reset preview
-                    </button>
-                  ) : null}
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>
+                    Custom closing text (optional)
+                  </label>
+                  <textarea
+                    value={outroText}
+                    onChange={(e) => setOutroText(e.target.value)}
+                    placeholder="Add a quick closing note below the instructions."
+                    style={{
+                      width: '100%',
+                      minHeight: 80,
+                      borderRadius: 12,
+                      border: '1px solid var(--border)',
+                      padding: 10,
+                      background: 'var(--panel)',
+                      color: 'var(--text)',
+                      fontFamily: 'inherit',
+                      fontSize: 13,
+                    }}
+                  />
                 </div>
               </div>
 
