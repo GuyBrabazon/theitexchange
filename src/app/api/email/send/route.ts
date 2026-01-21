@@ -44,6 +44,7 @@ export async function POST(request: Request) {
           { status: 404 }
         )
       }
+      const buyerRow = Array.isArray(deal.buyer) ? deal.buyer[0] : deal.buyer
 
       const { data: thread, error: threadErr } = await supa
         .from('deal_threads')
@@ -93,7 +94,7 @@ export async function POST(request: Request) {
         buildDealSubject(subjectTemplate || deal.title || 'Deal conversation', subjectKey ?? thread.subject_key)
       const body = buildDealBody({
         lines: linesForEmail,
-        buyerName: buyerName ?? deal.buyer?.name ?? deal.buyer?.company ?? undefined,
+        buyerName: buyerName ?? buyerRow?.name ?? buyerRow?.company ?? undefined,
         message: personalMessage,
         currencySymbol,
       })
