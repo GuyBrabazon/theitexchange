@@ -17,6 +17,14 @@ export async function POST(request: Request) {
     }
 
     const supa = supabaseServer()
+    const authHeader =
+      request.headers.get('Authorization') ?? request.headers.get('authorization') ?? undefined
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring('Bearer '.length)
+      if (token) {
+        supa.auth.setAuth(token)
+      }
+    }
     const {
       data: { user },
       error: userErr,

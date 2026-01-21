@@ -302,9 +302,14 @@ export default function LotDetailPage() {
     setIsSendingEmail(true)
     setBatchMessage('')
     try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData?.session?.access_token
+      const headers: HeadersInit = { 'Content-Type': 'application/json' }
+      if (token) headers.Authorization = `Bearer ${token}`
+
       const resp = await fetch('/api/email/send', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ batchId: selectedBatchId, toEmail: recipientEmail, buyerName }),
       })
       const payload = await resp.json().catch(() => ({}))
