@@ -2,10 +2,11 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { buildBatchBody, buildBatchSubject, EmailLine, getCurrencySymbol } from '@/lib/emailBatch'
 
 type LotRow = {
   id: string
@@ -26,6 +27,7 @@ type LineItemRow = {
   asking_price: number | null
   serial_tag: string | null
   model: string | null
+  line_ref: string | null
 }
 
 type InviteRow = {
@@ -45,6 +47,16 @@ type OfferRow = {
   invite_id: string | null
 }
 
+type BatchRow = {
+  id: string
+  lot_id: string
+  batch_key: string
+  subject: string | null
+  currency: string | null
+  status: string | null
+  created_at: string | null
+}
+
 export default function LotDetailPage() {
   const router = useRouter()
   const params = useParams()
@@ -56,6 +68,14 @@ export default function LotDetailPage() {
   const [lines, setLines] = useState<LineItemRow[]>([])
   const [invites, setInvites] = useState<InviteRow[]>([])
   const [offers, setOffers] = useState<OfferRow[]>([])
+  const [tenantId, setTenantId] = useState('')
+  const [batches, setBatches] = useState<BatchRow[]>([])
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null)
+  const [recipientEmail, setRecipientEmail] = useState('')
+  const [buyerName, setBuyerName] = useState('')
+  const [batchMessage, setBatchMessage] = useState('')
+  const [isCreatingBatch, setIsCreatingBatch] = useState(false)
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -91,9 +111,10 @@ export default function LotDetailPage() {
         if (lotErr) throw lotErr
         if (!lotData) throw new Error('Lot not found')
         setLot(lotData as LotRow)
+        setTenantId(tenantId)
 
         const [linesRes, invitesRes, offersRes] = await Promise.all([
-          supabase.from('line_items').select('id,description,qty,asking_price,serial_tag,model').eq('lot_id', lotId).order('created_at', { ascending: true }),
+          supabase.from('line_items').select('id,description,qty,asking_price,serial_tag,model,line_ref').eq('lot_id', lotId).order('created_at', { ascending: true }),
           supabase
             .from('lot_invites')
             .select('id,status,created_at,token,buyers(name,company,email)')
@@ -133,6 +154,7 @@ export default function LotDetailPage() {
             } as InviteRow
           }) ?? []
         setInvites(inviteRows)
+        setRecipientEmail((prev) => prev || inviteRows[0]?.buyers?.email || '')
 
         const offerRows =
           (Array.isArray(offersRes.data) ? offersRes.data : []).map((row) => {
@@ -153,6 +175,7 @@ export default function LotDetailPage() {
             } as OfferRow
           }) ?? []
         setOffers(offerRows)
+        await fetchBatches(tenantId)
       } catch (e: unknown) {
         console.error(e)
         const msg = e instanceof Error ? e.message : 'Failed to load lot'
@@ -163,13 +186,154 @@ export default function LotDetailPage() {
     }
 
     load()
-  }, [lotId, router])
+  }, [lotId, router, fetchBatches])
 
   const fmtDate = (ts: string | null | undefined) => {
     if (!ts) return 'n/a'
     const d = new Date(ts)
     if (Number.isNaN(d.getTime())) return ts
     return d.toLocaleString()
+  }
+
+  const fetchBatches = useCallback(
+    async (tenant: string) => {
+      try {
+        const { data, error } = await supabase
+          .from('lot_email_batches')
+          .select('id,lot_id,batch_key,subject,currency,status,created_at')
+          .eq('tenant_id', tenant)
+          .eq('lot_id', lotId)
+          .order('created_at', { ascending: false })
+        if (error) {
+          console.warn('Failed to load batches', error)
+          return
+        }
+        const rows = (data ?? []) as BatchRow[]
+        setBatches(rows)
+        setSelectedBatchId((prev) => (prev && rows.some((batch) => batch.id === prev) ? prev : rows[0]?.id ?? null))
+      } catch (err) {
+        console.error('batch load error', err)
+      }
+    },
+    [lotId]
+  )
+
+  const generateBatchKey = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    let suffix = ''
+    for (let i = 0; i < 8; i += 1) {
+      suffix += chars[Math.floor(Math.random() * chars.length)]
+    }
+    return `LOT-${suffix}`
+  }
+
+  const emailLines = useMemo<EmailLine[]>(
+    () =>
+      lines.map((line) => ({
+        lineRef: line.line_ref ?? '',
+        model: line.model,
+        description: line.description,
+        qty: typeof line.qty === 'number' ? line.qty : null,
+      })),
+    [lines]
+  )
+
+  const activeBatch = useMemo(
+    () => batches.find((batch) => batch.id === selectedBatchId) ?? batches[0] ?? null,
+    [batches, selectedBatchId]
+  )
+  const batchCurrencySymbol = getCurrencySymbol(activeBatch?.currency ?? lot?.currency)
+  const emailSubject = activeBatch?.subject ?? ''
+  const emailBody = activeBatch ? buildBatchBody({ lines: emailLines, currencySymbol: batchCurrencySymbol, buyerName }) : ''
+
+  const handleCreateBatch = async () => {
+    if (!tenantId || !lot) return
+    setIsCreatingBatch(true)
+    setBatchMessage('')
+    const currentUser = await supabase.auth.getUser()
+    const creatorId = currentUser.data?.user?.id ?? null
+    try {
+      let attempts = 0
+      while (attempts < 3) {
+        attempts += 1
+        const batchKey = generateBatchKey()
+        const subject = buildBatchSubject(batchKey, lot.type || lot.title || 'Lot')
+        const { data, error } = await supabase
+          .from('lot_email_batches')
+          .insert({
+            tenant_id: tenantId,
+            lot_id: lot.id,
+            batch_key: batchKey,
+            subject,
+            currency: lot.currency || 'USD',
+            status: 'draft',
+            created_by: creatorId,
+          })
+          .select('id,lot_id,batch_key,subject,currency,status,created_at')
+          .single()
+        if (error) {
+          if ((error as { code?: string }).code === '23505' && attempts < 3) {
+            continue
+          }
+          setBatchMessage(error.message)
+          return
+        }
+        if (data) {
+          setBatches((prev) => [data, ...prev])
+          setSelectedBatchId(data.id)
+          setBatchMessage('Batch created. Copy the subject/body below.')
+          return
+        }
+      }
+    } finally {
+      setIsCreatingBatch(false)
+    }
+  }
+
+  const handleSendEmail = async () => {
+    if (!selectedBatchId || !recipientEmail) return
+    setIsSendingEmail(true)
+    setBatchMessage('')
+    try {
+      const resp = await fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ batchId: selectedBatchId, toEmail: recipientEmail, buyerName }),
+      })
+      const payload = await resp.json().catch(() => ({}))
+      if (!resp.ok) {
+        throw new Error(payload?.message || 'Failed to send email')
+      }
+      setBatchMessage('Email sent via Outlook.')
+      await fetchBatches(tenantId)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Send failed'
+      setBatchMessage(msg)
+    } finally {
+      setIsSendingEmail(false)
+    }
+  }
+
+  const handleMarkSent = async () => {
+    if (!selectedBatchId) return
+    setBatchMessage('')
+    const { error } = await supabase.from('lot_email_batches').update({ status: 'sent' }).eq('id', selectedBatchId)
+    if (error) {
+      setBatchMessage(error.message)
+      return
+    }
+    setBatchMessage('Marked as sent.')
+    await fetchBatches(tenantId)
+  }
+
+  const copyText = async (text: string) => {
+    if (!text) return
+    try {
+      await navigator.clipboard.writeText(text)
+      setBatchMessage('Copied to clipboard.')
+    } catch {
+      setBatchMessage('Clipboard not available')
+    }
   }
 
   if (loading) {
@@ -180,7 +344,7 @@ export default function LotDetailPage() {
             ← Back to lots
           </Link>
         </div>
-        <div>Loading lot…</div>
+        <div>Loading lot...</div>
       </main>
     )
   }
@@ -211,8 +375,8 @@ export default function LotDetailPage() {
           </div>
           <h1 style={{ margin: 0 }}>{lot.title || '(Untitled lot)'}</h1>
           <div style={{ color: 'var(--muted)' }}>
-            Type: <b style={{ color: 'var(--text)' }}>{lot.type || 'n/a'}</b> · Status:{' '}
-            <b style={{ color: 'var(--text)' }}>{lot.status || 'n/a'}</b> · Currency:{' '}
+            Type: <b style={{ color: 'var(--text)' }}>{lot.type || 'n/a'}</b> - Status:{' '}
+            <b style={{ color: 'var(--text)' }}>{lot.status || 'n/a'}</b> - Currency:{' '}
             <b style={{ color: 'var(--text)' }}>{lot.currency || 'n/a'}</b>
           </div>
           <div style={{ color: 'var(--muted)', marginTop: 4, fontSize: 12 }}>Created: {fmtDate(lot.created_at)}</div>
@@ -274,6 +438,166 @@ export default function LotDetailPage() {
             boxShadow: 'var(--shadow)',
           }}
         >
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline', flexWrap: 'wrap' }}>
+            <div style={{ fontWeight: 950 }}>Email batch</div>
+            <button
+              onClick={handleCreateBatch}
+              disabled={!lot || isCreatingBatch}
+              style={{
+                padding: '8px 12px',
+                borderRadius: 10,
+                border: '1px solid var(--border)',
+                background: isCreatingBatch ? 'var(--surface-2)' : 'var(--panel)',
+                cursor: isCreatingBatch ? 'wait' : 'pointer',
+                fontWeight: 900,
+              }}
+            >
+                    {isCreatingBatch ? 'Creating...' : 'Create batch'}
+            </button>
+          </div>
+          {activeBatch ? (
+            <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
+              <div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>Subject</div>
+                <div style={{ fontWeight: 900, wordBreak: 'break-word' }}>{emailSubject || 'Subject will appear after creating a batch'}</div>
+                <button
+                  onClick={() => copyText(emailSubject)}
+                  disabled={!emailSubject}
+                  style={{
+                    marginTop: 6,
+                    padding: '6px 10px',
+                    borderRadius: 8,
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface-2)',
+                    cursor: emailSubject ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  Copy subject
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gap: 6 }}>
+                <label style={{ fontSize: 12, color: 'var(--muted)' }}>Send to email</label>
+                <input
+                  type="email"
+                  placeholder="buyer@example.com"
+                  value={recipientEmail}
+                  onChange={(e) => setRecipientEmail(e.target.value)}
+                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                />
+                <label style={{ fontSize: 12, color: 'var(--muted)' }}>Buyer name (optional)</label>
+                <input
+                  value={buyerName}
+                  onChange={(e) => setBuyerName(e.target.value)}
+                  placeholder="Buyer Name"
+                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)' }}
+                />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={handleSendEmail}
+                    disabled={!recipientEmail || isSendingEmail}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      borderRadius: 10,
+                      border: '1px solid var(--border)',
+                      background: isSendingEmail ? 'var(--surface-2)' : 'linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%)',
+                      color: isSendingEmail ? 'var(--muted)' : '#fff',
+                      cursor: isSendingEmail ? 'wait' : recipientEmail ? 'pointer' : 'not-allowed',
+                      fontWeight: 900,
+                    }}
+                  >
+                    {isSendingEmail ? 'Sending...' : 'Send via Outlook'}
+                  </button>
+                  <button
+                    onClick={handleMarkSent}
+                    disabled={activeBatch.status === 'sent'}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      borderRadius: 10,
+                      border: '1px solid var(--border)',
+                      background: activeBatch.status === 'sent' ? 'var(--surface-2)' : 'var(--panel)',
+                      cursor: activeBatch.status === 'sent' ? 'not-allowed' : 'pointer',
+                      fontWeight: 900,
+                    }}
+                  >
+                    {activeBatch.status === 'sent' ? 'Marked sent' : 'Mark as sent'}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>HTML body preview</div>
+                  <button
+                    onClick={() => copyText(emailBody)}
+                    disabled={!emailBody}
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: 8,
+                      border: '1px solid var(--border)',
+                      background: 'var(--surface-2)',
+                      cursor: emailBody ? 'pointer' : 'not-allowed',
+                    }}
+                  >
+                    Copy body
+                  </button>
+                </div>
+                <div
+                  style={{
+                    border: '1px solid var(--border)',
+                    borderRadius: 12,
+                    padding: 10,
+                    background: 'var(--surface-2)',
+                    fontSize: 13,
+                    color: 'var(--text)',
+                    maxHeight: 240,
+                    overflow: 'auto',
+                  }}
+                  dangerouslySetInnerHTML={{ __html: emailBody }}
+                />
+              </div>
+
+              <div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Available batches</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {batches.map((batch) => (
+                    <button
+                      key={batch.id}
+                      onClick={() => setSelectedBatchId(batch.id)}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: 8,
+                        border: '1px solid var(--border)',
+                        background: batch.id === activeBatch?.id ? 'var(--surface)' : 'var(--panel)',
+                        cursor: 'pointer',
+                        fontWeight: 700,
+                      }}
+                    >
+                      {batch.batch_key}
+                      <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--muted)' }}>{batch.status || 'draft'}</span>
+                    </button>
+                  ))}
+                  {batches.length === 0 ? <div style={{ color: 'var(--muted)' }}>No batches yet.</div> : null}
+                </div>
+              </div>
+              {batchMessage ? <div style={{ color: 'var(--accent)', fontSize: 12 }}>{batchMessage}</div> : null}
+            </div>
+          ) : (
+            <div style={{ color: 'var(--muted)', marginTop: 10 }}>Create a batch to preview the email content.</div>
+          )}
+        </section>
+
+        <section
+          style={{
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--r-lg)' as CSSProperties['borderRadius'],
+            padding: 14,
+            background: 'var(--panel)',
+            boxShadow: 'var(--shadow)',
+          }}
+        >
           <div style={{ fontWeight: 950, marginBottom: 8 }}>Line items</div>
           {lines.length === 0 ? (
             <div style={{ color: 'var(--muted)' }}>No line items yet.</div>
@@ -286,7 +610,7 @@ export default function LotDetailPage() {
                 >
                   <div style={{ fontWeight: 900 }}>{l.description || '(No description)'}</div>
                   <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>
-                    Qty: {l.qty ?? 'n/a'} · Asking: {l.asking_price ?? 'n/a'} · Model: {l.model || 'n/a'}
+                    Qty: {l.qty ?? 'n/a'} - Asking: {l.asking_price ?? 'n/a'} - Model: {l.model || 'n/a'}
                   </div>
                   {l.serial_tag ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>Serial: {l.serial_tag}</div> : null}
                 </div>
@@ -324,11 +648,11 @@ export default function LotDetailPage() {
                     <div style={{ color: 'var(--muted)', fontSize: 12 }}>{fmtDate(inv.created_at)}</div>
                   </div>
                   <div style={{ color: 'var(--muted)', fontSize: 12 }}>
-                    {inv.buyers?.company || 'No company'} · {inv.buyers?.email || 'No email'} · Status: {inv.status || 'invited'}
+                    {inv.buyers?.company || 'No company'} - {inv.buyers?.email || 'No email'} - Status: {inv.status || 'invited'}
                   </div>
                   {inv.token ? (
                     <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>
-                      Invite link token: {inv.token.slice(0, 8)}…
+                      Invite link token: {inv.token.slice(0, 8)}...
                     </div>
                   ) : null}
                 </div>
@@ -363,7 +687,7 @@ export default function LotDetailPage() {
                     <div style={{ color: 'var(--muted)', fontSize: 12 }}>{fmtDate(off.created_at)}</div>
                   </div>
                   <div style={{ color: 'var(--muted)', fontSize: 12 }}>
-                    Total: {off.total_offer ?? 'n/a'} · Status: {off.status || 'new'} {off.invite_id ? `· Invite ${off.invite_id.slice(0, 6)}…` : ''}
+                    Total: {off.total_offer ?? 'n/a'} - Status: {off.status || 'new'} {off.invite_id ? `- Invite ${off.invite_id.slice(0, 6)}...` : ''}
                   </div>
                 </div>
               ))}
