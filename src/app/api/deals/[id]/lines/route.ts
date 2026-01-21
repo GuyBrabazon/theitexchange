@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { insertDealLine } from '@/lib/deals'
 
+type DealLinesRouteContext =
+  | { params: { id: string } }
+  | { params: Promise<{ id: string }> }
+
 export const runtime = 'nodejs'
 
-export async function POST(request: NextRequest, context: { params: { id: string } }) {
+export async function POST(request: NextRequest, context: DealLinesRouteContext) {
   const auth = await requireAuth(request)
   if (auth instanceof NextResponse) {
     return auth
@@ -29,7 +33,7 @@ export async function POST(request: NextRequest, context: { params: { id: string
       return NextResponse.json({ ok: false, message: 'source and line_ref are required' }, { status: 400 })
     }
     const dealLine = await insertDealLine(auth.supa, {
-      deal_id: context.params.id,
+      deal_id: (await context.params).id,
       tenant_id: auth.tenantId,
       source,
       line_ref,
