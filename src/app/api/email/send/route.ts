@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring('Bearer '.length)
       if (token) {
-        supa.auth.setAuth(token)
+        await supa.auth.setSession({ access_token: token })
       }
     }
     const {
