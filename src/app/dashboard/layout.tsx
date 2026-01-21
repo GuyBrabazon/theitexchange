@@ -539,7 +539,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </Section>
 
         <Section title="Sales">
-          <NavItem href="/dashboard/lots" label="Auctions" importance="primary" icon="gavel" />
+          <NavItem href="/dashboard/deals" label="Deals" importance="primary" icon="gavel" />
           <NavItem href="/dashboard/quoting" label="Quoting" importance="normal" icon="mail" />
           <NavItem href="/dashboard/buyers" label="Customers" importance="normal" icon="groups" />
         </Section>
