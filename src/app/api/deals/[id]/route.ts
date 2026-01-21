@@ -53,3 +53,31 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     return NextResponse.json({ ok: false, message: (error as Error).message }, { status: 500 })
   }
 }
+
+export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+  const auth = await requireAuth(request)
+  if (auth instanceof NextResponse) {
+    return auth
+  }
+
+  const { status, stage_notes } = await request.json().catch(() => ({}))
+  if (!status && stage_notes === undefined) {
+    return NextResponse.json({ ok: false, message: 'Nothing to update' }, { status: 400 })
+  }
+
+  try {
+    const { error } = await auth.supa
+      .from('deals')
+      .update({
+        status: status ?? undefined,
+        stage_notes: stage_notes ?? undefined,
+        last_activity_at: new Date().toISOString(),
+      })
+      .eq('tenant_id', auth.tenantId)
+      .eq('id', params.id)
+    if (error) throw error
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    return NextResponse.json({ ok: false, message: (error as Error).message }, { status: 500 })
+  }
+}

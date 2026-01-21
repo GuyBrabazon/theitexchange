@@ -1,7 +1,8 @@
 'use client'
 
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { Dispatch, FormEvent, SetStateAction, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { buildDealBody, buildDealSubject, getCurrencySymbol } from '@/lib/dealEmail'
 
 type DealDetail = {
   id: string
@@ -60,6 +61,21 @@ type EmailOffer = {
   email_offer_lines: OfferLine[]
 }
 
+type BuyerProfile = {
+  id: string
+  name: string | null
+  company: string | null
+  email: string | null
+  oem_tags: string[] | null
+  model_tags: string[] | null
+  tags: string[] | null
+}
+
+type Recommendation = {
+  buyer: BuyerProfile
+  score: number
+}
+
 const statusOptions = [
   'draft',
   'outreach',
@@ -94,6 +110,15 @@ export default function DealDetailPage() {
   const [subjectTemplate, setSubjectTemplate] = useState('')
   const [threadLoading, setThreadLoading] = useState(false)
   const [threadMessage, setThreadMessage] = useState('')
+  const [statusMessage, setStatusMessage] = useState('')
+  const [buyers, setBuyers] = useState<BuyerProfile[]>([])
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([])
+  const [subjectKey, setSubjectKey] = useState<string | null>(null)
+  const [personalMessage, setPersonalMessage] = useState(
+    'Reply in the Offer column; prefix totals with “total:” and we will interpret per-unit automatically.'
+  )
+  const [subjectCopyMessage, setSubjectCopyMessage] = useState('')
+  const [bodyCopyMessage, setBodyCopyMessage] = useState('')
 
   useEffect(() => {
     if (!dealId) {
@@ -122,6 +147,7 @@ export default function DealDetailPage() {
           setStatus(payload.deal?.status ?? 'draft')
           setThreadEmail(payload.deal?.buyer?.email ?? '')
           setSubjectTemplate(payload.deal?.title ? `${payload.deal.title} [DL-XXXXXX]` : '')
+          setSubjectKey(payload.threads?.[0]?.subject_key ?? null)
         } else {
           setError(payload.message ?? 'Deal not found')
           setDeal(null)
@@ -144,7 +170,98 @@ export default function DealDetailPage() {
 
   const totalQuantity = useMemo(() => lines.reduce((sum, line) => sum + (line.qty ?? 0), 0), [lines])
   const parsedOfferCount = offers.length
+  const scoringTokens = useMemo(() => {
+    const tokens: Set<string> = new Set()
+    lines.forEach((line) => {
+      const sourceStr = (line.model ?? line.description ?? '').toLowerCase()
+      sourceStr
+        .split(/[\s\-_\/]+/)
+        .filter((token) => token.length >= 3)
+        .forEach((token) => tokens.add(token))
+    })
+    return tokens
+  }, [lines])
 
+  useEffect(() => {
+    fetch('/api/buyers/list')
+      .then((res) => res.json())
+      .then((payload) => {
+        if (payload.ok) {
+          setBuyers(payload.buyers ?? [])
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const recs = buyers
+      .map((buyer) => {
+        let score = 0
+        const oemTags = (buyer.oem_tags ?? []).map((tag) => tag.toLowerCase())
+        const modelTags = (buyer.model_tags ?? []).map((tag) => tag.toLowerCase())
+        const secondaryTags = new Set((buyer.tags ?? []).map((tag) => tag.toLowerCase()))
+        lines.forEach((line) => {
+          const oem = (line.oem ?? '').toLowerCase()
+          if (oem && oemTags.includes(oem)) {
+            score += 3
+          }
+          scoringTokens.forEach((token) => {
+            if (modelTags.includes(token)) {
+              score += 2
+            }
+          })
+          if (line.source && secondaryTags.has(line.source.toLowerCase())) {
+            score += 1
+          }
+        })
+        return { buyer, score }
+      })
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+    setRecommendations(recs)
+  }, [buyers, lines, scoringTokens])
+
+  const computedSubjectKey = subjectKey ?? threads[0]?.subject_key ?? 'DL-XXXXXX'
+  const subjectPreview = buildDealSubject(subjectTemplate || 'Deal conversation', computedSubjectKey)
+  const currencySymbol = getCurrencySymbol(deal?.currency)
+  const bodyHtml = buildDealBody({
+    lines,
+    buyerName: deal?.buyer?.name ?? deal?.buyer?.company,
+    message: personalMessage,
+    currencySymbol,
+  })
+
+  const copyToClipboard = async (text: string, setter: Dispatch<SetStateAction<string>>) => {
+    if (!navigator?.clipboard) {
+      setter('Clipboard not available')
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(text)
+      setter('Copied!')
+      setTimeout(() => setter(''), 1500)
+    } catch {
+      setter('Failed to copy')
+    }
+  }
+
+  const handleStatusChange = async (value: string) => {
+    if (!dealId) return
+    setStatus(value)
+    setStatusMessage('Saving status…')
+    try {
+      const res = await fetch(`/api/deals/${dealId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: value }),
+      })
+      const payload = await res.json()
+      setStatusMessage(payload.ok ? 'Status saved' : payload.message ?? 'Unable to save status')
+    } catch {
+      setStatusMessage('Unable to save status')
+    }
+  }
   const handleCreateThread = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!dealId) return
@@ -163,6 +280,7 @@ export default function DealDetailPage() {
       if (payload.ok) {
         setThreads((prev) => [payload.thread, ...prev])
         setThreadMessage('Thread created — copy subject with key.')
+        setSubjectKey(payload.thread.subject_key)
       } else {
         setThreadMessage(payload.message ?? 'Unable to create thread.')
       }
@@ -192,13 +310,14 @@ export default function DealDetailPage() {
         </div>
         <div style={{ display: 'grid', gap: 6, minWidth: 200 }}>
           <label style={{ fontSize: 12, color: 'var(--muted)' }}>Status</label>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="ui-select">
+          <select value={status} onChange={(e) => handleStatusChange(e.target.value)} className="ui-select">
             {statusOptions.map((value) => (
               <option key={value} value={value}>
                 {value.replace(/^\w/, (c) => c.toUpperCase())}
               </option>
             ))}
           </select>
+          {statusMessage ? <span style={{ fontSize: 12, color: 'var(--muted)' }}>{statusMessage}</span> : null}
         </div>
       </div>
 
@@ -293,35 +412,93 @@ export default function DealDetailPage() {
               gap: 12,
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <strong>Recommended buyers</strong>
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>{recommendations.length} match(es)</span>
+            </div>
+            {recommendations.length ? (
+              <div style={{ display: 'grid', gap: 10 }}>
+                {recommendations.map((rec) => (
+                  <div
+                    key={rec.buyer.id}
+                    style={{
+                      border: '1px solid var(--border)',
+                      borderRadius: 12,
+                      padding: 10,
+                      background: 'var(--panel)',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: 8,
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 700 }}>{rec.buyer.name ?? rec.buyer.email ?? 'Buyer'}</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>{rec.buyer.company ?? '—'}</div>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>Score {rec.score}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                No recommendations yet. Add OEM/model interests to buyers to activate scores.
+              </div>
+            )}
+          </section>
+
+          <section
+            style={{
+              padding: 16,
+              borderRadius: 16,
+              border: '1px solid var(--border)',
+              background: 'var(--surface)',
+              display: 'grid',
+              gap: 16,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
               <div>
                 <strong style={{ display: 'block' }}>Compose email</strong>
-                <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-                  Subject needs [DL-XXXXXX] key to link replies automatically.
-                </span>
+                <p style={{ margin: '4px 0', fontSize: 12, color: 'var(--muted)' }}>
+                  Subject key <span style={{ fontWeight: 700 }}>{computedSubjectKey}</span> is required for replies.
+                </p>
               </div>
-              <span style={{ fontSize: 12, color: 'var(--muted)' }}>{deal.currency ?? 'USD'}</span>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className="ui-btn"
+                  style={{ padding: '6px 12px' }}
+                  onClick={() => copyToClipboard(subjectPreview, setSubjectCopyMessage)}
+                >
+                  Copy subject
+                </button>
+                <button
+                  type="button"
+                  className="ui-btn"
+                  style={{ padding: '6px 12px' }}
+                  onClick={() => copyToClipboard(bodyHtml, setBodyCopyMessage)}
+                >
+                  Copy body
+                </button>
+              </div>
             </div>
-            <form onSubmit={handleCreateThread} style={{ display: 'grid', gap: 8 }}>
-              <div style={{ display: 'grid', gap: 6 }}>
-                <label style={{ fontSize: 12, color: 'var(--muted)' }}>Buyer email</label>
-                <input
-                  type="email"
-                  value={threadEmail}
-                  onChange={(e) => setThreadEmail(e.target.value)}
-                  className="ui-input"
-                />
-              </div>
-              <div style={{ display: 'grid', gap: 6 }}>
-                <label style={{ fontSize: 12, color: 'var(--muted)' }}>Subject template</label>
-                <input
-                  type="text"
-                  value={subjectTemplate}
-                  onChange={(e) => setSubjectTemplate(e.target.value)}
-                  placeholder="Your subject here"
-                  className="ui-input"
-                />
-              </div>
+            <div style={{ display: 'grid', gap: 6 }}>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Buyer email</label>
+              <input type="email" value={threadEmail} onChange={(e) => setThreadEmail(e.target.value)} className="ui-input" />
+            </div>
+            <div style={{ display: 'grid', gap: 6 }}>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Subject template</label>
+              <input
+                type="text"
+                value={subjectTemplate}
+                onChange={(e) => setSubjectTemplate(e.target.value)}
+                placeholder="Your subject here"
+                className="ui-input"
+              />
+              {subjectCopyMessage ? <span style={{ fontSize: 12, color: 'var(--muted)' }}>{subjectCopyMessage}</span> : null}
+            </div>
+            <form onSubmit={handleCreateThread} style={{ display: 'grid', gap: 6 }}>
               <button type="submit" className="ui-btn" disabled={threadLoading}>
                 {threadLoading ? 'Creating thread…' : 'Generate subject key'}
               </button>
@@ -329,6 +506,30 @@ export default function DealDetailPage() {
                 <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>{threadMessage}</p>
               ) : null}
             </form>
+            <div style={{ display: 'grid', gap: 6 }}>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>Personal note (included above the table)</label>
+              <textarea
+                value={personalMessage}
+                onChange={(e) => setPersonalMessage(e.target.value)}
+                className="ui-textarea"
+                rows={3}
+              />
+            </div>
+            <div style={{ display: 'grid', gap: 6 }}>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>HTML body preview</label>
+              <div
+                style={{
+                  border: '1px solid var(--border)',
+                  borderRadius: 12,
+                  padding: 12,
+                  background: 'var(--panel)',
+                  fontSize: 13,
+                  overflow: 'auto',
+                }}
+                dangerouslySetInnerHTML={{ __html: bodyHtml }}
+              />
+              {bodyCopyMessage ? <span style={{ fontSize: 12, color: 'var(--muted)' }}>{bodyCopyMessage}</span> : null}
+            </div>
           </section>
 
           <section
