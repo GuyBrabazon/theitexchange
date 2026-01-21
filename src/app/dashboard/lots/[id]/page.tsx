@@ -28,6 +28,7 @@ type LineItemRow = {
   serial_tag: string | null
   model: string | null
   line_ref: string | null
+  inventory_items?: { id?: string | null; sku?: string | null; model?: string | null; description?: string | null }
 }
 
 type InviteRow = {
@@ -137,7 +138,11 @@ export default function LotDetailPage() {
         setTenantId(tenantId)
 
         const [linesRes, invitesRes, offersRes] = await Promise.all([
-          supabase.from('line_items').select('id,description,qty,asking_price,serial_tag,model,line_ref').eq('lot_id', lotId).order('created_at', { ascending: true }),
+        supabase
+          .from('line_items')
+          .select('id,description,qty,asking_price,serial_tag,model,line_ref,inventory_items:inventory_items(id,sku,model,description)')
+          .eq('lot_id', lotId)
+          .order('created_at', { ascending: true }),
           supabase
             .from('lot_invites')
             .select('id,status,created_at,token,buyers(name,company,email)')
@@ -228,13 +233,16 @@ export default function LotDetailPage() {
   }
 
   const emailLines = useMemo<EmailLine[]>(() => {
-    return lines.map((line) => ({
-      lineRef: line.line_ref ?? '',
-      partNumber: line.model ?? '',
-      description: line.description ?? '',
-      qty: typeof line.qty === 'number' ? line.qty : null,
-      askingPrice: line.asking_price ?? null,
-    }))
+    return lines.map((line) => {
+      const inventory = line.inventory_items
+      return {
+        lineRef: line.line_ref ?? '',
+        partNumber: inventory?.sku ?? inventory?.model ?? line.model ?? '',
+        description: line.description ?? inventory?.description ?? '',
+        qty: typeof line.qty === 'number' ? line.qty : null,
+        askingPrice: line.asking_price ?? null,
+      }
+    })
   }, [lines])
 
   const activeBatch = useMemo(
@@ -602,18 +610,23 @@ export default function LotDetailPage() {
             <div style={{ color: 'var(--muted)' }}>No line items yet.</div>
           ) : (
             <div style={{ display: 'grid', gap: 10 }}>
-              {lines.map((l) => (
-                <div
-                  key={l.id}
-                  style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 10, background: 'rgba(15,23,42,0.02)' }}
-                >
-                  <div style={{ fontWeight: 900 }}>{l.description || '(No description)'}</div>
-                  <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>
-                    Qty: {l.qty ?? 'n/a'} - Asking: {l.asking_price ?? 'n/a'} - Model: {l.model || 'n/a'}
+              {lines.map((l) => {
+                const inventory = l.inventory_items
+                const displayDescription = l.description || inventory?.description
+                const displayModel = inventory?.sku ?? inventory?.model ?? l.model
+                return (
+                  <div
+                    key={l.id}
+                    style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 10, background: 'rgba(15,23,42,0.02)' }}
+                  >
+                    <div style={{ fontWeight: 900 }}>{displayDescription || '(No description)'}</div>
+                    <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>
+                      Qty: {l.qty ?? 'n/a'} - Asking: {l.asking_price ?? 'n/a'} - Model: {displayModel || 'n/a'}
+                    </div>
+                    {l.serial_tag ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>Serial: {l.serial_tag}</div> : null}
                   </div>
-                  {l.serial_tag ? <div style={{ color: 'var(--muted)', fontSize: 12 }}>Serial: {l.serial_tag}</div> : null}
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </section>
