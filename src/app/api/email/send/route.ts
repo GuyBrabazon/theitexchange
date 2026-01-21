@@ -54,14 +54,16 @@ export async function POST(request: Request) {
 
     const { data: lineRows, error: lineErr } = await supa
       .from('line_items')
-      .select('line_ref,model,description,qty,asking_price,inventory_items!line_items_inventory_item_id_fkey(part_number,description)')
+      .select(
+        'line_ref,model,description,qty,asking_price,inventory_items:inventory_items(id,sku,description)'
+      )
       .eq('lot_id', batch.lot_id)
       .order('created_at', { ascending: true })
     if (lineErr) throw lineErr
 
     const lines: EmailLine[] = (lineRows ?? []).map((row) => {
-      const inventory = (row as { inventory_items?: { part_number?: string; description?: string } })?.inventory_items
-      const partNumber = inventory?.part_number ?? (row as { model?: string })?.model ?? ''
+      const inventory = (row as { inventory_items?: { sku?: string; description?: string } })?.inventory_items
+      const partNumber = inventory?.sku ?? (row as { model?: string })?.model ?? ''
       const description =
         (row as { description?: string })?.description ?? inventory?.description ?? null
       return {
