@@ -1,16 +1,18 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { ensureDealThread, generateDealSubjectKey } from '@/lib/deals'
 
+type DealThreadsContext = { params: Promise<{ id: string }> }
+
 export const runtime = 'nodejs'
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, context: DealThreadsContext) {
   const auth = await requireAuth(request)
   if (auth instanceof NextResponse) {
     return auth
   }
   const { supa, tenantId, user } = auth
-  const dealId = params?.id
+  const dealId = (await context.params).id
   if (!dealId) {
     return NextResponse.json({ ok: false, message: 'Deal id missing' }, { status: 400 })
   }
