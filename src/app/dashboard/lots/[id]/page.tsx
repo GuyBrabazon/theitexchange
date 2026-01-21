@@ -77,6 +77,29 @@ export default function LotDetailPage() {
   const [isCreatingBatch, setIsCreatingBatch] = useState(false)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
 
+  const fetchBatches = useCallback(
+    async (tenant: string) => {
+      try {
+        const { data, error } = await supabase
+          .from('lot_email_batches')
+          .select('id,lot_id,batch_key,subject,currency,status,created_at')
+          .eq('tenant_id', tenant)
+          .eq('lot_id', lotId)
+          .order('created_at', { ascending: false })
+        if (error) {
+          console.warn('Failed to load batches', error)
+          return
+        }
+        const rows = (data ?? []) as BatchRow[]
+        setBatches(rows)
+        setSelectedBatchId((prev) => (prev && rows.some((batch) => batch.id === prev) ? prev : rows[0]?.id ?? null))
+      } catch (err) {
+        console.error('batch load error', err)
+      }
+    },
+    [lotId]
+  )
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -188,35 +211,12 @@ export default function LotDetailPage() {
     load()
   }, [lotId, router, fetchBatches])
 
-  const fmtDate = (ts: string | null | undefined) => {
+    const fmtDate = (ts: string | null | undefined) => {
     if (!ts) return 'n/a'
     const d = new Date(ts)
     if (Number.isNaN(d.getTime())) return ts
     return d.toLocaleString()
   }
-
-  const fetchBatches = useCallback(
-    async (tenant: string) => {
-      try {
-        const { data, error } = await supabase
-          .from('lot_email_batches')
-          .select('id,lot_id,batch_key,subject,currency,status,created_at')
-          .eq('tenant_id', tenant)
-          .eq('lot_id', lotId)
-          .order('created_at', { ascending: false })
-        if (error) {
-          console.warn('Failed to load batches', error)
-          return
-        }
-        const rows = (data ?? []) as BatchRow[]
-        setBatches(rows)
-        setSelectedBatchId((prev) => (prev && rows.some((batch) => batch.id === prev) ? prev : rows[0]?.id ?? null))
-      } catch (err) {
-        console.error('batch load error', err)
-      }
-    },
-    [lotId]
-  )
 
   const generateBatchKey = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
