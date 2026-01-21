@@ -63,11 +63,12 @@ export default function DealsPage() {
       setLoading(true)
       setError('')
       try {
-        const { data: session } = await supabase.auth.getSession()
+        const { data } = await supabase.auth.getSession()
+        const token = data?.session?.access_token
         const res = await fetch('/api/deals', {
-          headers: session?.access_token
+          headers: token
             ? {
-                Authorization: `Bearer ${session.access_token}`,
+                Authorization: `Bearer ${token}`,
               }
             : undefined,
           credentials: 'include',
