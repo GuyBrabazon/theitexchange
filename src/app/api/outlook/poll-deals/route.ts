@@ -177,7 +177,7 @@ export async function POST(request: Request) {
           normalizedLineRef,
           qty,
           offerAmount: offerValue.amount,
-          offerType: offerValue.type,
+          offerType: offerValue.type as 'per_unit' | 'total_line' | null,
           parseNotes: notes,
           dealLineId,
         })
