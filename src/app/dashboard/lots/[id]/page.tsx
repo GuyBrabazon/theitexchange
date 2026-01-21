@@ -100,6 +100,22 @@ export default function LotDetailPage() {
   const [batchMessage, setBatchMessage] = useState('')
   const [isCreatingBatch, setIsCreatingBatch] = useState(false)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
+  const runEmailPoll = useCallback(async () => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData?.session?.access_token
+      const headers: HeadersInit = { 'Content-Type': 'application/json' }
+      if (token) {
+        headers.Authorization = `Bearer ${token}`
+      }
+      await fetch('/api/email/poll', {
+        method: 'POST',
+        headers,
+      })
+    } catch (err) {
+      console.warn('email poll skipped', err)
+    }
+  }, [])
 
   const fetchBatches = useCallback(
     async (tenant: string) => {
@@ -159,6 +175,7 @@ export default function LotDetailPage() {
         if (!lotData) throw new Error('Lot not found')
         setLot(lotData as LotRow)
         setTenantId(tenantId)
+        await runEmailPoll()
 
         const [linesRes, invitesRes, offersRes, emailOffersRes] = await Promise.all([
           supabase
@@ -275,7 +292,7 @@ export default function LotDetailPage() {
     }
 
     load()
-  }, [lotId, router, fetchBatches])
+  }, [lotId, router, fetchBatches, runEmailPoll])
 
     const fmtDate = (ts: string | null | undefined) => {
     if (!ts) return 'n/a'
