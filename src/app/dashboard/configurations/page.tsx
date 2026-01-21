@@ -594,7 +594,7 @@ export default function ConfigurationsPage() {
     console.log('Save', kind, { configName, machineType, selectedModelId, rows, advancedValues })
   }
 
-  const compatibilityBadgeText = compatibilityTone === 'good' ? '🟢' : compatibilityTone === 'warn' ? '🟡' : '🔴'
+  const compatibilityBadgeText = compatibilityTone === 'good' ? '🟢' : compatibilityTone === 'warn' ? '🟡' : ''
   return (
     <main className="configPage">
       <header className="headerRow">
