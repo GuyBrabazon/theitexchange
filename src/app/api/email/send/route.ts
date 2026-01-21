@@ -96,7 +96,7 @@ export async function POST(request: Request) {
     const currency = batch.currency ?? lot.currency ?? 'USD'
     const currencySymbol = getCurrencySymbol(currency)
     const subject = batch.subject || buildBatchSubject(batch.batch_key, lot.type || lot.title || 'Lot')
-    const body = customBody ?? buildBatchBody({ lines, currencySymbol, buyerName })
+    const body = buildBatchBody({ lines, currencySymbol, buyerName })
 
     await sendOutlookMail(user.id, toEmail, subject, body)
 
