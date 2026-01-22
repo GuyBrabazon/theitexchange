@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ChangeEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 type DealRow = {
@@ -61,6 +61,9 @@ type BuyerOption = {
   name: string | null
   company: string | null
   email: string | null
+  tags: string[]
+  oem_tags: string[]
+  model_tags: string[]
 }
 
 function generateDealKey() {
@@ -85,9 +88,8 @@ export default function DealsPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [showCreate, setShowCreate] = useState(false)
   const [dealTitle, setDealTitle] = useState('')
-  const [dealMode, setDealMode] = useState<'one-to-many' | 'one-to-one'>('one-to-many')
-  const [dealKey, setDealKey] = useState(generateDealKey())
-  const [dealId, setDealId] = useState<string | null>(null)
+  const [dealMode] = useState<'one-to-many' | 'one-to-one'>('one-to-many')
+  const [dealKey] = useState(generateDealKey())
   const [inventoryItems, setInventoryItems] = useState<InventoryOption[]>([])
   const [buyers, setBuyers] = useState<BuyerOption[]>([])
   const [selectedInventory, setSelectedInventory] = useState<Record<string, { qty: string; ask: string }>>({})
@@ -100,10 +102,221 @@ export default function DealsPage() {
   >([])
   const [uploadFileName, setUploadFileName] = useState('')
   const [uploadError, setUploadError] = useState('')
-  const [creatingDeal, setCreatingDeal] = useState(false)
-  const [createError, setCreateError] = useState('')
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState('')
+  const [modalLoading, setModalLoading] = useState(false)
+
+  const fetchInventoryOptions = useCallback(async () => {
+    setModalLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('inventory_items')
+        .select('id,model,description,qty_available,oem')
+        .order('created_at', { ascending: false })
+        .limit(20)
+      if (!error && data) {
+        setInventoryItems(data.map(mapInventoryRecord))
+      }
+    } finally {
+      setModalLoading(false)
+    }
+  }, [])
+
+  const fetchBuyerOptions = useCallback(async () => {
+    setModalLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('buyers')
+        .select('id,name,company,email,oem_tags,model_tags,tags')
+        .order('created_at', { ascending: false })
+        .limit(50)
+      if (!error && data) {
+        setBuyers(data.map(mapBuyerRecord))
+      }
+    } finally {
+      setModalLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!showCreate) return
+    fetchInventoryOptions()
+    fetchBuyerOptions()
+  }, [showCreate, fetchInventoryOptions, fetchBuyerOptions])
+
+  const handleFileUpload = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0]
+      if (!file) return
+      setUploadFileName(file.name)
+      try {
+        const text = await file.text()
+        const rows = parseCsv(text)
+        const parsed = rows.map((cells) => ({
+          line_ref: cells[0] ?? '',
+          model: cells[1] ?? null,
+          description: cells[2] ?? null,
+          qty: cells[3] ? Number(cells[3]) : null,
+        }))
+        setUploadedRows(parsed)
+        setUploadError('')
+      } catch {
+        setUploadError('Unable to parse file')
+      }
+    },
+    []
+  )
+
+  const toggleInventorySelection = useCallback(
+    (item: InventoryOption) => {
+      setSelectedInventory((prev) => {
+        if (prev[item.id]) {
+          const next = { ...prev }
+          delete next[item.id]
+          return next
+        }
+        return {
+          ...prev,
+          [item.id]: {
+            qty: String(item.qty_available ?? 1),
+            ask: '',
+          },
+        }
+      })
+    },
+    []
+  )
+
+  const toggleBuyer = useCallback(
+    (id: string) => {
+      setSelectedBuyerIds((prev) =>
+        prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]
+      )
+    },
+    []
+  )
+
+  const selectedInventoryLines = useMemo(() => {
+    return Object.entries(selectedInventory)
+      .map(([id, meta]) => {
+        const item = inventoryItems.find((entry) => entry.id === id)
+        if (!item) return null
+        const fallbackRef = `INV-${id.slice(0, 4).toUpperCase()}`
+        const sanitizedRef = (item.model ?? item.description ?? fallbackRef)
+          .toUpperCase()
+          .replace(/[^A-Z0-9]/g, '')
+        return {
+          line_ref: sanitizedRef || fallbackRef,
+          model: item.model,
+          description: item.description,
+          qty: Number(meta.qty) || item.qty_available || null,
+        }
+      })
+      .filter((line): line is { line_ref: string; model: string | null; description: string | null; qty: number | null } => !!line)
+  }, [inventoryItems, selectedInventory])
+
+  const combinedLines = useMemo(
+    () => [...selectedInventoryLines, ...uploadedRows],
+    [selectedInventoryLines, uploadedRows]
+  )
+
+  const previewSubject = offerSubject || `Deal outreach ${dealKey}`
+
+  const recommendedBuyers = useMemo(() => {
+    const tokens = combinedLines
+      .map((line) => `${line.model ?? ''} ${line.description ?? ''}`)
+      .join(' ')
+      .toLowerCase()
+    return buyers
+      .map((buyer) => {
+        let score = 0
+        if (buyer.name && tokens.includes(buyer.name.toLowerCase())) score += 2
+        if (buyer.company && tokens.includes(buyer.company.toLowerCase())) score += 1
+        buyer.oem_tags.forEach((tag) => {
+          if (tokens.includes(tag.toLowerCase())) score += 3
+        })
+        buyer.model_tags.forEach((tag) => {
+          if (tokens.includes(tag.toLowerCase())) score += 2
+        })
+        return { buyer, score }
+      })
+      .sort((a, b) => b.score - a.score)
+  }, [buyers, combinedLines])
+
+  const handleCopy = useCallback(async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value)
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  const handleMarkAsSent = useCallback(async () => {
+    if (!dealTitle.trim()) {
+      setSendError('Provide a deal title before sending.')
+      return
+    }
+    if (!selectedBuyerIds.length) {
+      setSendError('Select at least one buyer.')
+      return
+    }
+    setSending(true)
+    try {
+      const headers = await getAuthHeaders({ 'Content-Type': 'application/json' })
+      const body = {
+        buyer_id: selectedBuyerIds[0],
+        title: dealTitle,
+        currency: 'USD',
+        source: dealMode === 'one-to-one' ? 'flip' : 'inventory',
+        status: 'outreach',
+      }
+      const res = await fetch('/api/deals', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+      })
+      const payload = await res.json()
+      if (!payload.ok || !payload.deal?.id) {
+        throw new Error(payload.message ?? 'Unable to create deal.')
+      }
+      const id = payload.deal.id
+      const threadPromises = selectedBuyerIds.map(async (buyerId) => {
+        const buyer = buyers.find((entry) => entry.id === buyerId)
+        if (!buyer?.email) return
+        const threadRes = await fetch(`/api/deals/${id}/threads`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            buyer_email: buyer.email,
+            buyer_name: buyer.name ?? buyer.company ?? 'Buyer',
+            subject_template: offerSubject || `Deal ${dealTitle}`,
+            subject_key: dealKey,
+          }),
+        })
+        const body = await threadRes.json()
+        if (!body.ok) {
+          throw new Error(body.message ?? `Unable to create thread for ${buyer.email}`)
+        }
+      })
+      await Promise.all(threadPromises)
+      await loadDealsFromServer()
+      setShowCreate(false)
+      setSendError('')
+    } catch (err) {
+      setSendError((err as Error).message ?? 'Failed to mark as sent.')
+    } finally {
+      setSending(false)
+    }
+  }, [
+    buyers,
+    dealKey,
+    dealMode,
+    dealTitle,
+    getAuthHeaders,
+    loadDealsFromServer,
+    offerSubject,
+    selectedBuyerIds,
+  ])
 
   const mapInventoryRecord = (record: Record<string, unknown>): InventoryOption => ({
     id: String(record.id ?? ''),
@@ -117,12 +330,15 @@ export default function DealsPage() {
         : null,
   })
 
-  const mapBuyerRecord = (record: Record<string, unknown>): BuyerOption => ({
-    id: String(record.id ?? ''),
-    name: record.name ? String(record.name) : null,
-    company: record.company ? String(record.company) : null,
-    email: record.email ? String(record.email) : null,
-  })
+const mapBuyerRecord = (record: Record<string, unknown>): BuyerOption => ({
+  id: String(record.id ?? ''),
+  name: record.name ? String(record.name) : null,
+  company: record.company ? String(record.company) : null,
+  email: record.email ? String(record.email) : null,
+  tags: Array.isArray(record.tags) ? (record.tags as string[]) : [],
+  oem_tags: Array.isArray(record.oem_tags) ? (record.oem_tags as string[]) : [],
+  model_tags: Array.isArray(record.model_tags) ? (record.model_tags as string[]) : [],
+})
 
   const getAuthHeaders = useCallback(async (extra: Record<string, string> = {}) => {
     const { data } = await supabase.auth.getSession()
@@ -200,13 +416,14 @@ export default function DealsPage() {
             Manage Outlook-first workflows and record customer outreach.
           </p>
         </div>
-        <Link
-          href="#"
+        <button
+          type="button"
           className="ui-btn ui-btn-primary"
-          style={{ padding: '10px 18px', fontSize: 14, textDecoration: 'none' }}
+          style={{ padding: '10px 18px', fontSize: 14 }}
+          onClick={() => setShowCreate(true)}
         >
           Create deal
-        </Link>
+        </button>
       </div>
 
       <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
@@ -306,6 +523,257 @@ export default function DealsPage() {
               </article>
             </Link>
           ))}
+        </div>
+      )}
+      {showCreate && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.35)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 16,
+            zIndex: 40,
+          }}
+        >
+          <div
+            style={{
+              width: 'min(1100px, 100%)',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              background: 'var(--surface)',
+              borderRadius: 18,
+              padding: 24,
+              boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h2 style={{ margin: 0 }}>Create Deal</h2>
+                <p style={{ margin: '4px 0', color: 'var(--muted)', fontSize: 13 }}>
+                  Define equipment, target buyers, and craft the Outlook email before outreach.
+                </p>
+              </div>
+              <button className="ui-btn ui-btn-ghost" onClick={() => setShowCreate(false)}>
+                Close
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gap: 16, marginTop: 20 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className={`ui-btn ${clickedTab === 'inventory' ? 'ui-btn-primary' : ''}`}
+                  onClick={() => setClickedTab('inventory')}
+                >
+                  Inventory
+                </button>
+                <button
+                  type="button"
+                  className={`ui-btn ${clickedTab === 'upload' ? 'ui-btn-primary' : ''}`}
+                  onClick={() => setClickedTab('upload')}
+                >
+                  Upload XLSX
+                </button>
+              </div>
+
+              {clickedTab === 'inventory' ? (
+                <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+                  {modalLoading ? (
+                    <p>Loading inventory…</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                      {inventoryItems.slice(0, 12).map((item) => (
+                        <label
+                          key={item.id}
+                          style={{
+                            border: '1px solid var(--border)',
+                            borderRadius: 12,
+                            padding: 12,
+                            flex: '1 1 220px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 6,
+                            background: selectedInventory[item.id] ? 'rgba(16,184,129,0.08)' : 'transparent',
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={!!selectedInventory[item.id]}
+                            onChange={() => toggleInventorySelection(item)}
+                          />
+                          <strong>{item.model ?? '(no model)'}</strong>
+                          <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>
+                            {item.description ?? '(no description)'}
+                          </p>
+                          <small>Available: {item.qty_available ?? 'n/a'}</small>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+                  <input type="file" accept=".csv,.xlsx,.txt" onChange={handleFileUpload} />
+                  {uploadFileName && <p style={{ margin: 4 }}>Loaded {uploadFileName}</p>}
+                  {uploadError && (
+                    <p style={{ margin: 4, color: 'var(--bad)' }}>{uploadError}</p>
+                  )}
+                  <div style={{ marginTop: 16 }}>
+                    Uploaded rows:
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                      {uploadedRows.map((row, index) => (
+                        <div
+                          key={`${row.line_ref}-${index}`}
+                          style={{
+                            border: '1px dashed var(--border)',
+                            padding: 8,
+                            borderRadius: 8,
+                            flex: '1 1 150px',
+                          }}
+                        >
+                          <strong>{row.line_ref || 'Line ref missing'}</strong>
+                          <div style={{ fontSize: 12 }}>
+                            {row.model ?? row.description ?? 'No description'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div
+                style={{
+                  border: '1px solid var(--border)',
+                  borderRadius: 12,
+                  padding: 16,
+                  display: 'grid',
+                  gap: 16,
+                }}
+              >
+                <div>
+                  <h4 style={{ margin: '0 0 8px' }}>Target buyers</h4>
+                  <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>
+                    Select the buyers you want to contact. Recommended buyers appear first.
+                  </p>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                  {recommendedBuyers.slice(0, 10).map(({ buyer, score }) => (
+                    <button
+                      key={buyer.id}
+                      type="button"
+                      className="ui-btn ui-btn-ghost"
+                      style={{
+                        borderColor: selectedBuyerIds.includes(buyer.id)
+                          ? 'var(--accent)'
+                          : 'var(--border)',
+                        backgroundColor: selectedBuyerIds.includes(buyer.id)
+                          ? 'rgba(14,165,233,0.1)'
+                          : 'transparent',
+                      }}
+                      onClick={() => toggleBuyer(buyer.id)}
+                    >
+                      <strong style={{ display: 'block', fontSize: 12 }}>{buyer.name ?? 'Buyer'}</strong>
+                      <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                        {buyer.company ?? 'Company'} • Score {score}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  border: '1px solid var(--border)',
+                  borderRadius: 12,
+                  padding: 16,
+                  display: 'grid',
+                  gap: 12,
+                }}
+              >
+                <input
+                  type="text"
+                  placeholder="Deal title"
+                  className="ui-input"
+                  value={dealTitle}
+                  onChange={(e) => setDealTitle(e.target.value)}
+                />
+                <textarea
+                  value={offerBody}
+                  onChange={(e) => setOfferBody(e.target.value)}
+                  rows={3}
+                  className="ui-textarea"
+                  style={{ resize: 'vertical' }}
+                />
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <input
+                    type="text"
+                    placeholder="Email subject"
+                    className="ui-input"
+                    value={offerSubject}
+                    onChange={(e) => setOfferSubject(e.target.value)}
+                  />
+                  <button type="button" className="ui-btn" onClick={() => handleCopy(offerSubject || previewSubject)}>
+                    Copy subject
+                  </button>
+                  <button type="button" className="ui-btn" onClick={() => handleCopy(offerBody)}>
+                    Copy body
+                  </button>
+                </div>
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ textAlign: 'left', padding: 4 }}>Line Ref</th>
+                        <th style={{ textAlign: 'left', padding: 4 }}>P/N</th>
+                        <th style={{ textAlign: 'left', padding: 4 }}>Description</th>
+                        <th style={{ textAlign: 'left', padding: 4 }}>Qty</th>
+                        <th style={{ textAlign: 'left', padding: 4 }}>Offer (£)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {combinedLines.length ? (
+                        combinedLines.map((line, index) => (
+                          <tr key={`${line.line_ref}-${index}`}>
+                            <td style={{ padding: 4 }}>{line.line_ref}</td>
+                            <td style={{ padding: 4 }}>{line.model ?? '—'}</td>
+                            <td style={{ padding: 4 }}>{line.description ?? '—'}</td>
+                            <td style={{ padding: 4 }}>{line.qty ?? '—'}</td>
+                            <td style={{ padding: 4 }}>—</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={5} style={{ padding: 8, textAlign: 'center', color: 'var(--muted)' }}>
+                            Add inventory or upload rows to seed the table.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {sendError && (
+                  <p style={{ color: 'var(--bad)', margin: 0 }}>{sendError}</p>
+                )}
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="ui-btn ui-btn-primary"
+                    onClick={handleMarkAsSent}
+                    disabled={sending}
+                  >
+                    {sending ? 'Sending…' : 'Mark as sent'}
+                  </button>
+                  <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setShowCreate(false)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </main>
