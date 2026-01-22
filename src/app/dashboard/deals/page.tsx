@@ -126,7 +126,8 @@ export default function DealsPage() {
 
   const getAuthHeaders = useCallback(async (extra: Record<string, string> = {}) => {
     const { data } = await supabase.auth.getSession()
-    const token = data?.session?.access_token
+    const sessionData = data?.session as { access_token?: string } | null
+    const token = sessionData?.access_token
     return token ? { Authorization: `Bearer ${token}`, ...extra } : { ...extra }
   }, [])
 

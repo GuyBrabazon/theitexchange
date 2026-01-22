@@ -10,7 +10,7 @@ type ParsedOfferRow = {
   normalizedLineRef: string | null
   qty: number | null
   offerAmount: number | null
-  offerType: 'per_unit' | 'total_line' | null
+  offerType: 'per_unit' | 'total_line'
   parseNotes: string[]
   lineItemId: string | null
 }
@@ -176,7 +176,7 @@ export async function POST(request: Request) {
           normalizedLineRef,
           qty,
           offerAmount: offerValue.amount,
-          offerType: offerValue.type as 'per_unit' | 'total_line' | null,
+          offerType: offerValue.type,
           parseNotes: notes,
           lineItemId,
         })
