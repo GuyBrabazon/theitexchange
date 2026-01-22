@@ -295,10 +295,33 @@ export default function DealsPage() {
         })
         const body = await threadRes.json()
         if (!body.ok) {
-          throw new Error(body.message ?? `Unable to create thread for ${buyer.email}`)
-        }
-      })
-      await Promise.all(threadPromises)
+      throw new Error(body.message ?? `Unable to create thread for ${buyer.email}`)
+      }
+    })
+    await Promise.all(threadPromises)
+      const payloadLines = combinedLines
+        .filter((line) => line.line_ref)
+        .map((line) => ({
+          source: line.model ? 'inventory' : 'flip',
+          line_ref: line.line_ref,
+          qty: line.qty ?? 1,
+          model: line.model,
+          description: line.description,
+        }))
+      if (payloadLines.length) {
+        await Promise.all(
+          payloadLines.map((line) =>
+            fetch(`/api/deals/${id}/lines`, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({
+                ...line,
+                currency: 'USD',
+              }),
+            })
+          )
+        )
+      }
       await loadDealsFromServer()
       setShowCreate(false)
       setSendError('')
@@ -309,6 +332,7 @@ export default function DealsPage() {
     }
   }, [
     buyers,
+    combinedLines,
     dealKey,
     dealMode,
     dealTitle,
