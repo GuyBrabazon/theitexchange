@@ -68,7 +68,7 @@ export function parseQty(value: string | null | undefined) {
   return Math.round(num)
 }
 
-export function parseOfferValue(value: string | null | undefined) {
+export function parseOfferValue(value: string | null | undefined): { amount: number | null; type: 'per_unit' | 'total_line' } {
   if (!value) return { amount: null as number | null, type: 'per_unit' as const }
   const trimmed = value.replace(/\s+/g, ' ').trim()
   if (!trimmed || trimmed === '&nbsp;') return { amount: null, type: 'per_unit' }
