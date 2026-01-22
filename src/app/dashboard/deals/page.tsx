@@ -1,7 +1,7 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 type DealRow = {
@@ -49,48 +49,124 @@ function formatDate(value?: string | null) {
   }
 }
 
+type InventoryOption = {
+  id: string
+  model: string | null
+  description: string | null
+  qty_available: number | null
+}
+
+type BuyerOption = {
+  id: string
+  name: string | null
+  company: string | null
+  email: string | null
+}
+
+function generateDealKey() {
+  const prefix = 'DL-'
+  const random = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8)
+  return `${prefix}${random.padEnd(8, '0')}`
+}
+
+function parseCsv(content: string) {
+  return content
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.split(',').map((cell) => cell.trim()))
+}
+
 export default function DealsPage() {
   const [deals, setDeals] = useState<DealRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [showCreate, setShowCreate] = useState(false)
+  const [dealTitle, setDealTitle] = useState('')
+  const [dealMode, setDealMode] = useState<'one-to-many' | 'one-to-one'>('one-to-many')
+  const [dealKey, setDealKey] = useState(generateDealKey())
+  const [dealId, setDealId] = useState<string | null>(null)
+  const [inventoryItems, setInventoryItems] = useState<InventoryOption[]>([])
+  const [buyers, setBuyers] = useState<BuyerOption[]>([])
+  const [selectedInventory, setSelectedInventory] = useState<Record<string, { qty: string; ask: string }>>({})
+  const [selectedBuyerIds, setSelectedBuyerIds] = useState<string[]>([])
+  const [offerSubject, setOfferSubject] = useState('')
+  const [offerBody, setOfferBody] = useState('Please reply with your offer in the table below.')
+  const [clickedTab, setClickedTab] = useState<'inventory' | 'upload'>('inventory')
+  const [uploadedRows, setUploadedRows] = useState<
+    { line_ref: string; model: string | null; description: string | null; qty: number | null }[]
+  >([])
+  const [uploadFileName, setUploadFileName] = useState('')
+  const [uploadError, setUploadError] = useState('')
+  const [creatingDeal, setCreatingDeal] = useState(false)
+  const [createError, setCreateError] = useState('')
+  const [sending, setSending] = useState(false)
+  const [sendError, setSendError] = useState('')
+
+  const mapInventoryRecord = (record: Record<string, unknown>): InventoryOption => ({
+    id: String(record.id ?? ''),
+    model: record.model ? String(record.model) : null,
+    description: record.description ? String(record.description) : null,
+    qty_available:
+      typeof record.qty_available === 'number'
+        ? record.qty_available
+        : record.qty_available
+        ? Number(record.qty_available)
+        : null,
+  })
+
+  const mapBuyerRecord = (record: Record<string, unknown>): BuyerOption => ({
+    id: String(record.id ?? ''),
+    name: record.name ? String(record.name) : null,
+    company: record.company ? String(record.company) : null,
+    email: record.email ? String(record.email) : null,
+  })
+
+  const getAuthHeaders = useCallback(async (extra: Record<string, string> = {}) => {
+    const { data } = await supabase.auth.getSession()
+    const token = data?.session?.access_token
+    return token ? { Authorization: `Bearer ${token}`, ...extra } : { ...extra }
+  }, [])
+
+  const fetchDeals = useCallback(async () => {
+    const headers = await getAuthHeaders()
+    const res = await fetch('/api/deals', {
+      headers,
+      credentials: 'include',
+    })
+    return res.json()
+  }, [getAuthHeaders])
+
+  const loadDealsFromServer = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const payload = await fetchDeals()
+      if (payload.ok) {
+        setDeals(payload.deals ?? [])
+      } else {
+        setError(payload.message ?? 'Failed to load deals.')
+      }
+    } catch {
+      setError('Unable to load deals.')
+    } finally {
+      setLoading(false)
+    }
+  }, [fetchDeals])
 
   useEffect(() => {
     let isMounted = true
-    const loadDeals = async () => {
+    const run = async () => {
+      await loadDealsFromServer()
       if (!isMounted) return
-      setLoading(true)
-      setError('')
-      try {
-        const { data } = await supabase.auth.getSession()
-        const token = data?.session?.access_token
-        const res = await fetch('/api/deals', {
-          headers: token
-            ? {
-                Authorization: `Bearer ${token}`,
-              }
-            : undefined,
-          credentials: 'include',
-        })
-        const payload = await res.json()
-        if (!isMounted) return
-        if (payload.ok) {
-          setDeals(payload.deals ?? [])
-        } else {
-          setError(payload.message ?? 'Failed to load deals.')
-        }
-      } catch {
-        if (isMounted) setError('Unable to load deals.')
-      } finally {
-        if (isMounted) setLoading(false)
-      }
     }
-    loadDeals()
+    run()
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [loadDealsFromServer])
 
   const filteredDeals = useMemo(() => {
     return deals
@@ -162,7 +238,7 @@ export default function DealsPage() {
 
       {loading ? (
         <div style={{ padding: 16, color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: 12 }}>
-          Loading deals…
+          Loading dealsÔÇª
         </div>
       ) : error ? (
         <div style={{ padding: 16, color: 'var(--bad)', border: '1px solid var(--border)', borderRadius: 12 }}>
@@ -170,7 +246,7 @@ export default function DealsPage() {
         </div>
       ) : !filteredDeals.length ? (
         <div style={{ padding: 16, border: '1px solid var(--border)', borderRadius: 12, color: 'var(--muted)' }}>
-          No deals found. Start by clicking “Create deal”.
+          No deals found. Start by clicking ÔÇ£Create dealÔÇØ.
         </div>
       ) : (
         <div
@@ -220,10 +296,10 @@ export default function DealsPage() {
                 </div>
                 <h3 style={{ margin: 0, fontSize: 18 }}>{deal.title ?? 'Untitled deal'}</h3>
                 <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>
-                  {deal.buyer ? `${deal.buyer.name ?? 'Unknown'} — ${deal.buyer.company ?? 'Buyer'}` : 'Buyer pending'}
+                  {deal.buyer ? `${deal.buyer.name ?? 'Unknown'} ÔÇö ${deal.buyer.company ?? 'Buyer'}` : 'Buyer pending'}
                 </p>
                 <div style={{ marginTop: 'auto', fontSize: 12, color: 'var(--muted)', display: 'flex', gap: 12 }}>
-                  <span>{deal.currency ?? 'USD'} · {deal.source ?? 'mixed'}</span>
+                  <span>{deal.currency ?? 'USD'} ┬À {deal.source ?? 'mixed'}</span>
                   <span>Updated {formatDate(deal.last_activity_at)}</span>
                 </div>
               </article>
