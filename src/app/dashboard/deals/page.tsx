@@ -80,6 +80,28 @@ function parseCsv(content: string) {
     .map((line) => line.split(',').map((cell) => cell.trim()))
 }
 
+const mapInventoryRecord = (record: Record<string, unknown>): InventoryOption => ({
+  id: String(record.id ?? ''),
+  model: record.model ? String(record.model) : null,
+  description: record.description ? String(record.description) : null,
+  qty_available:
+    typeof record.qty_available === 'number'
+      ? record.qty_available
+      : record.qty_available
+      ? Number(record.qty_available)
+      : null,
+})
+
+const mapBuyerRecord = (record: Record<string, unknown>): BuyerOption => ({
+  id: String(record.id ?? ''),
+  name: record.name ? String(record.name) : null,
+  company: record.company ? String(record.company) : null,
+  email: record.email ? String(record.email) : null,
+  tags: Array.isArray(record.tags) ? (record.tags as string[]) : [],
+  oem_tags: Array.isArray(record.oem_tags) ? (record.oem_tags as string[]) : [],
+  model_tags: Array.isArray(record.model_tags) ? (record.model_tags as string[]) : [],
+})
+
 export default function DealsPage() {
   const [deals, setDeals] = useState<DealRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -251,6 +273,51 @@ export default function DealsPage() {
     }
   }, [])
 
+  const getAuthHeaders = useCallback(async (extra: Record<string, string> = {}) => {
+    const { data } = await supabase.auth.getSession()
+    const sessionData = data?.session as { access_token?: string } | null
+    const token = sessionData?.access_token
+    return token ? { Authorization: `Bearer ${token}`, ...extra } : { ...extra }
+  }, [])
+
+  const fetchDeals = useCallback(async () => {
+    const headers = await getAuthHeaders()
+    const res = await fetch('/api/deals', {
+      headers,
+      credentials: 'include',
+    })
+    return res.json()
+  }, [getAuthHeaders])
+
+  const loadDealsFromServer = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const payload = await fetchDeals()
+      if (payload.ok) {
+        setDeals(payload.deals ?? [])
+      } else {
+        setError(payload.message ?? 'Failed to load deals.')
+      }
+    } catch {
+      setError('Unable to load deals.')
+    } finally {
+      setLoading(false)
+    }
+  }, [fetchDeals])
+
+  useEffect(() => {
+    let isMounted = true
+    const run = async () => {
+      await loadDealsFromServer()
+      if (!isMounted) return
+    }
+    run()
+    return () => {
+      isMounted = false
+    }
+  }, [loadDealsFromServer])
+
   const handleMarkAsSent = useCallback(async () => {
     if (!dealTitle.trim()) {
       setSendError('Provide a deal title before sending.')
@@ -341,73 +408,6 @@ export default function DealsPage() {
     offerSubject,
     selectedBuyerIds,
   ])
-
-  const mapInventoryRecord = (record: Record<string, unknown>): InventoryOption => ({
-    id: String(record.id ?? ''),
-    model: record.model ? String(record.model) : null,
-    description: record.description ? String(record.description) : null,
-    qty_available:
-      typeof record.qty_available === 'number'
-        ? record.qty_available
-        : record.qty_available
-        ? Number(record.qty_available)
-        : null,
-  })
-
-const mapBuyerRecord = (record: Record<string, unknown>): BuyerOption => ({
-  id: String(record.id ?? ''),
-  name: record.name ? String(record.name) : null,
-  company: record.company ? String(record.company) : null,
-  email: record.email ? String(record.email) : null,
-  tags: Array.isArray(record.tags) ? (record.tags as string[]) : [],
-  oem_tags: Array.isArray(record.oem_tags) ? (record.oem_tags as string[]) : [],
-  model_tags: Array.isArray(record.model_tags) ? (record.model_tags as string[]) : [],
-})
-
-  const getAuthHeaders = useCallback(async (extra: Record<string, string> = {}) => {
-    const { data } = await supabase.auth.getSession()
-    const sessionData = data?.session as { access_token?: string } | null
-    const token = sessionData?.access_token
-    return token ? { Authorization: `Bearer ${token}`, ...extra } : { ...extra }
-  }, [])
-
-  const fetchDeals = useCallback(async () => {
-    const headers = await getAuthHeaders()
-    const res = await fetch('/api/deals', {
-      headers,
-      credentials: 'include',
-    })
-    return res.json()
-  }, [getAuthHeaders])
-
-  const loadDealsFromServer = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const payload = await fetchDeals()
-      if (payload.ok) {
-        setDeals(payload.deals ?? [])
-      } else {
-        setError(payload.message ?? 'Failed to load deals.')
-      }
-    } catch {
-      setError('Unable to load deals.')
-    } finally {
-      setLoading(false)
-    }
-  }, [fetchDeals])
-
-  useEffect(() => {
-    let isMounted = true
-    const run = async () => {
-      await loadDealsFromServer()
-      if (!isMounted) return
-    }
-    run()
-    return () => {
-      isMounted = false
-    }
-  }, [loadDealsFromServer])
 
   const filteredDeals = useMemo(() => {
     return deals
