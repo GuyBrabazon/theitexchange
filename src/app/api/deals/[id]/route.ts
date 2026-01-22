@@ -8,7 +8,7 @@ import {
   updateDealStatus,
 } from '@/lib/deals'
 
-type DealRouteContext = { params: { id: string } }
+type DealRouteContext = { params: Promise<{ id: string }> }
 
 export const runtime = 'nodejs'
 
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest, context: DealRouteContext) {
     return auth
   }
   const { supa, tenantId } = auth
-  const dealId = context.params.id
+  const dealId = (await context.params).id
   if (!dealId) {
     return NextResponse.json({ ok: false, message: 'Deal id missing' }, { status: 400 })
   }
@@ -45,7 +45,7 @@ export async function PATCH(request: NextRequest, context: DealRouteContext) {
     return auth
   }
   const { supa } = auth
-  const dealId = context.params.id
+  const dealId = (await context.params).id
   if (!dealId) {
     return NextResponse.json({ ok: false, message: 'Deal id missing' }, { status: 400 })
   }
