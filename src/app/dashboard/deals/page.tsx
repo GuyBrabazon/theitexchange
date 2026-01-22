@@ -75,6 +75,13 @@ function generateDealKey() {
   return `${prefix}${random.padEnd(8, '0')}`
 }
 
+const generateLineRef = () => {
+  if (typeof window !== 'undefined' && 'crypto' in window && 'randomUUID' in crypto) {
+    return crypto.randomUUID()
+  }
+  return `LR-${Math.random().toString(36).slice(2, 10)}`
+}
+
 function parseCsv(content: string) {
   return content
     .split('\n')
@@ -200,15 +207,17 @@ export default function DealsPage() {
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState('')
   const [modalLoading, setModalLoading] = useState(false)
+  const [searchText, setSearchText] = useState('')
   const [outlookSending, setOutlookSending] = useState(false)
   const [outlookError, setOutlookError] = useState('')
-  const [searchText, setSearchText] = useState('')
   const [searchResults, setSearchResults] = useState<InventoryOption[]>([])
   const [recommendMode, setRecommendMode] = useState<
     'fastest-moving' | 'highest-cost' | 'most-matched'
   >('fastest-moving')
   const [recommendList, setRecommendList] = useState<InventoryOption[]>([])
   const [showRecommend, setShowRecommend] = useState(false)
+  const [lineRefs, setLineRefs] = useState<Record<string, string>>({})
+  const [tenantCurrency, setTenantCurrency] = useState('USD')
 
   const fetchInventoryOptions = useCallback(async () => {
     setModalLoading(true)
@@ -256,8 +265,8 @@ export default function DealsPage() {
       try {
         const text = await file.text()
         const rows = parseCsv(text)
-        const parsed = rows.map((cells) => ({
-          line_ref: cells[0] ?? '',
+        const parsed = rows.map(() => ({
+          line_ref: generateLineRef(),
           model: cells[1] ?? null,
           description: cells[2] ?? null,
           qty: cells[3] ? Number(cells[3]) : null,
@@ -286,6 +295,10 @@ export default function DealsPage() {
             ask: '',
           },
         }
+      })
+      setLineRefs((prev) => {
+        if (prev[item.id]) return prev
+        return { ...prev, [item.id]: generateLineRef() }
       })
     },
     []
@@ -338,24 +351,35 @@ export default function DealsPage() {
     setSearchResults([])
   }, [buyers, inventoryItems, recommendMode])
 
+  useEffect(() => {
+    const missing = Object.keys(selectedInventory).filter((id) => !lineRefs[id])
+    if (!missing.length) return
+    setLineRefs((prev) => {
+      const next = { ...prev }
+      missing.forEach((id) => {
+        if (!next[id]) {
+          next[id] = generateLineRef()
+        }
+      })
+      return next
+    })
+  }, [selectedInventory, lineRefs])
+
   const selectedInventoryLines = useMemo(() => {
     return Object.entries(selectedInventory)
       .map(([id, meta]) => {
         const item = inventoryItems.find((entry) => entry.id === id)
         if (!item) return null
-        const fallbackRef = `INV-${id.slice(0, 4).toUpperCase()}`
-        const sanitizedRef = (item.model ?? item.description ?? fallbackRef)
-          .toUpperCase()
-          .replace(/[^A-Z0-9]/g, '')
+        const lineRef = lineRefs[id] ?? generateLineRef()
         return {
-          line_ref: sanitizedRef || fallbackRef,
+          line_ref: lineRef,
           model: item.model,
           description: item.description,
           qty: Number(meta.qty) || item.qty_available || null,
         }
       })
       .filter((line): line is { line_ref: string; model: string | null; description: string | null; qty: number | null } => !!line)
-  }, [inventoryItems, selectedInventory])
+  }, [inventoryItems, lineRefs, selectedInventory])
 
   const combinedLines = useMemo(
     () => [...selectedInventoryLines, ...uploadedRows],
@@ -438,12 +462,51 @@ export default function DealsPage() {
     }
   }, [loadDealsFromServer])
 
+  const fetchTenantCurrency = useCallback(async () => {
+    try {
+      const { data: userRes, error: userErr } = await supabase.auth.getUser()
+      if (userErr || !userRes.user) return
+      const user = userRes.user
+      const { data: profile, error: profileErr } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('id', user.id)
+        .maybeSingle()
+      if (profileErr || !profile?.tenant_id) return
+      const tenantId = profile.tenant_id
+      const [{ data: settings, error: settingsErr }, { data: tenantRec, error: tenantErr }] =
+        await Promise.all([
+          supabase
+            .from('tenant_settings')
+            .select('default_currency')
+            .eq('tenant_id', tenantId)
+            .maybeSingle(),
+          supabase
+            .from('tenants')
+            .select('default_currency')
+            .eq('id', tenantId)
+            .maybeSingle(),
+        ])
+      const currency =
+        (!settingsErr && settings?.default_currency) ||
+        (!tenantErr && tenantRec?.default_currency) ||
+        'USD'
+      setTenantCurrency(String(currency))
+    } catch {
+      setTenantCurrency('USD')
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchTenantCurrency()
+  }, [fetchTenantCurrency])
+
   const createDealWithThreads = useCallback(
     async (headers: Record<string, string>) => {
       const dealBody = {
         buyer_id: selectedBuyerIds[0],
         title: dealTitle,
-        currency: 'USD',
+        currency: tenantCurrency || 'USD',
         source: dealMode === 'one-to-one' ? 'flip' : 'inventory',
         status: 'outreach',
       }
@@ -496,9 +559,9 @@ export default function DealsPage() {
             fetch(`/api/deals/${dealId}/lines`, {
               method: 'POST',
               headers,
-              body: JSON.stringify({
+            body: JSON.stringify({
                 ...line,
-                currency: 'USD',
+                currency: tenantCurrency || 'USD',
               }),
             })
           )
@@ -506,7 +569,16 @@ export default function DealsPage() {
       }
       return { dealId, threads: threadResults }
     },
-    [buyers, combinedLines, dealKey, dealMode, dealTitle, offerSubject, selectedBuyerIds]
+    [
+      buyers,
+      combinedLines,
+      dealKey,
+      dealMode,
+      dealTitle,
+      offerSubject,
+      selectedBuyerIds,
+      tenantCurrency,
+    ]
   )
 
   const handleMarkAsSent = useCallback(async () => {
@@ -944,19 +1016,19 @@ export default function DealsPage() {
                   gap: 12,
                 }}
               >
-                <textarea
-                  value={offerBody}
-                  onChange={(e) => setOfferBody(e.target.value)}
-                  rows={3}
-                  className="ui-textarea"
-                  style={{ resize: 'vertical' }}
-                />
                 <input
                   type="text"
                   placeholder="Email subject"
                   className="ui-input"
                   value={offerSubject}
                   onChange={(e) => setOfferSubject(e.target.value)}
+                />
+                <textarea
+                  value={offerBody}
+                  onChange={(e) => setOfferBody(e.target.value)}
+                  rows={3}
+                  className="ui-textarea"
+                  style={{ resize: 'vertical' }}
                 />
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <button type="button" className="ui-btn" onClick={() => handleCopy(offerSubject || previewSubject)}>
