@@ -703,6 +703,16 @@ export default function DealsPage() {
               </button>
             </div>
 
+            <div style={{ marginTop: 16 }}>
+              <input
+                type="text"
+                placeholder="Deal title"
+                className="ui-input"
+                value={dealTitle}
+                onChange={(e) => setDealTitle(e.target.value)}
+              />
+            </div>
+
             <div style={{ display: 'grid', gap: 16, marginTop: 20 }}>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button
@@ -875,13 +885,6 @@ export default function DealsPage() {
                   gap: 12,
                 }}
               >
-                <input
-                  type="text"
-                  placeholder="Deal title"
-                  className="ui-input"
-                  value={dealTitle}
-                  onChange={(e) => setDealTitle(e.target.value)}
-                />
                 <textarea
                   value={offerBody}
                   onChange={(e) => setOfferBody(e.target.value)}
@@ -889,14 +892,14 @@ export default function DealsPage() {
                   className="ui-textarea"
                   style={{ resize: 'vertical' }}
                 />
+                <input
+                  type="text"
+                  placeholder="Email subject"
+                  className="ui-input"
+                  value={offerSubject}
+                  onChange={(e) => setOfferSubject(e.target.value)}
+                />
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <input
-                    type="text"
-                    placeholder="Email subject"
-                    className="ui-input"
-                    value={offerSubject}
-                    onChange={(e) => setOfferSubject(e.target.value)}
-                  />
                   <button type="button" className="ui-btn" onClick={() => handleCopy(offerSubject || previewSubject)}>
                     Copy subject
                   </button>
