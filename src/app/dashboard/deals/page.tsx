@@ -310,7 +310,7 @@ export default function DealsPage() {
       try {
         const text = await file.text()
         const rows = parseCsv(text)
-        const parsed = rows.map(() => ({
+        const parsed = rows.map((cells) => ({
           line_ref: generateLineRef(),
           model: cells[1] ?? null,
           description: cells[2] ?? null,
