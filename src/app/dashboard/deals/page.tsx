@@ -182,6 +182,44 @@ const renderInventoryTable = (
   )
 }
 
+const fetchDeals = useCallback(async () => {
+  const headers = await getAuthHeaders()
+  const res = await fetch('/api/deals', {
+    headers,
+    credentials: 'include',
+  })
+  return res.json()
+}, [getAuthHeaders])
+
+const loadDealsFromServer = useCallback(async () => {
+  setLoading(true)
+  setError('')
+  try {
+    const payload = await fetchDeals()
+    if (payload.ok) {
+      setDeals(payload.deals ?? [])
+    } else {
+      setError(payload.message ?? 'Failed to load deals.')
+    }
+  } catch {
+    setError('Unable to load deals.')
+  } finally {
+    setLoading(false)
+  }
+}, [fetchDeals])
+
+useEffect(() => {
+  let isMounted = true
+  const run = async () => {
+    await loadDealsFromServer()
+    if (!isMounted) return
+  }
+  run()
+  return () => {
+    isMounted = false
+  }
+}, [loadDealsFromServer])
+
 export default function DealsPage() {
   const [deals, setDeals] = useState<DealRow[]>([])
   const [loading, setLoading] = useState(true)
