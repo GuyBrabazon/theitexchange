@@ -54,6 +54,9 @@ type InventoryOption = {
   model: string | null
   description: string | null
   qty_available: number | null
+  qty_total: number | null
+  cost: number | null
+  oem: string | null
 }
 
 type BuyerOption = {
@@ -90,6 +93,14 @@ const mapInventoryRecord = (record: Record<string, unknown>): InventoryOption =>
       : record.qty_available
       ? Number(record.qty_available)
       : null,
+  qty_total:
+    typeof record.qty_total === 'number'
+      ? record.qty_total
+      : record.qty_total
+      ? Number(record.qty_total)
+      : null,
+  cost: typeof record.cost === 'number' ? record.cost : record.cost ? Number(record.cost) : null,
+  oem: record.oem ? String(record.oem) : null,
 })
 
 const mapBuyerRecord = (record: Record<string, unknown>): BuyerOption => ({
@@ -101,6 +112,64 @@ const mapBuyerRecord = (record: Record<string, unknown>): BuyerOption => ({
   oem_tags: Array.isArray(record.oem_tags) ? (record.oem_tags as string[]) : [],
   model_tags: Array.isArray(record.model_tags) ? (record.model_tags as string[]) : [],
 })
+
+const computeSoldVolume = (item: InventoryOption) =>
+  Math.max(0, (item.qty_total ?? 0) - (item.qty_available ?? 0))
+
+const countBuyerMatches = (item: InventoryOption, buyers: BuyerOption[]) => {
+  const target = (item.oem ?? item.model ?? '').toLowerCase()
+  if (!target) return 0
+  return buyers.reduce((total, buyer) => {
+    const hasOem = buyer.oem_tags.some((tag) => tag?.toLowerCase() === target)
+    const hasModel = buyer.model_tags.some((tag) => tag?.toLowerCase() === target)
+    const hasTag = buyer.tags.some((tag) => tag?.toLowerCase() === target)
+    return total + Number(hasOem || hasModel || hasTag)
+  }, 0)
+}
+
+const renderInventoryCards = (
+  items: InventoryOption[],
+  selectedInventory: Record<string, { qty: string; ask: string }>,
+  toggleInventorySelection: (item: InventoryOption) => void
+) => {
+  if (!items.length) {
+    return (
+      <p style={{ marginTop: 12, color: 'var(--muted)' }}>
+        No stock matches this search or recommendation yet.
+      </p>
+    )
+  }
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+      {items.map((item) => (
+        <label
+          key={item.id}
+          style={{
+            border: '1px solid var(--border)',
+            borderRadius: 12,
+            padding: 12,
+            flex: '1 1 220px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+            background: selectedInventory[item.id] ? 'rgba(16,184,129,0.08)' : 'transparent',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={!!selectedInventory[item.id]}
+            onChange={() => toggleInventorySelection(item)}
+          />
+          <strong>{item.model ?? '(no model)'}</strong>
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>
+            {item.description ?? '(no description)'}
+          </p>
+          <small>Available: {item.qty_available ?? 'n/a'}</small>
+        </label>
+      ))}
+    </div>
+  )
+}
 
 export default function DealsPage() {
   const [deals, setDeals] = useState<DealRow[]>([])
@@ -127,13 +196,20 @@ export default function DealsPage() {
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState('')
   const [modalLoading, setModalLoading] = useState(false)
+  const [searchText, setSearchText] = useState('')
+  const [searchResults, setSearchResults] = useState<InventoryOption[]>([])
+  const [recommendMode, setRecommendMode] = useState<
+    'fastest-moving' | 'highest-cost' | 'most-matched'
+  >('fastest-moving')
+  const [recommendList, setRecommendList] = useState<InventoryOption[]>([])
+  const [showRecommend, setShowRecommend] = useState(false)
 
   const fetchInventoryOptions = useCallback(async () => {
     setModalLoading(true)
     try {
       const { data, error } = await supabase
         .from('inventory_items')
-        .select('id,model,description,qty_available,oem')
+        .select('id,model,description,qty_available,qty_total,cost,oem')
         .order('created_at', { ascending: false })
         .limit(20)
       if (!error && data) {
@@ -217,6 +293,44 @@ export default function DealsPage() {
     },
     []
   )
+
+  const handleSearchStock = useCallback(() => {
+    const query = searchText.trim().toLowerCase()
+    if (!query) {
+      setSearchResults([])
+      return
+    }
+    const matches = inventoryItems.filter((item) => {
+      const model = item.model ?? ''
+      const description = item.description ?? ''
+      return (
+        model.toLowerCase().includes(query) || description.toLowerCase().includes(query)
+      )
+    })
+    setSearchResults(matches)
+    setShowRecommend(false)
+  }, [inventoryItems, searchText])
+
+  const handleRecommendStock = useCallback(() => {
+    if (!inventoryItems.length) return
+    const list = [...inventoryItems]
+    switch (recommendMode) {
+      case 'fastest-moving':
+        list.sort((a, b) => computeSoldVolume(b) - computeSoldVolume(a))
+        break
+      case 'highest-cost':
+        list.sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0))
+        break
+      case 'most-matched':
+        list.sort((a, b) => countBuyerMatches(b, buyers) - countBuyerMatches(a, buyers))
+        break
+      default:
+        break
+    }
+    setRecommendList(list.slice(0, 10))
+    setShowRecommend(true)
+    setSearchResults([])
+  }, [buyers, inventoryItems, recommendMode])
 
   const selectedInventoryLines = useMemo(() => {
     return Object.entries(selectedInventory)
@@ -605,37 +719,76 @@ export default function DealsPage() {
 
               {clickedTab === 'inventory' ? (
                 <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: 8,
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                      marginBottom: 12,
+                    }}
+                  >
+                    <input
+                      type="search"
+                      value={searchText}
+                      onChange={(e) => setSearchText(e.target.value)}
+                      placeholder="Part number or description"
+                      className="ui-input"
+                      style={{ flex: '1 1 240px' }}
+                    />
+                    <button type="button" className="ui-btn" onClick={handleSearchStock}>
+                      Search stock
+                    </button>
+                    <select
+                      value={recommendMode}
+                      onChange={(e) =>
+                        setRecommendMode(
+                          e.target.value as 'fastest-moving' | 'highest-cost' | 'most-matched'
+                        )
+                      }
+                      className="ui-select"
+                      style={{ minWidth: 170 }}
+                    >
+                      <option value="fastest-moving">Fastest moving</option>
+                      <option value="highest-cost">Highest cost</option>
+                      <option value="most-matched">Most matched customers</option>
+                    </select>
+                    <button
+                      type="button"
+                      className="ui-btn ui-btn-ghost"
+                      onClick={handleRecommendStock}
+                    >
+                      Recommend stock
+                    </button>
+                  </div>
                   {modalLoading ? (
                     <p>Loading inventory…</p>
                   ) : (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-                      {inventoryItems.slice(0, 12).map((item) => (
-                        <label
-                          key={item.id}
-                          style={{
-                            border: '1px solid var(--border)',
-                            borderRadius: 12,
-                            padding: 12,
-                            flex: '1 1 220px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 6,
-                            background: selectedInventory[item.id] ? 'rgba(16,184,129,0.08)' : 'transparent',
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={!!selectedInventory[item.id]}
-                            onChange={() => toggleInventorySelection(item)}
-                          />
-                          <strong>{item.model ?? '(no model)'}</strong>
-                          <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>
-                            {item.description ?? '(no description)'}
+                    <>
+                      {(() => {
+                        const displayItems = searchResults.length
+                          ? searchResults
+                          : showRecommend
+                          ? recommendList
+                          : []
+                        if (displayItems.length) {
+                          return renderInventoryCards(
+                            displayItems,
+                            selectedInventory,
+                            toggleInventorySelection
+                          )
+                        }
+                        return (
+                          <p style={{ marginTop: 12, color: 'var(--muted)' }}>
+                            {searchResults.length
+                              ? 'No inventory matches that search term.'
+                              : showRecommend
+                              ? 'No recommended stock matches that filter.'
+                              : 'Search stock or request recommendations to browse inventory.'}
                           </p>
-                          <small>Available: {item.qty_available ?? 'n/a'}</small>
-                        </label>
-                      ))}
-                    </div>
+                        )
+                      })()}
+                    </>
                   )}
                 </div>
               ) : (
