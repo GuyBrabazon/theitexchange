@@ -200,6 +200,8 @@ export default function DealsPage() {
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState('')
   const [modalLoading, setModalLoading] = useState(false)
+  const [outlookSending, setOutlookSending] = useState(false)
+  const [outlookError, setOutlookError] = useState('')
   const [searchText, setSearchText] = useState('')
   const [searchResults, setSearchResults] = useState<InventoryOption[]>([])
   const [recommendMode, setRecommendMode] = useState<
@@ -436,39 +438,30 @@ export default function DealsPage() {
     }
   }, [loadDealsFromServer])
 
-  const handleMarkAsSent = useCallback(async () => {
-    if (!dealTitle.trim()) {
-      setSendError('Provide a deal title before sending.')
-      return
-    }
-    if (!selectedBuyerIds.length) {
-      setSendError('Select at least one buyer.')
-      return
-    }
-    setSending(true)
-    try {
-      const headers = await getAuthHeaders({ 'Content-Type': 'application/json' })
-    const body = {
+  const createDealWithThreads = useCallback(
+    async (headers: Record<string, string>) => {
+      const dealBody = {
         buyer_id: selectedBuyerIds[0],
         title: dealTitle,
         currency: 'USD',
         source: dealMode === 'one-to-one' ? 'flip' : 'inventory',
         status: 'outreach',
       }
-      const res = await fetch('/api/deals', {
+      const dealRes = await fetch('/api/deals', {
         method: 'POST',
         headers,
-        body: JSON.stringify(body),
+        body: JSON.stringify(dealBody),
       })
-      const payload = await res.json()
-      if (!payload.ok || !payload.deal?.id) {
-        throw new Error(payload.message ?? 'Unable to create deal.')
+      const dealPayload = await dealRes.json()
+      if (!dealPayload.ok || !dealPayload.deal?.id) {
+        throw new Error(dealPayload.message ?? 'Unable to create deal.')
       }
-      const id = payload.deal.id
-      const threadPromises = selectedBuyerIds.map(async (buyerId) => {
+      const dealId = dealPayload.deal.id
+      const threadResults: Array<{ id: string; email: string; name: string }> = []
+      for (const buyerId of selectedBuyerIds) {
         const buyer = buyers.find((entry) => entry.id === buyerId)
-        if (!buyer?.email) return
-        const threadRes = await fetch(`/api/deals/${id}/threads`, {
+        if (!buyer?.email) continue
+        const threadRes = await fetch(`/api/deals/${dealId}/threads`, {
           method: 'POST',
           headers,
           body: JSON.stringify({
@@ -478,12 +471,16 @@ export default function DealsPage() {
             subject_key: dealKey,
           }),
         })
-        const body = await threadRes.json()
-        if (!body.ok) {
-      throw new Error(body.message ?? `Unable to create thread for ${buyer.email}`)
+        const threadBody = await threadRes.json()
+        if (!threadBody.ok || !threadBody.thread?.id) {
+          throw new Error(threadBody.message ?? `Unable to create thread for ${buyer.email}`)
+        }
+        threadResults.push({
+          id: threadBody.thread.id,
+          email: buyer.email,
+          name: buyer.name ?? buyer.company ?? 'Buyer',
+        })
       }
-    })
-    await Promise.all(threadPromises)
       const payloadLines = combinedLines
         .filter((line) => line.line_ref)
         .map((line) => ({
@@ -496,7 +493,7 @@ export default function DealsPage() {
       if (payloadLines.length) {
         await Promise.all(
           payloadLines.map((line) =>
-            fetch(`/api/deals/${id}/lines`, {
+            fetch(`/api/deals/${dealId}/lines`, {
               method: 'POST',
               headers,
               body: JSON.stringify({
@@ -507,6 +504,25 @@ export default function DealsPage() {
           )
         )
       }
+      return { dealId, threads: threadResults }
+    },
+    [buyers, combinedLines, dealKey, dealMode, dealTitle, offerSubject, selectedBuyerIds]
+  )
+
+  const handleMarkAsSent = useCallback(async () => {
+    if (!dealTitle.trim()) {
+      setSendError('Provide a deal title before sending.')
+      return
+    }
+    if (!selectedBuyerIds.length) {
+      setSendError('Select at least one buyer.')
+      return
+    }
+    setSendError('')
+    setSending(true)
+    try {
+      const headers = await getAuthHeaders({ 'Content-Type': 'application/json' })
+      await createDealWithThreads(headers)
       await loadDealsFromServer()
       setShowCreate(false)
       setSendError('')
@@ -515,16 +531,59 @@ export default function DealsPage() {
     } finally {
       setSending(false)
     }
+  }, [createDealWithThreads, dealTitle, getAuthHeaders, loadDealsFromServer, selectedBuyerIds])
+
+  const handleSendViaOutlook = useCallback(async () => {
+    if (!dealTitle.trim()) {
+      setOutlookError('Provide a deal title before sending.')
+      return
+    }
+    if (!selectedBuyerIds.length) {
+      setOutlookError('Select at least one buyer.')
+      return
+    }
+    setOutlookError('')
+    setOutlookSending(true)
+    try {
+      const headers = await getAuthHeaders({ 'Content-Type': 'application/json' })
+      const { dealId, threads } = await createDealWithThreads(headers)
+      await Promise.all(
+        threads.map((thread) =>
+          fetch('/api/email/send', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              dealId,
+              threadId: thread.id,
+              toEmail: thread.email,
+              buyerName: thread.name,
+              subjectTemplate: offerSubject || `Deal ${dealTitle}`,
+              subjectKey: dealKey,
+              personalMessage: offerBody,
+            }),
+          })
+        )
+      )
+      await loadDealsFromServer()
+      setShowCreate(false)
+      setSendError('')
+      setOutlookError('')
+    } catch (err) {
+      setOutlookError((err as Error).message ?? 'Failed to send via Outlook.')
+    } finally {
+      setOutlookSending(false)
+    }
   }, [
-    buyers,
-    combinedLines,
+    createDealWithThreads,
     dealKey,
-    dealMode,
     dealTitle,
     getAuthHeaders,
     loadDealsFromServer,
+    offerBody,
     offerSubject,
     selectedBuyerIds,
+    setOutlookError,
+    setOutlookSending,
   ])
 
   const filteredDeals = useMemo(() => {
@@ -939,15 +998,23 @@ export default function DealsPage() {
                     </tbody>
                   </table>
                 </div>
-                {sendError && (
-                  <p style={{ color: 'var(--bad)', margin: 0 }}>{sendError}</p>
+                {(sendError || outlookError) && (
+                  <p style={{ color: 'var(--bad)', margin: 0 }}>{sendError || outlookError}</p>
                 )}
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   <button
                     type="button"
                     className="ui-btn ui-btn-primary"
+                    onClick={handleSendViaOutlook}
+                    disabled={sending || outlookSending}
+                  >
+                    {outlookSending ? 'Sending via Outlook…' : 'Send via Outlook'}
+                  </button>
+                  <button
+                    type="button"
+                    className="ui-btn ui-btn-secondary"
                     onClick={handleMarkAsSent}
-                    disabled={sending}
+                    disabled={sending || outlookSending}
                   >
                     {sending ? 'Sending…' : 'Mark as sent'}
                   </button>
