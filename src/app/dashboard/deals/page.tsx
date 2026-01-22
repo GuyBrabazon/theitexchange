@@ -263,7 +263,7 @@ export default function DealsPage() {
     setSending(true)
     try {
       const headers = await getAuthHeaders({ 'Content-Type': 'application/json' })
-      const body = {
+    const body = {
         buyer_id: selectedBuyerIds[0],
         title: dealTitle,
         currency: 'USD',
