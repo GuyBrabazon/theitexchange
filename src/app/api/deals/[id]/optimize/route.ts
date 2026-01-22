@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 
-type DealOptimizeContext = { params: { id: string } }
+type DealOptimizeContext = { params: Promise<{ id: string }> }
 
 export const runtime = 'nodejs'
 
@@ -11,7 +11,7 @@ export async function POST(request: NextRequest, context: DealOptimizeContext) {
     return auth
   }
   const { supa, tenantId } = auth
-  const dealId = context.params.id
+  const dealId = (await context.params).id
   if (!dealId) {
     return NextResponse.json({ ok: false, message: 'Deal id missing' }, { status: 400 })
   }
