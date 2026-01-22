@@ -219,6 +219,51 @@ export default function DealsPage() {
   const [lineRefs, setLineRefs] = useState<Record<string, string>>({})
   const [tenantCurrency, setTenantCurrency] = useState('USD')
 
+  const getAuthHeaders = useCallback(async (extra: Record<string, string> = {}) => {
+    const { data } = await supabase.auth.getSession()
+    const sessionData = data?.session as { access_token?: string } | null
+    const token = sessionData?.access_token
+    return token ? { Authorization: `Bearer ${token}`, ...extra } : { ...extra }
+  }, [])
+
+  const fetchDeals = useCallback(async () => {
+    const headers = await getAuthHeaders()
+    const res = await fetch('/api/deals', {
+      headers,
+      credentials: 'include',
+    })
+    return res.json()
+  }, [getAuthHeaders])
+
+  const loadDealsFromServer = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const payload = await fetchDeals()
+      if (payload.ok) {
+        setDeals(payload.deals ?? [])
+      } else {
+        setError(payload.message ?? 'Failed to load deals.')
+      }
+    } catch {
+      setError('Unable to load deals.')
+    } finally {
+      setLoading(false)
+    }
+  }, [fetchDeals])
+
+  useEffect(() => {
+    let isMounted = true
+    const run = async () => {
+      await loadDealsFromServer()
+      if (!isMounted) return
+    }
+    run()
+    return () => {
+      isMounted = false
+    }
+  }, [loadDealsFromServer])
+
   const fetchInventoryOptions = useCallback(async () => {
     setModalLoading(true)
     try {
@@ -416,51 +461,6 @@ export default function DealsPage() {
       // ignore
     }
   }, [])
-
-  const getAuthHeaders = useCallback(async (extra: Record<string, string> = {}) => {
-    const { data } = await supabase.auth.getSession()
-    const sessionData = data?.session as { access_token?: string } | null
-    const token = sessionData?.access_token
-    return token ? { Authorization: `Bearer ${token}`, ...extra } : { ...extra }
-  }, [])
-
-  const fetchDeals = useCallback(async () => {
-    const headers = await getAuthHeaders()
-    const res = await fetch('/api/deals', {
-      headers,
-      credentials: 'include',
-    })
-    return res.json()
-  }, [getAuthHeaders])
-
-  const loadDealsFromServer = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const payload = await fetchDeals()
-      if (payload.ok) {
-        setDeals(payload.deals ?? [])
-      } else {
-        setError(payload.message ?? 'Failed to load deals.')
-      }
-    } catch {
-      setError('Unable to load deals.')
-    } finally {
-      setLoading(false)
-    }
-  }, [fetchDeals])
-
-  useEffect(() => {
-    let isMounted = true
-    const run = async () => {
-      await loadDealsFromServer()
-      if (!isMounted) return
-    }
-    run()
-    return () => {
-      isMounted = false
-    }
-  }, [loadDealsFromServer])
 
   const fetchTenantCurrency = useCallback(async () => {
     try {
