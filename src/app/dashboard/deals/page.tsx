@@ -127,7 +127,7 @@ const countBuyerMatches = (item: InventoryOption, buyers: BuyerOption[]) => {
   }, 0)
 }
 
-const renderInventoryCards = (
+const renderInventoryTable = (
   items: InventoryOption[],
   selectedInventory: Record<string, { qty: string; ask: string }>,
   toggleInventorySelection: (item: InventoryOption) => void
@@ -140,33 +140,37 @@ const renderInventoryCards = (
     )
   }
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-      {items.map((item) => (
-        <label
-          key={item.id}
-          style={{
-            border: '1px solid var(--border)',
-            borderRadius: 12,
-            padding: 12,
-            flex: '1 1 220px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 6,
-            background: selectedInventory[item.id] ? 'rgba(16,184,129,0.08)' : 'transparent',
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={!!selectedInventory[item.id]}
-            onChange={() => toggleInventorySelection(item)}
-          />
-          <strong>{item.model ?? '(no model)'}</strong>
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>
-            {item.description ?? '(no description)'}
-          </p>
-          <small>Available: {item.qty_available ?? 'n/a'}</small>
-        </label>
-      ))}
+    <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <thead style={{ background: 'var(--surface-2)' }}>
+          <tr>
+            <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid var(--border)' }} />
+            <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid var(--border)' }}>P/N</th>
+            <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid var(--border)' }}>OEM</th>
+            <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid var(--border)' }}>Description</th>
+            <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid var(--border)' }}>Available</th>
+            <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid var(--border)' }}>Cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr key={item.id} style={{ borderBottom: '1px solid var(--border)' }}>
+              <td style={{ padding: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={!!selectedInventory[item.id]}
+                  onChange={() => toggleInventorySelection(item)}
+                />
+              </td>
+              <td style={{ padding: 8 }}>{item.model ?? '-'}</td>
+              <td style={{ padding: 8 }}>{item.oem ?? '-'}</td>
+              <td style={{ padding: 8 }}>{item.description ?? '-'}</td>
+              <td style={{ padding: 8 }}>{item.qty_available ?? 'n/a'}</td>
+              <td style={{ padding: 8 }}>{item.cost !== null ? `${item.cost}` : 'n/a'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -772,7 +776,7 @@ export default function DealsPage() {
                           ? recommendList
                           : []
                         if (displayItems.length) {
-                          return renderInventoryCards(
+                          return renderInventoryTable(
                             displayItems,
                             selectedInventory,
                             toggleInventorySelection
